@@ -1,5 +1,31 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Estructura del proyecto
+
+```
+src/
+  app/            # Solo enrutamiento (App Router): layout, page, route handlers
+    api/          # Route handlers (endpoints propios)
+  components/
+    ui/           # Primitivas de diseño reutilizables (Button, Input, Card...)
+    layout/       # Header, Footer, Shell y demás piezas estructurales
+    shared/       # Componentes compuestos usados por más de una feature
+  features/       # Módulos de negocio autocontenidos (ver features/README.md)
+  hooks/          # Hooks compartidos por toda la app
+  lib/            # Utilidades sin estado: formato, constantes, cliente API, validaciones
+  server/         # Código exclusivo de servidor: db, services, server actions
+  types/          # Tipos TypeScript compartidos globalmente
+  config/         # Configuración de sitio/app (metadata, flags...)
+public/
+  images/         # Imágenes estáticas
+  icons/          # Iconos estáticos
+```
+
+Reglas rápidas:
+- Si algo lo usa una sola feature, vive dentro de `features/<feature>/`; si lo usa más de una, sube a `components/shared` o `lib/`.
+- `server/` nunca se importa desde componentes cliente.
+- El alias `@/*` apunta a `src/*` (ver `tsconfig.json`).
+
 ## Getting Started
 
 First, run the development server:
