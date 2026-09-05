@@ -10,7 +10,7 @@ export function ProductCard({ product, locale }: ProductCardProps) {
   const { name, price, currency, store, imageUrl, description, availability } = product;
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200 p-4 sm:p-5">
+    <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
       {imageUrl && (
         <img
           src={imageUrl}

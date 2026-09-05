@@ -10,7 +10,7 @@ export function Hero() {
       <h1 className="text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl lg:text-5xl">
         {t("siteTitle")}
       </h1>
-      <p className="text-base text-neutral-500 sm:text-lg">{t("heroTagline")}</p>
+      <p className="text-base text-neutral-600 sm:text-lg">{t("heroTagline")}</p>
     </header>
   );
 }

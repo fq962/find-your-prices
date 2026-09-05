@@ -40,7 +40,7 @@
 // no prueba nada real. Queda para code review humano.
 
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { LocaleProvider, useLocale } from "@/features/i18n/LocaleContext";
 import { en } from "@/features/i18n/dictionaries/en";
 import { es } from "@/features/i18n/dictionaries/es";
@@ -124,7 +124,7 @@ describe("Hero", () => {
     expect(screen.getAllByRole("banner")).toHaveLength(1);
   });
 
-  it("TAREA 34: switching the locale to 'es' updates both the h1 and the tagline to the es dictionary values", () => {
+  it("TAREA 34: switching the locale to 'es' updates the tagline to the es dictionary value, and the h1 stays consistent and unique", () => {
     // Non-emptiness guard: if en.heroTagline and es.heroTagline were equal,
     // this test could pass trivially without the component actually
     // reacting to locale changes.
@@ -140,11 +140,28 @@ describe("Hero", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(en.siteTitle);
     expect(screen.getByText(en.heroTagline)).toBeInTheDocument();
 
-    screen.getByRole("button", { name: "switch-to-es" }).click();
+    // fireEvent.click (unlike a raw DOM `.click()`) wraps the dispatch in
+    // `act()`, which flushes the resulting re-render synchronously. With a
+    // raw `.click()`, React 19 + jsdom schedules the second render in a
+    // microtask that runs *after* the assertions below, so they'd observe
+    // the stale, pre-switch DOM and the test would fail for the wrong
+    // reason (or pass/fail nondeterministically depending on timing).
+    fireEvent.click(screen.getByRole("button", { name: "switch-to-es" }));
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(es.siteTitle);
+    // NOTE on why this test does NOT assert the h1 text changed to
+    // `es.siteTitle`: by design (see the comment in
+    // `dictionaries/es.ts`), `en.siteTitle === es.siteTitle === "Find Your
+    // Prices"` -- the product name is not translated. An assertion like
+    // `toHaveTextContent(es.siteTitle)` here would be vacuously true even
+    // if the component never reacted to the locale change at all, since
+    // the English text already satisfies it. `heroTagline` is the only
+    // dictionary key that actually differs between `en` and `es`, so it is
+    // the only reliable signal of a real locale switch; the h1 assertions
+    // below only pin that it remains present, correct, and unique.
     expect(screen.queryByText(en.heroTagline)).not.toBeInTheDocument();
     expect(screen.getByText(es.heroTagline)).toBeInTheDocument();
+
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(en.siteTitle);
 
     // Still exactly one h1 and one banner after the locale switch --
     // guards against the implementation mounting a second, stale Hero

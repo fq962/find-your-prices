@@ -30,7 +30,7 @@ export function SearchBar({ onQueryChange }: SearchBarProps) {
       placeholder={t("searchPlaceholder")}
       value={query}
       onChange={(event) => setQuery(event.target.value)}
-      className="h-11 w-full rounded-full border border-neutral-200 bg-white px-4 text-base text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-neutral-400"
+      className="h-11 w-full rounded-full border border-neutral-200 bg-white px-4 text-base text-neutral-900 outline-none transition-colors placeholder:text-neutral-600 focus:border-neutral-400 focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:ring-offset-2"
     />
   );
 }
