@@ -6,11 +6,11 @@ export function Hero() {
   const { t } = useLocale();
 
   return (
-    <header className="flex flex-col gap-2 px-4 py-10 text-center sm:gap-3 sm:px-6 sm:py-14">
-      <h1 className="text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl lg:text-5xl">
+    <header className="flex flex-col gap-1">
+      <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl">
         {t("siteTitle")}
       </h1>
-      <p className="text-base text-neutral-600 sm:text-lg">{t("heroTagline")}</p>
+      <p className="text-base text-neutral-500">{t("heroTagline")}</p>
     </header>
   );
 }

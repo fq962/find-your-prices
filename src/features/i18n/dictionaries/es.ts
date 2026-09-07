@@ -10,4 +10,6 @@ export const es: Dictionary = {
   categoryFilterLabel: "Categoría",
   filterAllOption: "Todas",
   noResultsMessage: "No hay productos que coincidan con tu búsqueda.",
+  viewLargerImageLabel: "Ver imagen ampliada de",
+  closeImageLabel: "Cerrar",
 };

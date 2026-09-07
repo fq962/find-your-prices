@@ -8,4 +8,6 @@ export const en: Dictionary = {
   categoryFilterLabel: "Category",
   filterAllOption: "All",
   noResultsMessage: "No products match your search.",
+  viewLargerImageLabel: "View larger image of",
+  closeImageLabel: "Close",
 };

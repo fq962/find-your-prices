@@ -28,12 +28,19 @@ export function ProductSearchApp({ initialProducts }: ProductSearchAppProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <SearchBar onQueryChange={setQuery} />
       <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="flex-1">
+          <SearchBar onQueryChange={setQuery} />
+        </div>
         <StoreFilter stores={stores} selectedStore={store} onChange={setStore} />
         <CategoryFilter categories={categories} selectedCategory={category} onChange={setCategory} />
       </div>
-      <ProductGrid products={filtered} emptyMessage={t("noResultsMessage")} />
+      <ProductGrid
+        products={filtered}
+        emptyMessage={t("noResultsMessage")}
+        viewLargerImageLabel={t("viewLargerImageLabel")}
+        closeImageLabel={t("closeImageLabel")}
+      />
     </div>
   );
 }

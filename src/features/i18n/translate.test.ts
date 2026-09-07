@@ -100,6 +100,8 @@ describe("Tarea 10 — translate() falls back to English when a Spanish key is m
       categoryFilterLabel: "Category",
       filterAllOption: "All",
       noResultsMessage: "No results found",
+      viewLargerImageLabel: "View larger image of",
+      closeImageLabel: "Close",
     },
     es: {
       siteTitle: "Encuentra Tus Precios",

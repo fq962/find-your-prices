@@ -10,7 +10,9 @@ export type DictionaryKey =
   | "storeFilterLabel"
   | "categoryFilterLabel"
   | "filterAllOption"
-  | "noResultsMessage";
+  | "noResultsMessage"
+  | "viewLargerImageLabel"
+  | "closeImageLabel";
 
 export type Dictionary = Record<DictionaryKey, string>;
 
