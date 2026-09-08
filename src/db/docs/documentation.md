@@ -25,6 +25,7 @@ SQL Editor de Supabase. Son idempotentes: volver a correrlos no rompe nada.
 | 0010 | `0010_grants_and_rls.sql` | Permisos y RLS. |
 | 0011 | `0011_seed_diunsa.sql` | Alta de Diunsa y sus dos targets iniciales. |
 | 0012 | `0012_rls_hardening.sql` | **RLS en todas las tablas**, `security_invoker` en las vistas y `search_path` fijo en las funciones. Deja un reporte al final. |
+| 0013 | `0013_catalog_facets.sql` | Vistas de facetas: las opciones de filtro que de verdad devuelven resultados, con su conteo. |
 
 > **Paso obligatorio después de 0010:** en Supabase, `Settings → API → Exposed
 > schemas`, agregar `find_your_prices` junto a `public`. Sin eso PostgREST
@@ -261,6 +262,26 @@ usarse en columnas generadas e índices.
 | `v_recent_price_drops` | Bajadas de precio, más reciente primero. Portada y alertas. |
 | `v_product_price_comparison` | El mismo producto canónico en varias tiendas, con `price_rank`. |
 | `v_scrape_target_health` | Estado y último resultado de cada target. Consulta principal del panel. |
+| `v_catalog_category_facets` | Categorías **con al menos un artículo**, con conteo y rango de precio. |
+| `v_catalog_store_facets` | Tiendas con oferta viva. |
+| `v_catalog_brand_facets` | Marcas con dos o más artículos. |
+| `v_catalog_summary` | Totales y rango de precio del catálogo. |
+
+### Por qué existen las vistas de faceta
+
+El filtro de categorías se armaba con el árbol completo de la tienda
+(`store_categories`): 266 nodos en Diunsa. Pero cada artículo carga **un solo**
+`materialGroupCode`, y siempre es una hoja — los nodos padre y los de campaña
+("Todos", "Tecnología", "Lego") no reciben productos nunca.
+
+Medido: **118 de las 266 categorías ofrecidas devolvían cero resultados**. El
+usuario elegía una categoría que el propio sitio le ofrecía y la lista quedaba
+vacía, sin explicación.
+
+La corrección es de fondo: las facetas se derivan de los productos que existen,
+no del árbol que publica la tienda. Se resuelve en Postgres porque PostgREST
+devuelve como mucho 1000 filas por petición — contar 8000 artículos desde la app
+serían nueve viajes por cada render.
 
 ---
 

@@ -3,13 +3,21 @@
 
 import type { Product } from "@/types";
 
-export type SortOption = "relevance" | "price-asc" | "price-desc" | "name-asc";
+export type SortOption =
+  | "relevance"
+  | "discount"
+  | "price-asc"
+  | "price-desc"
+  | "name-asc"
+  | "rating";
 
 export const SORT_OPTIONS: readonly SortOption[] = [
   "relevance",
+  "discount",
   "price-asc",
   "price-desc",
   "name-asc",
+  "rating",
 ];
 
 export const DEFAULT_SORT: SortOption = "relevance";
@@ -35,6 +43,13 @@ export function sortProducts(products: Product[], option: SortOption = DEFAULT_S
   const sorted = [...products];
 
   switch (option) {
+    // Los productos sin descuento y sin calificación van al final en vez de
+    // colarse arriba como si valieran 0: un artículo sin votos no es un
+    // artículo mal valorado.
+    case "discount":
+      return sorted.sort((a, b) => (b.discountPercent ?? -1) - (a.discountPercent ?? -1));
+    case "rating":
+      return sorted.sort((a, b) => (b.ratingAverage ?? -1) - (a.ratingAverage ?? -1));
     case "price-asc":
       return sorted.sort((a, b) => a.price - b.price);
     case "price-desc":

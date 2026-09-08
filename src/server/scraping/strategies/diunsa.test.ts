@@ -111,10 +111,15 @@ describe('mapDiunsaItem', () => {
     expect(sinOferta.discount_percent).toBeNull();
   });
 
-  test('lleva las calificaciones a la escala 0-5', () => {
-    // 350 puntos / 4 votos = 87.5 sobre 100 -> 4.38 sobre 5
-    expect(mapped.rating_average).toBe(4.38);
-    expect(mapped.rating_count).toBe(4);
+  // Comprobado contra el catalogo completo: los 8083 articulos devuelven
+  // ratingsValue=350 y ratingsCount=4. Es relleno de la API, no reseñas reales.
+  // Publicarlo pondria "4.4 estrellas" identico en cada ficha del sitio.
+  test('descarta las valoraciones, que son un valor fijo de relleno', () => {
+    expect(mapped.rating_average).toBeNull();
+    expect(mapped.rating_count).toBeNull();
+    // El crudo se conserva para poder auditarlo sin volver a scrapear.
+    expect(mapped.attributes?.ratingsValueRaw).toBe(350);
+    expect(mapped.attributes?.ratingsCountRaw).toBe(4);
   });
 
   test('deriva la disponibilidad del stock', () => {

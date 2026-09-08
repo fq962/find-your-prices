@@ -16,6 +16,8 @@ const SORT_LABEL_KEYS: Record<SortOption, DictionaryKey> = {
   "price-asc": "sortPriceAsc",
   "price-desc": "sortPriceDesc",
   "name-asc": "sortNameAsc",
+  discount: "sortDiscount",
+  rating: "sortRating",
 };
 
 /** Flechas arriba/abajo: reordenar, el glifo de este control. */

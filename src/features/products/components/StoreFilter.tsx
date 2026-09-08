@@ -5,6 +5,13 @@ import { useLocale } from "@/features/i18n/LocaleContext";
 
 export interface StoreFilterProps {
   stores: string[];
+  /**
+   * Cuántos artículos hay detrás de cada opción. Cuando se pasa, el conteo se
+   * muestra junto al nombre: saber que una categoría tiene 858 artículos y otra
+   * 3 cambia cuál se elige, y evita la sensación de llegar a un callejón sin
+   * salida al filtrar. El valor de la opción no cambia, solo su etiqueta.
+   */
+  counts?: Record<string, number>;
   selectedStore?: string;
   onChange: (store: string | undefined) => void;
 }
@@ -25,7 +32,7 @@ const StoreIcon = (
   </svg>
 );
 
-export function StoreFilter({ stores, selectedStore, onChange }: StoreFilterProps) {
+export function StoreFilter({ stores, selectedStore, onChange, counts }: StoreFilterProps) {
   const { t } = useLocale();
 
   return (
@@ -39,6 +46,7 @@ export function StoreFilter({ stores, selectedStore, onChange }: StoreFilterProp
       {stores.map((store) => (
         <option key={store} value={store}>
           {store}
+          {counts?.[store] !== undefined ? ` (${counts[store]})` : ""}
         </option>
       ))}
     </Select>

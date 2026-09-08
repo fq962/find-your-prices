@@ -183,18 +183,22 @@ function toNumber(value: unknown): number | null {
 }
 
 /**
- * ratingsValue viene acumulado en escala 0-100 por voto (350 con 4 votos = 87.5).
- * Se convierte a la escala 0-5 que guarda la base.
+ * Valoraciones de Diunsa: NO se mapean, a propósito.
+ *
+ * Verificado sobre el catálogo completo: los 8083 artículos devuelven
+ * exactamente ratingsValue=350 y ratingsCount=4, es decir 4.38/5 para todo.
+ * No son valoraciones, es un valor de relleno de su API.
+ *
+ * Guardarlo en rating_average haría que el sitio mostrara "4.4 ★" en cada
+ * ficha y que el orden "mejor valorados" fuera puro ruido. Un comparador de
+ * precios vive de que la gente confíe en lo que ve; publicar reseñas que no
+ * existen destruye eso por un dato que no aporta nada.
+ *
+ * El valor crudo sigue en `raw`, así que si algún día Diunsa publica
+ * valoraciones de verdad, se reprocesa sin volver a scrapear. Para
+ * reactivarlo: comprobar primero que la distribución tiene varianza real
+ * (select distinct rating_average ...), no solo que el campo viene lleno.
  */
-function toRatingAverage(value: unknown, count: unknown): number | null {
-  const total = toNumber(value);
-  const votes = toNumber(count);
-  if (total === null || votes === null || votes <= 0) return null;
-  const raw = total / votes;
-  const scaled = raw > 5 ? raw / 20 : raw;
-  if (!Number.isFinite(scaled)) return null;
-  return Math.min(5, Math.max(0, Number(scaled.toFixed(2))));
-}
 
 function toAvailability(stock: number | null, active: boolean): AvailabilityStatus {
   if (!active) return 'discontinued';
@@ -307,9 +311,9 @@ export function mapDiunsaItem(
     stock_quantity: stock,
     min_order_quantity: toNumber(item.cartCount),
 
-    // Reputacion
-    rating_average: toRatingAverage(item.ratingsValue, item.ratingsCount),
-    rating_count: toNumber(item.ratingsCount),
+    // Reputacion: ver DIUNSA_RATINGS_ARE_PLACEHOLDER arriba.
+    rating_average: null,
+    rating_count: null,
 
     // Medios
     primary_image_url: images[0]?.url ?? null,
@@ -328,6 +332,9 @@ export function mapDiunsaItem(
     specs: (item.specs && typeof item.specs === 'object' ? item.specs : {}) as Record<string, unknown>,
     attributes: {
       brandId: item.brandId ?? null,
+      // Se conservan para poder auditarlos sin volver a descargar el sitio.
+      ratingsValueRaw: item.ratingsValue ?? null,
+      ratingsCountRaw: item.ratingsCount ?? null,
       colors: item.colors ?? [],
       sizes: item.sizes ?? [],
       minimunStock: item.minimunStock ?? null,

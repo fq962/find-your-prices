@@ -5,6 +5,13 @@ import { useLocale } from "@/features/i18n/LocaleContext";
 
 export interface CategoryFilterProps {
   categories: string[];
+  /**
+   * Cuántos artículos hay detrás de cada opción. Cuando se pasa, el conteo se
+   * muestra junto al nombre: saber que una categoría tiene 858 artículos y otra
+   * 3 cambia cuál se elige, y evita la sensación de llegar a un callejón sin
+   * salida al filtrar. El valor de la opción no cambia, solo su etiqueta.
+   */
+  counts?: Record<string, number>;
   selectedCategory?: string;
   onChange: (category: string | undefined) => void;
 }
@@ -27,7 +34,7 @@ const CategoryIcon = (
   </svg>
 );
 
-export function CategoryFilter({ categories, selectedCategory, onChange }: CategoryFilterProps) {
+export function CategoryFilter({ categories, selectedCategory, onChange, counts }: CategoryFilterProps) {
   const { t } = useLocale();
 
   return (
@@ -41,6 +48,7 @@ export function CategoryFilter({ categories, selectedCategory, onChange }: Categ
       {categories.map((category) => (
         <option key={category} value={category}>
           {category}
+          {counts?.[category] !== undefined ? ` (${counts[category]})` : ""}
         </option>
       ))}
     </Select>

@@ -37,9 +37,21 @@ export function HomeView({ locale, catalog: snapshot }: HomeViewProps) {
   const usingRealCatalog = snapshot.products.length > 0;
   const products = usingRealCatalog ? snapshot.products : fixtureProducts;
 
+  // Con el fixture no hay conteos reales: se derivan del propio fixture para
+  // que los selectores sigan funcionando en desarrollo y en las pruebas.
   const fallbackFacets = getFacets(fixtureProducts);
-  const stores = usingRealCatalog ? snapshot.stores : fallbackFacets.stores;
-  const categories = usingRealCatalog ? snapshot.categories : fallbackFacets.categories;
+  const toFacets = (values: string[]) =>
+    values.map((value) => ({
+      value,
+      count: fixtureProducts.filter((p) => p.store === value || p.category === value).length,
+    }));
+
+  const storeFacets = usingRealCatalog
+    ? snapshot.facets.stores
+    : toFacets(fallbackFacets.stores);
+  const categoryFacets = usingRealCatalog
+    ? snapshot.facets.categories
+    : toFacets(fallbackFacets.categories);
 
   return (
     <ThemeProvider>
@@ -55,8 +67,14 @@ export function HomeView({ locale, catalog: snapshot }: HomeViewProps) {
             <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
               <ProductSearchApp
                 initialProducts={products}
-                stores={stores}
-                categories={categories}
+                storeFacets={storeFacets}
+                categoryFacets={categoryFacets}
+                brandFacets={snapshot.facets.brands}
+                priceBounds={{
+                  min: snapshot.facets.minPrice,
+                  max: snapshot.facets.maxPrice,
+                }}
+                totalResults={usingRealCatalog ? snapshot.total : products.length}
                 /* Con catálogo real la búsqueda va al servidor: filtrar en el
                    navegador solo encontraría entre los 90 artículos servidos y
                    el visitante creería que el resto no existe. */
@@ -66,9 +84,11 @@ export function HomeView({ locale, catalog: snapshot }: HomeViewProps) {
             </div>
 
             <CatalogStats
-              productCount={usingRealCatalog ? snapshot.totalProducts : products.length}
-              storeCount={usingRealCatalog ? snapshot.totalStores : stores.length}
-              categoryCount={usingRealCatalog ? snapshot.totalCategories : categories.length}
+              productCount={usingRealCatalog ? snapshot.facets.totalProducts : products.length}
+              storeCount={usingRealCatalog ? snapshot.facets.totalStores : storeFacets.length}
+              categoryCount={
+                usingRealCatalog ? snapshot.facets.totalCategories : categoryFacets.length
+              }
             />
           </main>
 

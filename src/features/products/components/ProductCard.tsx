@@ -8,6 +8,13 @@ import { formatPrice } from "@/lib/format";
 export interface ProductCardProps {
   product: Product;
   locale?: string;
+  /**
+   * Ruta de la ficha propia del producto. Cuando se pasa, el nombre lleva ahí
+   * en vez de a la tienda: la ficha tiene el histórico de precio, la galería
+   * completa y los datos técnicos, y desde ahí se sale a comprar. Sin este
+   * prop se enlaza directo a la tienda, que es el comportamiento anterior.
+   */
+  href?: string;
   viewLargerImageLabel?: string;
   closeImageLabel?: string;
 }
@@ -15,11 +22,15 @@ export interface ProductCardProps {
 export function ProductCard({
   product,
   locale,
+  href,
   viewLargerImageLabel = "View larger image of",
   closeImageLabel = "Close",
 }: ProductCardProps) {
   const { name, price, currency, store, imageUrl, description, availability } = product;
   const { url, listPrice, discountPercent } = product;
+  const titleHref = href ?? url;
+  // Salir del sitio merece aviso; navegar dentro, no.
+  const isExternal = titleHref !== undefined && titleHref === url && href === undefined;
   // Solo se considera oferta si el precio tachado es realmente mayor: varias
   // tiendas repiten el precio actual en el campo "antes".
   const hasDiscount = listPrice !== undefined && listPrice > price;
@@ -86,11 +97,12 @@ export function ProductCard({
 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <h3 className="line-clamp-2 text-[1.0625rem] sm:truncate font-medium tracking-[-0.015em] text-[var(--text)]">
-          {url ? (
+          {titleHref ? (
             <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer nofollow"
+              href={titleHref}
+              {...(isExternal
+                ? { target: "_blank", rel: "noopener noreferrer nofollow" }
+                : {})}
               className="rounded-sm underline-offset-[3px] outline-none transition-colors duration-[var(--dur-fast)] hover:underline focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               {name}

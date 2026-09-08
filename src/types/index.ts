@@ -28,6 +28,10 @@ export interface Product {
   discountPercent?: number;
   /** Disponibilidad como booleano, aparte de la etiqueta de availability. */
   inStock?: boolean;
+  /** Calificación media en escala 0-5. */
+  ratingAverage?: number;
+  /** Cantidad de votos que sostienen esa calificación. */
+  ratingCount?: number;
 }
 
 export interface PricePoint {

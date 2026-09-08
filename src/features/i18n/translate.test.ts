@@ -91,30 +91,14 @@ describe("Tarea 10 — translate() falls back to English when a Spanish key is m
   // A dictionary object is injected explicitly instead of mutating the real
   // `es` dictionary, per the plan's instruction not to tamper with
   // production data to exercise this behavior.
+  // El lado inglés se arma sobre el diccionario real en vez de copiarlo clave
+  // por clave: `Dictionary` exige TODAS las claves, así que un literal a mano
+  // rompía esta prueba cada vez que se añadía una etiqueta nueva al producto,
+  // sin que el comportamiento bajo prueba —el fallback— hubiese cambiado.
+  // Partir del real no es "tocar datos de producción": se copia, no se muta, y
+  // lo que se afirma abajo se compara contra este mismo objeto.
   const mockDictionaries: Dictionaries = {
-    en: {
-      siteTitle: "Find Your Prices",
-      heroNativeTitle: "",
-      heroTagline: "English tagline",
-      searchPlaceholder: "Search...",
-      storeFilterLabel: "Store",
-      categoryFilterLabel: "Category",
-      filterAllOption: "All",
-      sortLabel: "Sort",
-      sortRelevance: "Featured",
-      sortPriceAsc: "Lowest price",
-      sortPriceDesc: "Highest price",
-      sortNameAsc: "Name A–Z",
-      resultsCountOne: "result",
-      resultsCountMany: "results",
-      clearFiltersLabel: "Clear filters",
-      statsProductsLabel: "products",
-      statsStoresLabel: "stores",
-      statsCategoriesLabel: "categories",
-      noResultsMessage: "No results found",
-      viewLargerImageLabel: "View larger image of",
-      closeImageLabel: "Close",
-    },
+    en: { ...en, heroNativeTitle: "", heroTagline: "English tagline" },
     es: {
       siteTitle: "Encuentra Tus Precios",
       // heroTagline is intentionally absent to exercise the fallback path.

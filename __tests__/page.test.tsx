@@ -57,11 +57,18 @@ import { es } from "@/features/i18n/dictionaries/es";
 vi.mock("@/server/services/catalog", () => ({
   getCatalogSnapshot: async () => ({
     products: [],
-    stores: [],
-    categories: [],
-    totalProducts: 0,
-    totalStores: 0,
-    totalCategories: 0,
+    total: 0,
+    facets: {
+      categories: [],
+      stores: [],
+      brands: [],
+      minPrice: 0,
+      maxPrice: 0,
+      totalProducts: 0,
+      totalStores: 0,
+      totalCategories: 0,
+      discountedProducts: 0,
+    },
   }),
 }));
 

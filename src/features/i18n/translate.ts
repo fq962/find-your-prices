@@ -34,7 +34,31 @@ export type DictionaryKey =
   | "statsCategoriesLabel"
   | "noResultsMessage"
   | "viewLargerImageLabel"
-  | "closeImageLabel";
+  | "closeImageLabel"
+  | "sortDiscount"
+  | "sortRating"
+  | "viewModeLabel"
+  | "viewList"
+  | "viewGrid"
+  | "viewGallery"
+  | "densityLabel"
+  | "densityCompact"
+  | "densityCosy"
+  | "densityRoomy"
+  | "moreFiltersLabel"
+  | "priceRangeLabel"
+  | "minPriceLabel"
+  | "maxPriceLabel"
+  | "onlyDiscountedLabel"
+  | "onlyInStockLabel"
+  | "brandFilterLabel"
+  | "loadMoreLabel"
+  | "loadingLabel"
+  | "allResultsShownLabel"
+  | "ofLabel"
+  | "viewDetailLabel"
+  | "productsLabel"
+  | "activeFiltersLabel";
 
 export type Dictionary = Record<DictionaryKey, string>;
 

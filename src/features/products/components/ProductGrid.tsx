@@ -1,6 +1,14 @@
 import type { CSSProperties } from "react";
 import type { Product } from "@/types";
+import {
+  DEFAULT_DENSITY,
+  DEFAULT_VIEW_MODE,
+  gridClassesFor,
+  type Density,
+  type ViewMode,
+} from "@/features/products/viewPreferences";
 import { ProductCard } from "./ProductCard";
+import { ProductTile } from "./ProductTile";
 
 export interface ProductGridProps {
   products: Product[];
@@ -8,29 +16,42 @@ export interface ProductGridProps {
   emptyMessage?: string;
   viewLargerImageLabel?: string;
   closeImageLabel?: string;
+  /** Modo de presentación. Por defecto la lista, que es la vista de comparar. */
+  mode?: ViewMode;
+  density?: Density;
+  /** Ruta de la ficha de cada producto. Sin esto no se enlaza al detalle. */
+  productHref?: (product: Product) => string;
 }
 
 /** Tope del escalonado: pasado el 8º elemento el retardo deja de crecer. */
 const MAX_STAGGERED_ITEMS = 8;
 
+/**
+ * Renderiza los resultados en el modo elegido.
+ *
+ * La lista y las cuadrículas usan componentes distintos a propósito
+ * (`ProductCard` y `ProductTile`): no son la misma tarjeta con otro ancho,
+ * responden a formas distintas de mirar el catálogo. Ver `ProductTile`.
+ */
 export function ProductGrid({
   products,
   locale,
   emptyMessage,
   viewLargerImageLabel,
   closeImageLabel,
+  mode = DEFAULT_VIEW_MODE,
+  density = DEFAULT_DENSITY,
+  productHref,
 }: ProductGridProps) {
   const hasProducts = products.length > 0;
+  const isList = mode === "list";
+
+  const listClasses =
+    "overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--bg-elevated)] shadow-[var(--shadow-sm)] [&>li+li]:border-t [&>li+li]:border-[var(--border)]";
 
   return (
     <>
-      <ul
-        className={
-          hasProducts
-            ? "overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--bg-elevated)] shadow-[var(--shadow-sm)] [&>li+li]:border-t [&>li+li]:border-[var(--border)]"
-            : ""
-        }
-      >
+      <ul className={hasProducts ? (isList ? listClasses : gridClassesFor(mode, density)) : ""}>
         {products.map((product, index) => (
           <li
             key={product.id}
@@ -41,12 +62,23 @@ export function ProductGrid({
               } as CSSProperties
             }
           >
-            <ProductCard
-              product={product}
-              locale={locale}
-              viewLargerImageLabel={viewLargerImageLabel}
-              closeImageLabel={closeImageLabel}
-            />
+            {isList ? (
+              <ProductCard
+                product={product}
+                locale={locale}
+                href={productHref?.(product)}
+                viewLargerImageLabel={viewLargerImageLabel}
+                closeImageLabel={closeImageLabel}
+              />
+            ) : (
+              <ProductTile
+                product={product}
+                href={productHref?.(product) ?? product.url ?? "#"}
+                mode={mode}
+                density={density}
+                locale={locale}
+              />
+            )}
           </li>
         ))}
       </ul>
