@@ -3,13 +3,32 @@ import { es } from "./dictionaries/es";
 
 export type Locale = "en" | "es";
 
+export const LOCALES: readonly Locale[] = ["en", "es"];
+
+/** Locale que se sirve en la raíz del sitio, sin prefijo de ruta. */
+export const DEFAULT_LOCALE: Locale = "es";
+
+/** Ruta canónica de cada idioma: "/" para el default, "/en" para el resto. */
+export function localePath(locale: Locale): string {
+  return locale === DEFAULT_LOCALE ? "/" : `/${locale}`;
+}
+
 export type DictionaryKey =
   | "siteTitle"
+  | "heroNativeTitle"
   | "heroTagline"
   | "searchPlaceholder"
   | "storeFilterLabel"
   | "categoryFilterLabel"
   | "filterAllOption"
+  | "sortLabel"
+  | "sortRelevance"
+  | "sortPriceAsc"
+  | "sortPriceDesc"
+  | "sortNameAsc"
+  | "resultsCountOne"
+  | "resultsCountMany"
+  | "clearFiltersLabel"
   | "noResultsMessage"
   | "viewLargerImageLabel"
   | "closeImageLabel";

@@ -1,25 +1,249 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+ * Design tokens — "Quiet Precision"
+ * ---------------------------------------------------------------------------
+ * Light is the base palette; `[data-theme="dark"]` overrides only the values
+ * that change. `ThemeProvider` (features/theme) is the single writer of that
+ * attribute, and the inline script in RootDocument sets it before first paint.
+ * Nothing here is pure #000 / #fff on purpose: the warm/cool offsets read as
+ * physical rather than digital.
+ * ------------------------------------------------------------------------ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #fbfbfd;
+  --bg-elevated: #ffffff;
+  --bg-subtle: #f2f2f5;
+  --bg-inset: #ececf0;
+
+  --text: #1d1d1f;
+  --text-secondary: #56565b;
+  --text-tertiary: #86868b;
+  --text-inverted: #fbfbfd;
+
+  --border: rgb(0 0 0 / 0.08);
+  --border-strong: rgb(0 0 0 / 0.16);
+
+  --accent: #0071e3;
+  --accent-hover: #0077ed;
+  --accent-soft: rgb(0 113 227 / 0.1);
+  --accent-contrast: #ffffff;
+
+  --glass: rgb(251 251 253 / 0.72);
+  --scrim: rgb(0 0 0 / 0.6);
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 3px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 16px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 24px 64px -12px rgb(0 0 0 / 0.22);
+
+  /* Motion — never `ease`, never `linear`. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out-expo: cubic-bezier(0.87, 0, 0.13, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  --dur-fast: 180ms;
+  --dur-base: 320ms;
+  --dur-slow: 620ms;
+  --dur-reveal: 900ms;
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg: #08080a;
+  --bg-elevated: #141417;
+  --bg-subtle: #1a1a1e;
+  --bg-inset: #202025;
+
+  --text: #f5f5f7;
+  --text-secondary: #a1a1a6;
+  --text-tertiary: #76767c;
+  --text-inverted: #0c0c0e;
+
+  --border: rgb(255 255 255 / 0.09);
+  --border-strong: rgb(255 255 255 / 0.2);
+
+  --accent: #2997ff;
+  --accent-hover: #4aa8ff;
+  --accent-soft: rgb(41 151 255 / 0.14);
+  --accent-contrast: #08080a;
+
+  --glass: rgb(10 10 12 / 0.7);
+  --scrim: rgb(0 0 0 / 0.78);
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 20px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 24px 64px -12px rgb(0 0 0 / 0.7);
+
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-bg-inset: var(--bg-inset);
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-inverted: var(--text-inverted);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-contrast: var(--accent-contrast);
+
+  --font-sans: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-editorial), ui-serif, Georgia, serif;
+
+  --ease-out-expo: var(--ease-out-expo);
+  --ease-out-quart: var(--ease-out-quart);
+  --ease-spring: var(--ease-spring);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ---------------------------------------------------------------------------
+ * Base
+ * ------------------------------------------------------------------------ */
+
+/* En `@layer base` para que cualquier utilidad de Tailwind (capa `utilities`)
+ * pueda sobrescribir esto — sin capa, estas reglas ganarían siempre y un
+ * `focus-visible:outline-none` puntual no tendría efecto. */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    transition:
+      background-color var(--dur-base) var(--ease-out-quart),
+      color var(--dur-base) var(--ease-out-quart);
+  }
+
+  ::selection {
+    background-color: var(--accent);
+    color: var(--accent-contrast);
+  }
+
+  /* El outline hereda el radio del propio elemento, así que la píldora sigue
+   * siendo píldora al enfocarla. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--border-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-tertiary);
+    background-clip: content-box;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
+/* ---------------------------------------------------------------------------
+ * Motion primitives
+ * ------------------------------------------------------------------------ */
+
+@keyframes fyp-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 26px, 0);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    filter: blur(0);
+  }
+}
+
+@keyframes fyp-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fyp-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+}
+
+@keyframes fyp-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, -3%, 0) scale(1.06);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* Page-load choreography: structure first, then content, in cascade.
+ * `--enter-delay` is set per element (inline or via a utility below). */
+.enter {
+  animation: fyp-rise var(--dur-reveal) var(--ease-out-expo) both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
+.enter-fade {
+  animation: fyp-fade var(--dur-slow) var(--ease-out-quart) both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
+/* Reveal ligado al scroll, sin JS ni observers: donde `animation-timeline`
+ * no existe el contenido simplemente ya está visible. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal-on-scroll {
+      animation: fyp-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 26%;
+    }
+  }
+}
+
+/* Ambient light behind the hero — decorative only, so parallax-safe. */
+.aurora {
+  animation: fyp-drift 22s var(--ease-in-out-expo) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

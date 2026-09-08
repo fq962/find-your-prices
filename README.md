@@ -44,7 +44,11 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Este proyecto usa [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) para cargar Space Grotesk (display y UI) e Instrument Serif (la línea editorial del hero).
+
+## Idiomas
+
+El idioma vive en la URL: `/` sirve español (default del sitio, sin prefijo) y `/en` sirve inglés. Cada ruta tiene su propio root layout (`src/app/(es)/layout.tsx` y `src/app/en/layout.tsx`) para que `<html lang>` sea correcto ya en el HTML del servidor.
 
 ## Learn More
 

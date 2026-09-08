@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Product } from "@/types";
 import { formatPrice } from "@/lib/format";
 
@@ -38,22 +39,26 @@ export function ProductCard({
   }, [isImageOpen]);
 
   return (
-    <div className="flex items-center gap-4 py-4 sm:gap-5">
+    <div className="group relative flex items-center gap-4 px-3 py-5 transition-colors duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:bg-[var(--bg-subtle)] sm:gap-6 sm:px-4">
       {imageUrl ? (
         <button
           type="button"
           onClick={() => setIsImageOpen(true)}
           aria-label={`${viewLargerImageLabel} ${name}`}
-          className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-100 transition-opacity hover:opacity-80 sm:h-20 sm:w-20"
+          className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[var(--bg-inset)] transition-transform duration-[var(--dur-base)] ease-[var(--ease-spring)] hover:scale-[1.04] active:scale-[0.98] sm:h-20 sm:w-20"
         >
-          <img src={imageUrl} alt={name} className="h-full w-full object-cover" />
+          <img
+            src={imageUrl}
+            alt={name}
+            className="h-full w-full object-cover transition-transform duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] group-hover:scale-[1.08]"
+          />
         </button>
       ) : (
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-100 sm:h-20 sm:w-20">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[var(--bg-inset)] sm:h-20 sm:w-20">
           <svg
             aria-hidden="true"
             viewBox="0 0 24 24"
-            className="h-6 w-6 text-neutral-300"
+            className="h-6 w-6 text-[var(--text-tertiary)]"
             fill="none"
             stroke="currentColor"
             strokeWidth="1.5"
@@ -67,58 +72,68 @@ export function ProductCard({
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <h3 className="truncate text-base font-medium text-neutral-900">{name}</h3>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <h3 className="line-clamp-2 text-[1.0625rem] sm:truncate font-medium tracking-[-0.015em] text-[var(--text)]">
+          {name}
+        </h3>
         {description && (
-          <p className="line-clamp-1 text-sm text-neutral-500 sm:line-clamp-2">{description}</p>
+          <p className="line-clamp-1 text-[0.9375rem] leading-snug text-[var(--text-secondary)] sm:line-clamp-2">
+            {description}
+          </p>
         )}
-        <div className="flex flex-wrap items-center gap-x-1.5 text-sm text-neutral-500">
-          <span>{store}</span>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[0.8125rem] tracking-[0.005em] text-[var(--text-tertiary)]">
+          <span className="uppercase">{store}</span>
           {availability && (
             <>
-              <span aria-hidden="true" className="text-neutral-300">
-                ·
-              </span>
+              <span aria-hidden="true" className="h-1 w-1 rounded-full bg-current opacity-50" />
               <span>{availability}</span>
             </>
           )}
         </div>
       </div>
 
-      <p className="shrink-0 text-base font-semibold tabular-nums text-neutral-900 sm:text-lg">
+      <p className="shrink-0 text-[1.0625rem] font-semibold tracking-[-0.02em] tabular-nums text-[var(--text)] transition-transform duration-[var(--dur-base)] ease-[var(--ease-out-expo)] group-hover:-translate-x-0.5 sm:text-[1.25rem]">
         {formatPrice(price, currency, locale)}
       </p>
 
-      {imageUrl && isImageOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setIsImageOpen(false)}
-        >
-          <button
-            type="button"
+      {/* El visor va por portal a <body>: la fila lleva una animación de
+          entrada cuyo `transform` persiste, y un ancestro transformado
+          convierte cualquier `position: fixed` interno en `absolute`. */}
+      {imageUrl &&
+        isImageOpen &&
+        createPortal(
+          <div
             onClick={() => setIsImageOpen(false)}
-            aria-label={closeImageLabel}
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--scrim)] p-4 backdrop-blur-xl"
+            style={{ animation: "fyp-fade 240ms var(--ease-out-quart) both" }}
           >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+            <button
+              type="button"
+              onClick={() => setIsImageOpen(false)}
+              aria-label={closeImageLabel}
+              className="absolute top-5 right-5 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition-[background-color,transform] duration-[var(--dur-base)] ease-[var(--ease-spring)] hover:scale-105 hover:bg-white/20 active:scale-95"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
-          </button>
-          <img
-            src={imageUrl}
-            alt={name}
-            onClick={(event) => event.stopPropagation()}
-            className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
-          />
-        </div>
-      )}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <img
+              src={imageUrl}
+              alt={name}
+              onClick={(event) => event.stopPropagation()}
+              className="max-h-[85vh] max-w-[min(90vw,720px)] rounded-3xl bg-[var(--bg-elevated)] object-contain shadow-[var(--shadow-lg)]"
+              style={{ animation: "fyp-scale-in 420ms var(--ease-out-expo) both" }}
+            />
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

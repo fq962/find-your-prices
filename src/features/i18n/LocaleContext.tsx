@@ -11,8 +11,17 @@ type LocaleContextValue = {
 
 const LocaleContext = createContext<LocaleContextValue | undefined>(undefined);
 
-export function LocaleProvider(props: { children: ReactNode }) {
-  const [locale, setLocale] = useState<Locale>("en");
+export interface LocaleProviderProps {
+  children: ReactNode;
+  /**
+   * Idioma con el que arranca el árbol. Lo fija la ruta que renderiza la
+   * página ("/" → es, "/en" → en). Sin prop, el default sigue siendo "en".
+   */
+  initialLocale?: Locale;
+}
+
+export function LocaleProvider({ children, initialLocale = "en" }: LocaleProviderProps) {
+  const [locale, setLocale] = useState<Locale>(initialLocale);
 
   const value = useMemo<LocaleContextValue>(
     () => ({
@@ -23,7 +32,7 @@ export function LocaleProvider(props: { children: ReactNode }) {
     [locale],
   );
 
-  return <LocaleContext.Provider value={value}>{props.children}</LocaleContext.Provider>;
+  return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
 }
 
 export function useLocale(): LocaleContextValue {
