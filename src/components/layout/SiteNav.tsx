@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useScrollProgress } from "@/hooks/useScrollProgress";
 import { LocaleSwitcher } from "@/features/i18n/LocaleSwitcher";
 import { useLocale } from "@/features/i18n/LocaleContext";
 import { ThemeToggle } from "@/features/theme/ThemeToggle";
@@ -17,6 +18,8 @@ const THEME_LABEL: Record<string, string> = {
 export function SiteNav() {
   const { locale } = useLocale();
   const [isScrolled, setIsScrolled] = useState(false);
+
+  useScrollProgress();
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 8);
@@ -53,6 +56,14 @@ export function SiteNav() {
           <ThemeToggle label={THEME_LABEL[locale] ?? THEME_LABEL.en} />
         </div>
       </div>
+
+      {/* Progreso de lectura: se dibuja contra el scroll del documento, no
+          contra un temporizador, así que no miente sobre cuánto falta. Donde
+          no hay scroll-driven animations no se pinta en absoluto. */}
+      <span
+        aria-hidden="true"
+        className="scroll-progress absolute inset-x-0 bottom-0 h-px bg-[var(--accent)]"
+      />
     </nav>
   );
 }

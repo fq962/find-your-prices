@@ -16,16 +16,24 @@ export function Hero() {
 
   return (
     <header className="relative isolate flex flex-col items-start pt-16 pb-10 sm:pt-24 sm:pb-14">
+      {/* Dos capas porque son dos movimientos distintos y cada clase declara
+          su propia `animation`: la de afuera se desplaza con el scroll, la de
+          adentro deriva sola. Ambas decorativas — el parallax nunca toca el
+          texto. */}
       <div
         aria-hidden="true"
-        className="aurora pointer-events-none absolute -top-24 -left-32 -z-10 h-[420px] w-[620px] max-w-[140vw] rounded-full opacity-70 blur-3xl"
-        style={{
-          background:
-            "radial-gradient(closest-side, var(--accent-soft), transparent 72%)",
-        }}
-      />
+        className="parallax-slow pointer-events-none absolute -top-32 -left-40 -z-10 h-[520px] w-[760px] max-w-[150vw]"
+      >
+        <div
+          className="aurora h-full w-full rounded-full opacity-70 blur-3xl"
+          style={{
+            background:
+              "radial-gradient(closest-side, var(--accent-soft), transparent 72%)",
+          }}
+        />
+      </div>
 
-      <h1 className="max-w-[15ch] text-[clamp(2.75rem,9vw,5.75rem)] leading-[0.94] font-semibold tracking-[-0.045em] text-balance text-[var(--text)]">
+      <h1 className="max-w-[13ch] text-[clamp(3rem,10.5vw,8.5rem)] leading-[0.9] font-semibold tracking-[-0.05em] text-balance text-[var(--text)]">
         {words.map((word, index) => (
           <span key={`${word}-${index}`}>
             <span
@@ -40,7 +48,7 @@ export function Hero() {
 
       {nativeTitle && (
         <p
-          className="enter -mt-1 ml-[8%] font-serif text-[clamp(1.5rem,5vw,2.75rem)] leading-[1.1] tracking-[-0.01em] text-[var(--accent)] italic sm:-mt-2 sm:ml-[14%]"
+          className="enter -mt-1 ml-[8%] font-serif text-[clamp(1.625rem,6vw,4rem)] leading-[1.05] tracking-[-0.015em] text-[var(--accent)] italic sm:-mt-3 sm:ml-[16%]"
           style={{ "--enter-delay": "430ms" } as CSSProperties}
         >
           {nativeTitle}

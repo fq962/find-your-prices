@@ -29,6 +29,9 @@ export type DictionaryKey =
   | "resultsCountOne"
   | "resultsCountMany"
   | "clearFiltersLabel"
+  | "statsProductsLabel"
+  | "statsStoresLabel"
+  | "statsCategoriesLabel"
   | "noResultsMessage"
   | "viewLargerImageLabel"
   | "closeImageLabel";

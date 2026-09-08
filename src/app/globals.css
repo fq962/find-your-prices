@@ -47,6 +47,9 @@
   --dur-slow: 620ms;
   --dur-reveal: 900ms;
 
+  /* Avance de lectura 0 → 1; lo escribe useScrollProgress. */
+  --scroll-progress: 0;
+
   color-scheme: light;
 }
 
@@ -216,16 +219,42 @@
   animation-delay: var(--enter-delay, 0ms);
 }
 
-/* Reveal ligado al scroll, sin JS ni observers: donde `animation-timeline`
- * no existe el contenido simplemente ya está visible. */
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .reveal-on-scroll {
-      animation: fyp-rise linear both;
-      animation-timeline: view();
-      animation-range: entry 10% cover 26%;
-    }
-  }
+/* Ligado al scroll -----------------------------------------------------------
+ * `--scroll-progress` (0 → 1) la publica `useScrollProgress` en <html>. Antes
+ * de que corra el JS vale 0: la barra mide cero y el halo no se ha movido,
+ * que es exactamente el estado correcto al principio del documento.
+ *
+ * Se evaluó `animation-timeline: scroll()/view()` y se descartó: no existe
+ * todavía en Safari ni Firefox, y en el Chromium donde se verificó esto el
+ * timeline se adjuntaba pero quedaba inactivo, así que la animación no se
+ * movía nunca. */
+
+.scroll-progress {
+  transform-origin: 0 50%;
+  transform: scaleX(var(--scroll-progress));
+}
+
+/* Deriva sólo para elementos decorativos: el pillar de scroll prohíbe
+ * parallax sobre texto o contenido crítico. */
+.parallax-slow {
+  transform: translate3d(0, calc(var(--scroll-progress) * 140px), 0);
+}
+
+/* Reveal al entrar en viewport. `data-revealed` lo pone `useRevealRef`; sin
+ * JS, sin IntersectionObserver o con `prefers-reduced-motion`, el contenido
+ * se queda visible (ver la regla de reduced-motion más abajo). */
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, 26px, 0);
+  transition:
+    opacity var(--dur-slow) var(--ease-out-expo),
+    transform var(--dur-slow) var(--ease-out-expo);
+  transition-delay: var(--enter-delay, 0ms);
+}
+
+.reveal[data-revealed="true"] {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
 }
 
 /* Ambient light behind the hero — decorative only, so parallax-safe. */
@@ -245,5 +274,16 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Sin transición, `.reveal` se quedaría invisible hasta que el observer
+   * marque el nodo. Acá se muestra de entrada y el reveal deja de existir. */
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+
+  .parallax-slow {
+    transform: none;
   }
 }
