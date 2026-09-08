@@ -11,6 +11,23 @@ export interface Product {
   imageUrl?: string;
   availability?: string;
   description?: string;
+
+  // --- Campos que aporta el scraping real ---
+  // Opcionales a propósito: las fixtures y las pruebas siguen construyendo
+  // productos sin ellos, y cada tienda llena solo lo que publica.
+
+  /** Ficha del producto en la tienda de origen. */
+  url?: string;
+  /** Marca, tal como la reporta la tienda. */
+  brand?: string;
+  /** Slug de la tienda, para enlaces y logos. */
+  storeSlug?: string;
+  /** Precio tachado. Solo llega cuando hay descuento real. */
+  listPrice?: number;
+  /** Porcentaje de descuento respecto a listPrice. */
+  discountPercent?: number;
+  /** Disponibilidad como booleano, aparte de la etiqueta de availability. */
+  inStock?: boolean;
 }
 
 export interface PricePoint {

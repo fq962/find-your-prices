@@ -287,3 +287,17 @@
     transform: none;
   }
 }
+
+/* Latido del indicador de búsqueda en vuelo. Solo opacidad: no toca layout
+   ni fuerza repintados, así que no compite con el scroll. */
+@keyframes fyp-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.72);
+  }
+}

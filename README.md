@@ -42,6 +42,7 @@ src/server/scraping/
   repository.ts     # Acceso a datos (Supabase)
   strategies/
     diunsa.ts       # Primera tienda
+  README.md         # ← Manual para agregar una tienda nueva
 src/app/api/scraping/
   run/              # Endpoint del cron
   targets/          # CRUD del panel
@@ -63,10 +64,17 @@ de denegación de servicio gratis contra las tiendas que rastreamos.
 
 ### Agregar una tienda
 
+> **Manual completo: [`src/server/scraping/README.md`](src/server/scraping/README.md).**
+> Está escrito para que un agente lo siga de punta a punta: cómo detectar si un
+> sitio es SSR o SPA, cómo encontrar la API que hay detrás, el contrato de datos,
+> las trampas concretas y la verificación que de verdad prueba que funciona.
+
 1. Implementar `ScrapeStrategy` en `src/server/scraping/strategies/<tienda>.ts`.
 2. Registrarla en `registry.ts`.
 3. Dar de alta la tienda (`POST /api/scraping/stores`) con esa `strategy_key`.
 4. Registrar sus targets desde `/admin/scraping`.
+
+Nada de eso toca la base de datos, el runner, el endpoint ni el panel.
 
 ### Diunsa
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Product } from "@/types";
 import { useLocale } from "@/features/i18n/LocaleContext";
 import { filterProducts, getFacets } from "@/features/products/filterProducts";
@@ -13,21 +13,111 @@ import { ProductGrid } from "./ProductGrid";
 
 export interface ProductSearchAppProps {
   initialProducts: Product[];
+  /**
+   * Facetas completas del catálogo. Sin esto se deducen de `initialProducts`,
+   * que es lo correcto para un fixture pero no para un catálogo real: los
+   * filtros solo ofrecerían lo que ya está a la vista.
+   */
+  stores?: string[];
+  categories?: string[];
+  /**
+   * Resuelve la búsqueda en el servidor sobre el catálogo completo. Con el
+   * fixture queda apagado y todo se filtra en memoria, igual que antes.
+   */
+  remoteSearch?: boolean;
+  locale?: string;
 }
 
-export function ProductSearchApp({ initialProducts }: ProductSearchAppProps) {
+/** Espera antes de consultar: evita una petición por cada tecla. */
+const SEARCH_DEBOUNCE_MS = 260;
+
+/**
+ * Locale de formato de precio, derivado del idioma de la interfaz.
+ *
+ * El catálogo es hondureño y la moneda es el lempira. Con `es` a secas,
+ * Intl imprime "299,00 HNL"; con `es-HN` imprime "L 299.00", que es como se
+ * escribe un precio en Honduras. Se resuelve acá y no en formatPrice para no
+ * tocar el contrato de esa función, que ya tiene pruebas de caracterización.
+ */
+const PRICE_LOCALES: Record<string, string> = {
+  es: "es-HN",
+  en: "en-HN",
+};
+
+export function ProductSearchApp({
+  initialProducts,
+  stores: storesProp,
+  categories: categoriesProp,
+  remoteSearch = false,
+  locale,
+}: ProductSearchAppProps) {
   const { t } = useLocale();
   const [query, setQuery] = useState("");
   const [store, setStore] = useState<string | undefined>(undefined);
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [sort, setSort] = useState<SortOption>(DEFAULT_SORT);
 
-  const { stores, categories } = useMemo(() => getFacets(initialProducts), [initialProducts]);
+  const [remoteProducts, setRemoteProducts] = useState<Product[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
-  const visibleProducts = useMemo(
-    () => sortProducts(filterProducts(initialProducts, { query, store, category }), sort),
-    [initialProducts, query, store, category, sort],
-  );
+  // Sin locale explícito se deja que ProductCard use su default: es lo que
+  // esperan las pruebas del componente, que lo montan sin idioma.
+  const priceLocale = locale ? (PRICE_LOCALES[locale] ?? locale) : undefined;
+
+  const derivedFacets = useMemo(() => getFacets(initialProducts), [initialProducts]);
+  const stores = storesProp ?? derivedFacets.stores;
+  const categories = categoriesProp ?? derivedFacets.categories;
+
+  // Descarta respuestas de búsquedas ya superadas: sin esto, una consulta lenta
+  // puede llegar después de otra más nueva y pisar resultados correctos.
+  const requestSeq = useRef(0);
+
+  const hasCriteria = query.trim() !== "" || store !== undefined || category !== undefined;
+
+  useEffect(() => {
+    // Sin criterios no se consulta nada: el render se queda con el lote curado
+    // que sirvió el servidor. No hace falta limpiar estado acá — más abajo se
+    // ignoran los resultados remotos cuando no hay criterios, que es más
+    // barato y evita un render en cascada.
+    if (!remoteSearch || !hasCriteria) return;
+
+    const seq = ++requestSeq.current;
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      const params = new URLSearchParams();
+      if (query.trim()) params.set("q", query.trim());
+      if (store) params.set("store", store);
+      if (category) params.set("category", category);
+      params.set("sort", sort);
+      if (locale) params.set("locale", locale);
+
+      try {
+        const response = await fetch(`/api/products/search?${params}`);
+        const payload = await response.json();
+        if (seq !== requestSeq.current) return;
+        setRemoteProducts(Array.isArray(payload.products) ? payload.products : []);
+      } catch {
+        if (seq !== requestSeq.current) return;
+        setRemoteProducts([]);
+      } finally {
+        if (seq === requestSeq.current) setIsSearching(false);
+      }
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [remoteSearch, hasCriteria, query, store, category, sort, locale]);
+
+  const visibleProducts = useMemo(() => {
+    // Con resultados del servidor el filtrado ya vino aplicado; solo se ordena
+    // en el cliente para que cambiar el orden se sienta instantáneo. Los
+    // resultados remotos solo cuentan mientras haya criterios: al borrar la
+    // búsqueda se vuelve al lote inicial sin esperar a ningún efecto.
+    if (remoteSearch && hasCriteria && remoteProducts !== null) {
+      return sortProducts(remoteProducts, sort);
+    }
+    return sortProducts(filterProducts(initialProducts, { query, store, category }), sort);
+  }, [remoteSearch, hasCriteria, remoteProducts, initialProducts, query, store, category, sort]);
 
   // El orden no cuenta como filtro: no recorta resultados, sólo los reordena.
   const hasActiveFilters = store !== undefined || category !== undefined;
@@ -70,8 +160,21 @@ export function ProductSearchApp({ initialProducts }: ProductSearchAppProps) {
       <div className="flex min-h-8 items-center justify-between gap-4 px-1">
         <p
           aria-live="polite"
-          className="text-[0.8125rem] tracking-[0.005em] text-[var(--text-tertiary)] tabular-nums"
+          className="flex items-center gap-2 text-[0.8125rem] tracking-[0.005em] text-[var(--text-tertiary)] tabular-nums"
         >
+          {/* El punto pulsa mientras hay una consulta en vuelo: da señal de que
+              algo está pasando sin cambiar la cifra ya visible por un spinner. */}
+          <span
+            aria-hidden="true"
+            className={`h-1.5 w-1.5 rounded-full transition-opacity duration-[var(--dur-base)] ${
+              isSearching && hasCriteria ? "bg-[var(--accent)] opacity-100" : "opacity-0"
+            }`}
+            style={
+              isSearching && hasCriteria
+                ? { animation: "fyp-pulse 1.1s var(--ease-in-out-expo) infinite" }
+                : undefined
+            }
+          />
           {visibleProducts.length} {resultsLabel}
         </p>
 
@@ -100,6 +203,7 @@ export function ProductSearchApp({ initialProducts }: ProductSearchAppProps) {
 
       <ProductGrid
         products={visibleProducts}
+        locale={priceLocale}
         emptyMessage={t("noResultsMessage")}
         viewLargerImageLabel={t("viewLargerImageLabel")}
         closeImageLabel={t("closeImageLabel")}

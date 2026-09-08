@@ -19,6 +19,10 @@ export function ProductCard({
   closeImageLabel = "Close",
 }: ProductCardProps) {
   const { name, price, currency, store, imageUrl, description, availability } = product;
+  const { url, listPrice, discountPercent } = product;
+  // Solo se considera oferta si el precio tachado es realmente mayor: varias
+  // tiendas repiten el precio actual en el campo "antes".
+  const hasDiscount = listPrice !== undefined && listPrice > price;
   const [isImageOpen, setIsImageOpen] = useState(false);
 
   useEffect(() => {
@@ -40,6 +44,14 @@ export function ProductCard({
 
   return (
     <div className="group relative flex items-center gap-4 px-3 py-5 transition-colors duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:bg-[var(--bg-subtle)] sm:gap-6 sm:px-4">
+      {/* El porcentaje se ancla a la miniatura, no al precio: es la señal que
+          hace que el ojo se detenga al recorrer la lista. */}
+      {hasDiscount && discountPercent !== undefined && (
+        <span className="pointer-events-none absolute top-3 left-1 z-10 rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[0.6875rem] font-semibold tabular-nums text-[var(--accent-contrast)] shadow-[var(--shadow-sm)] sm:left-2">
+          -{Math.round(discountPercent)}%
+        </span>
+      )}
+
       {imageUrl ? (
         <button
           type="button"
@@ -74,7 +86,18 @@ export function ProductCard({
 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <h3 className="line-clamp-2 text-[1.0625rem] sm:truncate font-medium tracking-[-0.015em] text-[var(--text)]">
-          {name}
+          {url ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="rounded-sm underline-offset-[3px] outline-none transition-colors duration-[var(--dur-fast)] hover:underline focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            >
+              {name}
+            </a>
+          ) : (
+            name
+          )}
         </h3>
         {description && (
           <p className="line-clamp-1 text-[0.9375rem] leading-snug text-[var(--text-secondary)] sm:line-clamp-2">
@@ -92,9 +115,16 @@ export function ProductCard({
         </div>
       </div>
 
-      <p className="shrink-0 text-[1.0625rem] font-semibold tracking-[-0.02em] tabular-nums text-[var(--text)] transition-transform duration-[var(--dur-base)] ease-[var(--ease-out-expo)] group-hover:-translate-x-0.5 sm:text-[1.25rem]">
-        {formatPrice(price, currency, locale)}
-      </p>
+      <div className="flex shrink-0 flex-col items-end gap-0.5 transition-transform duration-[var(--dur-base)] ease-[var(--ease-out-expo)] group-hover:-translate-x-0.5">
+        <p className="text-[1.0625rem] font-semibold tracking-[-0.02em] tabular-nums text-[var(--text)] sm:text-[1.25rem]">
+          {formatPrice(price, currency, locale)}
+        </p>
+        {hasDiscount && (
+          <p className="text-[0.8125rem] tabular-nums text-[var(--text-tertiary)] line-through decoration-[var(--text-tertiary)]/50">
+            {formatPrice(listPrice, currency, locale)}
+          </p>
+        )}
+      </div>
 
       {/* El visor va por portal a <body>: la fila lleva una animación de
           entrada cuyo `transform` persiste, y un ancestro transformado

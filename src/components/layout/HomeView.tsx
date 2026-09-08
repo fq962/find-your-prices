@@ -5,12 +5,19 @@ import type { Locale } from "@/features/i18n/translate";
 import { CatalogStats } from "@/features/products/components/CatalogStats";
 import { Hero } from "@/features/products/components/Hero";
 import { ProductSearchApp } from "@/features/products/components/ProductSearchApp";
-import { products } from "@/features/products/data";
+import { products as fixtureProducts } from "@/features/products/data";
 import { getFacets } from "@/features/products/filterProducts";
 import { ThemeProvider } from "@/features/theme/ThemeProvider";
+import type { CatalogSnapshot } from "@/server/services/catalog";
 
 export interface HomeViewProps {
   locale: Locale;
+  /**
+   * Catálogo ya resuelto por la ruta. Se recibe en vez de cargarse acá para
+   * que este componente siga siendo síncrono y puro: la ruta decide de dónde
+   * salen los datos, la vista solo los pinta.
+   */
+  catalog: CatalogSnapshot;
 }
 
 /**
@@ -21,9 +28,18 @@ export interface HomeViewProps {
  * columna: el hero desborda hacia la derecha, la herramienta se aprieta a
  * medida de lectura, y el cierre sale a sangre completa. Esa progresión
  * ancho → angosto → a sangre es el ritmo de la página.
+ *
+ * Los productos salen de la base (lo que dejó el scraping). Si la base todavía
+ * no está lista se cae al fixture: preferible una home que funcione con datos
+ * de muestra a una pantalla de error.
  */
-export function HomeView({ locale }: HomeViewProps) {
-  const { stores, categories } = getFacets(products);
+export function HomeView({ locale, catalog: snapshot }: HomeViewProps) {
+  const usingRealCatalog = snapshot.products.length > 0;
+  const products = usingRealCatalog ? snapshot.products : fixtureProducts;
+
+  const fallbackFacets = getFacets(fixtureProducts);
+  const stores = usingRealCatalog ? snapshot.stores : fallbackFacets.stores;
+  const categories = usingRealCatalog ? snapshot.categories : fallbackFacets.categories;
 
   return (
     <ThemeProvider>
@@ -37,13 +53,22 @@ export function HomeView({ locale }: HomeViewProps) {
             </div>
 
             <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
-              <ProductSearchApp initialProducts={products} />
+              <ProductSearchApp
+                initialProducts={products}
+                stores={stores}
+                categories={categories}
+                /* Con catálogo real la búsqueda va al servidor: filtrar en el
+                   navegador solo encontraría entre los 90 artículos servidos y
+                   el visitante creería que el resto no existe. */
+                remoteSearch={usingRealCatalog}
+                locale={locale}
+              />
             </div>
 
             <CatalogStats
-              productCount={products.length}
-              storeCount={stores.length}
-              categoryCount={categories.length}
+              productCount={usingRealCatalog ? snapshot.totalProducts : products.length}
+              storeCount={usingRealCatalog ? snapshot.totalStores : stores.length}
+              categoryCount={usingRealCatalog ? snapshot.totalCategories : categories.length}
             />
           </main>
 

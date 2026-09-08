@@ -27,14 +27,22 @@ interface LoadResult {
   targets: TargetHealth[];
   stores: StoreOption[];
   recentRuns: RunSummary[];
+  metrics: DashboardMetrics;
   error: string | null;
+}
+
+/** Cifras del encabezado. Son la razón de ser del panel, no adorno. */
+export interface DashboardMetrics {
+  trackedProducts: number;
+  pricePoints: number;
+  activeStores: number;
 }
 
 async function loadDashboardData(): Promise<LoadResult> {
   try {
     const db = getSupabaseAdmin();
 
-    const [targetsResult, storesResult, runsResult] = await Promise.all([
+    const [targetsResult, storesResult, runsResult, productsCount, pricesCount] = await Promise.all([
       db
         .from('v_scrape_target_health')
         .select('*')
@@ -42,15 +50,25 @@ async function loadDashboardData(): Promise<LoadResult> {
         .order('target_name', { ascending: true }),
       db.from('stores').select('id, slug, name, strategy_key, is_active').order('name'),
       db.from('scrape_runs').select('*').order('started_at', { ascending: false }).limit(20),
+      // head: true trae solo el conteo, sin cargar una sola fila.
+      db.from('store_products').select('id', { count: 'exact', head: true }).eq('is_active', true),
+      db.from('price_history').select('id', { count: 'exact', head: true }),
     ]);
 
     const failure = targetsResult.error ?? storesResult.error ?? runsResult.error;
     if (failure) throw new Error(failure.message);
 
+    const stores = (storesResult.data ?? []) as StoreOption[];
+
     return {
       targets: (targetsResult.data ?? []) as TargetHealth[],
-      stores: (storesResult.data ?? []) as StoreOption[],
+      stores,
       recentRuns: (runsResult.data ?? []) as RunSummary[],
+      metrics: {
+        trackedProducts: productsCount.count ?? 0,
+        pricePoints: pricesCount.count ?? 0,
+        activeStores: stores.filter((store) => store.is_active).length,
+      },
       error: null,
     };
   } catch (error) {
@@ -60,13 +78,14 @@ async function loadDashboardData(): Promise<LoadResult> {
       targets: [],
       stores: [],
       recentRuns: [],
+      metrics: { trackedProducts: 0, pricePoints: 0, activeStores: 0 },
       error: error instanceof Error ? error.message : String(error),
     };
   }
 }
 
 export default async function ScrapingAdminPage() {
-  const { targets, stores, recentRuns, error } = await loadDashboardData();
+  const { targets, stores, recentRuns, metrics, error } = await loadDashboardData();
 
   if (error) {
     return (
@@ -103,6 +122,7 @@ export default async function ScrapingAdminPage() {
       stores={stores}
       strategies={listStrategies()}
       recentRuns={recentRuns}
+      metrics={metrics}
       cronPath="/api/scraping/run?secret=…"
     />
   );
