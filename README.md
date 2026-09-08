@@ -26,6 +26,66 @@ Reglas rápidas:
 - `server/` nunca se importa desde componentes cliente.
 - El alias `@/*` apunta a `src/*` (ver `tsconfig.json`).
 
+## Scraping
+
+El sistema rastrea precios de tiendas hondureñas. Está diseñado para escalar a
+miles de sitios: agregar un comercio **no toca la base de datos ni el runner**.
+
+### Piezas
+
+```
+src/server/scraping/
+  types.ts          # Contrato: ScrapeStrategy + NormalizedProduct
+  registry.ts       # Registro de estrategias (agregar la tienda nueva aquí)
+  http.ts           # Cliente HTTP: reintentos, timeout, cortesía, telemetría
+  runner.ts         # Orquesta una corrida: bitácora, hash, ingesta, bajas
+  repository.ts     # Acceso a datos (Supabase)
+  strategies/
+    diunsa.ts       # Primera tienda
+src/app/api/scraping/
+  run/              # Endpoint del cron
+  targets/          # CRUD del panel
+  stores/ runs/ strategies/
+src/app/(es)/admin/scraping/   # Panel web
+src/db/migrations/             # SQL para Supabase
+src/db/docs/documentation.md   # Documentación del esquema
+```
+
+### Cron
+
+```
+GET https://tu-dominio.com/api/scraping/run?secret=$CRON_SECRET
+```
+
+Corre todos los targets vencidos (`next_run_at <= now()`). Sin `CRON_SECRET`
+configurado el endpoint responde 401: un scraper abierto a internet es un ataque
+de denegación de servicio gratis contra las tiendas que rastreamos.
+
+### Agregar una tienda
+
+1. Implementar `ScrapeStrategy` en `src/server/scraping/strategies/<tienda>.ts`.
+2. Registrarla en `registry.ts`.
+3. Dar de alta la tienda (`POST /api/scraping/stores`) con esa `strategy_key`.
+4. Registrar sus targets desde `/admin/scraping`.
+
+### Diunsa
+
+diunsa.hn es una SPA de Angular: el HTML del servidor son esqueletos de carga y
+los productos los pinta el navegador contra una API JSON. Por eso la estrategia
+consume esa API en vez de parsear HTML — es más rápida, más estable y trae campos
+que la tarjeta visual no muestra (código de barras, stock, impuesto, ficha
+técnica, garantías, galería completa).
+
+Medido contra producción: **catálogo completo = 8 083 artículos en 18 peticiones
+y ~49 s**. Una segunda corrida sin cambios reales tarda ~6 s y no escribe nada,
+gracias al hash de contenido.
+
+Para revalidar el contrato cuando Diunsa cambie algo:
+
+```bash
+SCRAPER_LIVE_TESTS=1 npx vitest run src/server/scraping/strategies/diunsa.live.test.ts
+```
+
 ## Getting Started
 
 First, run the development server:

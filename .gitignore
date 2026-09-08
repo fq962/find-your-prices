@@ -43,3 +43,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Material de referencia del scraping (paginas guardadas para analizar).
+# Ademas de no pertenecer al repo, dejarlo fuera evita que la deteccion
+# automatica de fuentes de Tailwind escanee ese html y genere utilidades basura.
+/to-scrap/
