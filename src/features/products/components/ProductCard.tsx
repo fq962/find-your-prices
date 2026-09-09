@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Product } from "@/types";
 import { formatPrice } from "@/lib/format";
+import { CompareToggle, type CompareToggleLabels } from "./CompareToggle";
 
 export interface ProductCardProps {
   product: Product;
@@ -17,6 +18,12 @@ export interface ProductCardProps {
   href?: string;
   viewLargerImageLabel?: string;
   closeImageLabel?: string;
+  /**
+   * Textos del control de comparar. Sin esto el control usa sus propios
+   * defaults en inglés, igual que las otras etiquetas de este componente: así
+   * la tarjeta se sigue montando sin proveedor de idioma.
+   */
+  compareLabels?: CompareToggleLabels;
 }
 
 export function ProductCard({
@@ -25,6 +32,7 @@ export function ProductCard({
   href,
   viewLargerImageLabel = "View larger image of",
   closeImageLabel = "Close",
+  compareLabels,
 }: ProductCardProps) {
   const { name, price, currency, store, imageUrl, description, availability } = product;
   const { url, listPrice, discountPercent } = product;
@@ -137,6 +145,11 @@ export function ProductCard({
           </p>
         )}
       </div>
+
+      {/* Al final de la fila y no sobre la miniatura: en la lista el ojo baja
+          por la columna de precios, y apartar algo para comparar es la decisión
+          que se toma justo después de leer ese precio. */}
+      <CompareToggle product={product} labels={compareLabels} className="ml-1 sm:ml-2" />
 
       {/* El visor va por portal a <body>: la fila lleva una animación de
           entrada cuyo `transform` persiste, y un ancestro transformado

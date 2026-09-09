@@ -48,3 +48,6 @@ next-env.d.ts
 # Ademas de no pertenecer al repo, dejarlo fuera evita que la deteccion
 # automatica de fuentes de Tailwind escanee ese html y genere utilidades basura.
 /to-scrap/
+
+# Credenciales en texto plano: nunca al repo.
+/dotenv-para-claude.txt

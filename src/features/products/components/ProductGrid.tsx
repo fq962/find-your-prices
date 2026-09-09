@@ -8,6 +8,7 @@ import {
 } from "@/features/products/viewPreferences";
 import { ProductCard } from "./ProductCard";
 import { ProductTile } from "./ProductTile";
+import type { CompareToggleLabels } from "./CompareToggle";
 
 export interface ProductGridProps {
   products: Product[];
@@ -24,6 +25,8 @@ export interface ProductGridProps {
   density?: Density;
   /** Ruta de la ficha de cada producto. Sin esto no se enlaza al detalle. */
   productHref?: (product: Product) => string;
+  /** Textos del control que aparta un producto para compararlo. */
+  compareLabels?: CompareToggleLabels;
 }
 
 /** Tope del escalonado: pasado el 8º elemento el retardo deja de crecer. */
@@ -45,6 +48,7 @@ export function ProductGrid({
   mode = "list",
   density = DEFAULT_DENSITY,
   productHref,
+  compareLabels,
 }: ProductGridProps) {
   const hasProducts = products.length > 0;
   const isList = mode === "list";
@@ -72,6 +76,7 @@ export function ProductGrid({
                 href={productHref?.(product)}
                 viewLargerImageLabel={viewLargerImageLabel}
                 closeImageLabel={closeImageLabel}
+                compareLabels={compareLabels}
               />
             ) : (
               <ProductTile
@@ -80,6 +85,7 @@ export function ProductGrid({
                 mode={mode}
                 density={density}
                 locale={locale}
+                compareLabels={compareLabels}
               />
             )}
           </li>

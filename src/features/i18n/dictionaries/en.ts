@@ -65,4 +65,23 @@ export const en: Dictionary = {
   compareBestPriceLabel: "Best price",
   compareCheapestColumnLabel: "Cheapest here",
   compareFromLabel: "From",
+
+  // --- Product comparison tray ---
+  compareAddLabel: "Add to comparison",
+  compareRemoveLabel: "Remove from comparison",
+  compareFullLabel: "You can compare up to 4 products",
+  compareTrayTitle: "Ready to compare",
+  compareTrayHint: "Add up to 4 products",
+  compareOpenLabel: "Compare",
+  compareClearLabel: "Clear",
+  compareTableTitle: "Product comparison",
+  compareTableEmpty: "You have not picked any product yet.",
+  compareAttrPrice: "Price",
+  compareAttrListPrice: "Was",
+  compareAttrDiscount: "Discount",
+  compareAttrStore: "Store",
+  compareAttrBrand: "Brand",
+  compareAttrCategory: "Category",
+  compareAttrAvailability: "Availability",
+  compareAttrRating: "Rating",
 };

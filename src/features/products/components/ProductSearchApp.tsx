@@ -34,6 +34,10 @@ import { ProductGrid } from "./ProductGrid";
 import { CatalogControls } from "./CatalogControls";
 import { CompareBar } from "./CompareBar";
 import { CompareGrid } from "./CompareGrid";
+import { CompareTrayDock } from "./CompareTrayDock";
+import { ProductComparisonDialog } from "./ProductComparisonDialog";
+import { useCompareTray } from "@/features/products/useCompareTray";
+import type { CompareToggleLabels } from "./CompareToggle";
 import {
   countActiveFilters,
   EMPTY_FILTER_STATE,
@@ -173,6 +177,33 @@ export function ProductSearchApp({
     () => Object.fromEntries((categoryFacets ?? []).map((facet) => [facet.value, facet.count])),
     [categoryFacets],
   );
+
+  // ---------------------------------------------------------------------------
+  // Bandeja de comparación de productos
+  //
+  // Es la otra comparación: no "qué tiene cada tienda" sino "cuál de estos
+  // cuatro artículos me conviene". Vive en su propio store persistido para que
+  // la selección sobreviva a cambiar de filtro, de vista y de sesión.
+  // ---------------------------------------------------------------------------
+
+  const tray = useCompareTray();
+  const [isComparisonOpen, setIsComparisonOpen] = useState(false);
+
+  const compareToggleLabels: CompareToggleLabels = useMemo(
+    () => ({
+      add: t("compareAddLabel"),
+      remove: t("compareRemoveLabel"),
+      full: t("compareFullLabel"),
+    }),
+    [t],
+  );
+
+  // Vaciar la bandeja con el diálogo abierto lo deja sin nada que mostrar: se
+  // cierra, que es lo que esperaría cualquiera que acaba de vaciarla.
+  function clearTray() {
+    tray.clear();
+    setIsComparisonOpen(false);
+  }
 
   // ---------------------------------------------------------------------------
   // Comparación por tienda
@@ -529,6 +560,7 @@ export function ProductSearchApp({
           locale={priceLocale}
           productHref={productHref}
           showEmptyState={visibleCompareStores.every((store) => !store)}
+          compareLabels={compareToggleLabels}
         />
       ) : (
         <ProductGrid
@@ -540,6 +572,7 @@ export function ProductSearchApp({
           emptyMessage={t("noResultsMessage")}
           viewLargerImageLabel={t("viewLargerImageLabel")}
           closeImageLabel={t("closeImageLabel")}
+          compareLabels={compareToggleLabels}
         />
       )}
 
@@ -554,6 +587,53 @@ export function ProductSearchApp({
             {isLoadingMore ? `${t("loadingLabel")}…` : t("loadMoreLabel")}
           </button>
         </div>
+      )}
+
+      {/* La barra tapa el final de la lista mientras hay algo apartado. Este
+          espacio de reserva evita que el último producto quede debajo de ella y
+          haya que adivinar que existe. */}
+      {tray.count > 0 && <div aria-hidden="true" className="h-24" />}
+
+      <CompareTrayDock
+        items={tray.items}
+        labels={{
+          title: t("compareTrayTitle"),
+          hint: t("compareTrayHint"),
+          open: t("compareOpenLabel"),
+          clear: t("compareClearLabel"),
+          remove: t("compareRemoveLabel"),
+        }}
+        onOpen={() => setIsComparisonOpen(true)}
+        onRemove={tray.remove}
+        onClear={clearTray}
+      />
+
+      {isComparisonOpen && (
+        <ProductComparisonDialog
+          products={tray.items}
+          locale={priceLocale}
+          productHref={productHref}
+          onClose={() => setIsComparisonOpen(false)}
+          onRemove={tray.remove}
+          onClear={clearTray}
+          labels={{
+            title: t("compareTableTitle"),
+            close: t("closeImageLabel"),
+            remove: t("compareRemoveLabel"),
+            clear: t("compareClearLabel"),
+            price: t("compareAttrPrice"),
+            listPrice: t("compareAttrListPrice"),
+            discount: t("compareAttrDiscount"),
+            store: t("compareAttrStore"),
+            brand: t("compareAttrBrand"),
+            category: t("compareAttrCategory"),
+            availability: t("compareAttrAvailability"),
+            rating: t("compareAttrRating"),
+            bestPrice: t("compareBestPriceLabel"),
+            viewDetail: t("viewDetailLabel"),
+            empty: t("compareTableEmpty"),
+          }}
+        />
       )}
     </div>
   );

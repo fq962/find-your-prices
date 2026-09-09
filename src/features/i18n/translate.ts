@@ -69,7 +69,24 @@ export type DictionaryKey =
   | "compareNoResultsInStore"
   | "compareBestPriceLabel"
   | "compareCheapestColumnLabel"
-  | "compareFromLabel";
+  | "compareFromLabel"
+  | "compareAddLabel"
+  | "compareRemoveLabel"
+  | "compareFullLabel"
+  | "compareTrayTitle"
+  | "compareTrayHint"
+  | "compareOpenLabel"
+  | "compareClearLabel"
+  | "compareTableTitle"
+  | "compareTableEmpty"
+  | "compareAttrPrice"
+  | "compareAttrListPrice"
+  | "compareAttrDiscount"
+  | "compareAttrStore"
+  | "compareAttrBrand"
+  | "compareAttrCategory"
+  | "compareAttrAvailability"
+  | "compareAttrRating";
 
 export type Dictionary = Record<DictionaryKey, string>;
 

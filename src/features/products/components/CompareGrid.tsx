@@ -5,6 +5,7 @@ import { useLocale } from "@/features/i18n/LocaleContext";
 import type { ComparisonColumn } from "@/features/products/useStoreComparison";
 import { formatPrice } from "@/lib/format";
 import type { Product } from "@/types";
+import { CompareToggle, type CompareToggleLabels } from "./CompareToggle";
 
 /**
  * Comparación lado a lado: una columna por tienda.
@@ -27,18 +28,27 @@ export interface CompareGridProps {
   productHref?: (product: Product) => string;
   /** Se muestra en lugar de las columnas mientras no haya nada que comparar. */
   showEmptyState: boolean;
+  /** Textos del control que aparta un producto para la tabla comparativa. */
+  compareLabels?: CompareToggleLabels;
 }
 
 /** Precio más bajo de una columna. `null` si la columna no trae nada. */
 function cheapestPrice(products: Product[]): number | null {
   let min: number | null = null;
   for (const product of products) {
-    if (product.price > 0 && (min === null || product.price < min)) min = product.price;
+    if (product.price > 0 && (min === null || product.price < min))
+      min = product.price;
   }
   return min;
 }
 
-export function CompareGrid({ columns, locale, productHref, showEmptyState }: CompareGridProps) {
+export function CompareGrid({
+  columns,
+  locale,
+  productHref,
+  showEmptyState,
+  compareLabels,
+}: CompareGridProps) {
   const { t } = useLocale();
 
   if (showEmptyState) {
@@ -69,9 +79,12 @@ export function CompareGrid({ columns, locale, productHref, showEmptyState }: Co
   // El mínimo global decide dos marcas distintas: la tienda que gana (en su
   // cabecera) y el artículo concreto que gana (en su fila). Se calcula una vez
   // acá para que las dos digan lo mismo.
-  const columnMinimums = columns.map((column) => cheapestPrice(column.products));
+  const columnMinimums = columns.map((column) =>
+    cheapestPrice(column.products),
+  );
   const globalMinimum = columnMinimums.reduce<number | null>(
-    (best, price) => (price === null ? best : best === null ? price : Math.min(best, price)),
+    (best, price) =>
+      price === null ? best : best === null ? price : Math.min(best, price),
     null,
   );
 
@@ -87,8 +100,11 @@ export function CompareGrid({ columns, locale, productHref, showEmptyState }: Co
             column={column}
             locale={locale}
             productHref={productHref}
-            isCheapestColumn={globalMinimum !== null && columnMinimums[index] === globalMinimum}
+            isCheapestColumn={
+              globalMinimum !== null && columnMinimums[index] === globalMinimum
+            }
             bestPrice={globalMinimum}
+            compareLabels={compareLabels}
           />
         ))}
       </div>
@@ -102,6 +118,7 @@ interface CompareColumnProps {
   productHref?: (product: Product) => string;
   isCheapestColumn: boolean;
   bestPrice: number | null;
+  compareLabels?: CompareToggleLabels;
 }
 
 function CompareColumn({
@@ -110,6 +127,7 @@ function CompareColumn({
   productHref,
   isCheapestColumn,
   bestPrice,
+  compareLabels,
 }: CompareColumnProps) {
   const { t } = useLocale();
   const columnMinimum = cheapestPrice(column.products);
@@ -142,7 +160,11 @@ function CompareColumn({
             <span className="text-[0.75rem] tabular-nums text-[var(--text-secondary)]">
               {t("compareFromLabel")}{" "}
               <span className="font-semibold text-[var(--text)]">
-                {formatPrice(columnMinimum, column.products[0]?.currency ?? "HNL", locale)}
+                {formatPrice(
+                  columnMinimum,
+                  column.products[0]?.currency ?? "HNL",
+                  locale,
+                )}
               </span>
             </span>
           )}
@@ -182,6 +204,7 @@ function CompareColumn({
             locale={locale}
             href={productHref?.(product) ?? product.url ?? "#"}
             isBestPrice={bestPrice !== null && product.price === bestPrice}
+            compareLabels={compareLabels}
           />
         ))}
       </div>
@@ -194,54 +217,89 @@ interface CompareRowProps {
   href: string;
   locale?: string;
   isBestPrice: boolean;
+  compareLabels?: CompareToggleLabels;
 }
 
-function CompareRow({ product, href, locale, isBestPrice }: CompareRowProps) {
+function CompareRow({
+  product,
+  href,
+  locale,
+  isBestPrice,
+  compareLabels,
+}: CompareRowProps) {
   const { t } = useLocale();
-  const { name, price, currency, listPrice, imageUrl, discountPercent, inStock } = product;
+  const {
+    name,
+    price,
+    currency,
+    listPrice,
+    imageUrl,
+    discountPercent,
+    inStock,
+  } = product;
   const hasDiscount = listPrice !== undefined && listPrice > price;
 
   return (
-    <Link
-      href={href}
-      className="group flex items-start gap-2.5 px-3 py-2.5 outline-none transition-colors duration-[var(--dur-fast)] ease-[var(--ease-out-quart)] hover:bg-[var(--bg-subtle)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]"
-    >
-      <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-[var(--bg-inset)]">
-        {imageUrl && (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={imageUrl} alt="" loading="lazy" className="h-full w-full object-contain p-1" />
-        )}
-      </div>
-
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <h4 className="line-clamp-2 text-[0.8125rem] leading-[1.35] text-[var(--text)]">{name}</h4>
-
-        <div className="flex flex-wrap items-baseline gap-x-1.5">
-          <span className="text-[0.9375rem] font-semibold tracking-[-0.01em] tabular-nums text-[var(--text)]">
-            {formatPrice(price, currency, locale)}
-          </span>
-          {hasDiscount && discountPercent !== undefined && (
-            <span className="text-[0.6875rem] font-semibold tabular-nums text-[var(--accent)]">
-              -{Math.round(discountPercent)}%
-            </span>
+    /* El control de comparar queda fuera del enlace —un <button> dentro de un
+       <a> es HTML inválido—, así que la fila es un contenedor posicionado. El
+       `pr-10` del enlace le reserva el sitio para que el nombre no pase por
+       debajo del botón. */
+    <div className="group relative">
+      <Link
+        href={href}
+        className="flex items-start gap-2.5 py-2.5 pr-10 pl-3 outline-none transition-colors duration-[var(--dur-fast)] ease-[var(--ease-out-quart)] hover:bg-[var(--bg-subtle)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]"
+      >
+        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-[var(--bg-inset)]">
+          {imageUrl && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={imageUrl}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-contain p-1"
+            />
           )}
         </div>
 
-        {(isBestPrice || inStock === false) && (
-          <div className="flex flex-wrap items-center gap-1 pt-0.5">
-            {isBestPrice && (
-              <span className="rounded-full bg-[var(--accent-soft)] px-1.5 py-0.5 text-[0.625rem] font-semibold tracking-[0.02em] text-[var(--accent)] uppercase">
-                {t("compareBestPriceLabel")}
-              </span>
-            )}
-            {inStock === false && product.availability && (
-              <span className="text-[0.6875rem] text-[var(--text-tertiary)]">
-                {product.availability}
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h4 className="line-clamp-2 text-[0.8125rem] leading-[1.35] text-[var(--text)]">
+            {name}
+          </h4>
+
+          <div className="flex flex-wrap items-baseline gap-x-1.5">
+            <span className="text-[0.9375rem] font-semibold tracking-[-0.01em] tabular-nums text-[var(--text)]">
+              {formatPrice(price, currency, locale)}
+            </span>
+            {hasDiscount && discountPercent !== undefined && (
+              <span className="text-[0.6875rem] font-semibold tabular-nums text-[var(--accent)]">
+                -{Math.round(discountPercent)}%
               </span>
             )}
           </div>
-        )}
-      </div>
-    </Link>
+
+          {(isBestPrice || inStock === false) && (
+            <div className="flex flex-wrap items-center gap-1 pt-0.5">
+              {isBestPrice && (
+                <span className="rounded-full bg-[var(--accent-soft)] px-1.5 py-0.5 text-[0.625rem] font-semibold tracking-[0.02em] text-[var(--accent)] uppercase">
+                  {t("compareBestPriceLabel")}
+                </span>
+              )}
+              {inStock === false && product.availability && (
+                <span className="text-[0.6875rem] text-[var(--text-tertiary)]">
+                  {product.availability}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </Link>
+
+      <CompareToggle
+        product={product}
+        labels={compareLabels}
+        size="sm"
+        className="absolute top-2.5 right-2 z-10"
+      />
+    </div>
   );
 }

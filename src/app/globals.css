@@ -174,6 +174,9 @@
  *      correcto. Chromium en Windows sí honra el color de fondo y de texto de
  *      cada opción, así que al menos el menú deja de ser blanco sobre un sitio
  *      oscuro.
+ *      Nada de esto está limitado a un componente: cualquier <select> de la app
+ *      —el de marca del panel de filtros, los del panel de administración—
+ *      abre el mismo menú del sistema y necesita el mismo trato.
  *   2. Chromium 135+: `appearance: base-select` entrega el menú entero al CSS.
  *      Ahí se le da el mismo radio, borde, sombra y espaciado que al resto de la
  *      interfaz, y el desplegable de Windows termina viéndose como el de macOS.
@@ -192,31 +195,27 @@ select option {
 }
 
 @supports (appearance: base-select) {
-  /* `.fyp-select` lo pone el componente Select: sólo los desplegables de la
-     interfaz entran acá, nunca un <select> de un embed de terceros. */
-  .fyp-select select,
-  .fyp-select select::picker(select) {
+  /* Todos los <select> de la app, no sólo los del componente Select: el de
+     marca en el panel de filtros y los del panel de administración abren el
+     mismo menú del sistema y sufren el mismo problema en Windows. */
+  select,
+  select::picker(select) {
     appearance: base-select;
   }
 
-  /* El botón. `base-select` trae su propio borde y su propia flecha; acá se
-     quitan porque el borde ya lo pone la píldora que lo envuelve y la flecha
-     es un SVG del componente. */
-  .fyp-select select {
-    border: 0;
-    padding: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: start;
+  /* La flecha de `base-select` sustituye a la del sistema. Gira al abrir, que
+     es la única señal de estado que tiene un desplegable cerrado. */
+  select::picker-icon {
+    color: var(--text-tertiary);
+    transition: transform var(--dur-base) var(--ease-spring);
   }
 
-  .fyp-select select::picker-icon {
-    display: none;
+  select:open::picker-icon {
+    transform: rotate(180deg);
   }
 
   /* El menú desplegado. */
-  .fyp-select select::picker(select) {
+  select::picker(select) {
     /* Borde fuerte y no el sutil de las tarjetas: el menú flota sobre el
        contenido y en modo oscuro la sombra no lo despega del fondo. */
     border: 1px solid var(--border-strong);
@@ -227,8 +226,8 @@ select option {
     background-color: var(--bg-elevated);
     box-shadow: var(--shadow-lg);
     padding: 6px;
-    /* Un catálogo real trae cientos de categorías: se acota el alto y se
-       desplaza dentro, en vez de dejar una lista más larga que la pantalla. */
+    /* Un catálogo real trae cientos de marcas: se acota el alto y se desplaza
+       dentro, en vez de dejar una lista más larga que la pantalla. */
     max-height: min(22rem, 60vh);
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -240,17 +239,17 @@ select option {
       display var(--dur-fast) allow-discrete;
   }
 
-  .fyp-select select:open::picker(select) {
+  select:open::picker(select) {
     opacity: 1;
   }
 
   @starting-style {
-    .fyp-select select:open::picker(select) {
+    select:open::picker(select) {
       opacity: 0;
     }
   }
 
-  .fyp-select select option {
+  select option {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -264,14 +263,14 @@ select option {
     line-height: 1.35;
   }
 
-  .fyp-select select option:hover,
-  .fyp-select select option:focus,
-  .fyp-select select option:active {
+  select option:hover,
+  select option:focus,
+  select option:active {
     background-color: var(--bg-subtle);
     color: var(--text);
   }
 
-  .fyp-select select option:checked {
+  select option:checked {
     background-color: var(--accent-soft);
     color: var(--text);
     font-weight: 550;
@@ -279,7 +278,21 @@ select option {
 
   /* La palomita del check por defecto ocupa una columna en todas las filas y
      desalinea el texto; el estado seleccionado ya se lee por el fondo. */
-  .fyp-select select option::checkmark {
+  select option::checkmark {
+    display: none;
+  }
+
+  /* Dentro de la píldora del componente Select el contorno y la flecha los
+     dibuja el envoltorio, así que el control se queda sin caja propia. */
+  .fyp-select select {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    text-align: start;
+  }
+
+  .fyp-select select::picker-icon {
     display: none;
   }
 }
