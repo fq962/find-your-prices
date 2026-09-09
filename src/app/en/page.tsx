@@ -13,6 +13,6 @@ export const revalidate = 300;
 
 /** Inglés bajo /en. */
 export default async function EnglishHome() {
-  const catalog = await getCatalogSnapshot({ locale: "en", limit: 90 });
+  const catalog = await getCatalogSnapshot({ locale: "en", limit: 48 });
   return <HomeView locale="en" catalog={catalog} />;
 }

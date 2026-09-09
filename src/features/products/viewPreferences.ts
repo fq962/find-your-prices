@@ -16,7 +16,16 @@ export type ViewMode = (typeof VIEW_MODES)[number];
 export const DENSITIES = ["compact", "cosy", "roomy"] as const;
 export type Density = (typeof DENSITIES)[number];
 
-export const DEFAULT_VIEW_MODE: ViewMode = "list";
+/**
+ * Galería de entrada.
+ *
+ * La lista es la vista para rastrear un precio concreto, pero quien llega no
+ * está rastreando: está mirando. Una fila de texto no dice qué es el producto
+ * y la cuadrícula apretada convierte el catálogo en una pared. La galería
+ * enseña la foto lo bastante grande para reconocer la cosa de un vistazo, que
+ * es lo primero que hace cualquiera que entra.
+ */
+export const DEFAULT_VIEW_MODE: ViewMode = "gallery";
 export const DEFAULT_DENSITY: Density = "cosy";
 
 /**
@@ -160,25 +169,26 @@ export function getViewPreferencesServerSnapshot(): ViewPreferences {
  * ficha, no por múltiplos redondos: en `grid` compacto una tarjeta baja de
  * ~150px y el nombre del producto deja de leerse.
  *
- * Los saltos `lg`/`xl` existen porque el catálogo dejó de vivir en una columna
- * de lectura de 48rem: con el contenedor ancho, tres columnas en un monitor
- * dejaban fichas de 400px de ancho con una foto diminuta en el medio.
+ * El número de columnas está deliberadamente por debajo de lo que el ancho
+ * permitiría. Caben más; con más, cada ficha se encoge hasta que la foto deja
+ * de servir para reconocer el producto y la pantalla se vuelve una pared de
+ * tarjetas que no invita a mirar ninguna. La galería nunca pasa de dos.
  */
 export function gridClassesFor(mode: ViewMode, density: Density): string {
   if (mode === "list" || mode === "compare") return "";
 
   if (mode === "gallery") {
     return {
-      compact: "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
-      cosy: "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3",
-      roomy: "grid grid-cols-1 gap-6 lg:grid-cols-2",
+      compact: "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3",
+      cosy: "grid grid-cols-1 gap-5 sm:gap-6 sm:grid-cols-2",
+      roomy: "grid grid-cols-1 gap-6",
     }[density];
   }
 
   return {
-    compact: "grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6",
-    cosy: "grid grid-cols-2 gap-4 sm:gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
-    roomy: "grid grid-cols-1 gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+    compact: "grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 lg:grid-cols-4",
+    cosy: "grid grid-cols-2 gap-4 sm:gap-5 sm:grid-cols-3",
+    roomy: "grid grid-cols-1 gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3",
   }[density];
 }
 

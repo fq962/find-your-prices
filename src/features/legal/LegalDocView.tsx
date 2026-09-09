@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { SHELL } from "@/components/layout/shell";
+import { SHELL_READING } from "@/components/layout/shell";
 import { siteConfig } from "@/config/site";
 import { routeFor } from "@/features/i18n/routes";
 import type { Locale } from "@/features/i18n/translate";
@@ -69,17 +69,17 @@ export function LegalDocView({ doc, locale }: LegalDocViewProps) {
   }).format(new Date(`${POLICIES_UPDATED}T00:00:00Z`));
 
   return (
-    <div className={`${SHELL} pb-8`}>
+    <div className={`${SHELL_READING} pb-8`}>
       <header className="flex flex-col items-start pt-14 pb-8 sm:pt-20 sm:pb-10">
         <h1
-          className="enter max-w-[18ch] text-[clamp(2.25rem,6.5vw,4rem)] leading-[1] font-semibold tracking-[-0.035em] text-balance text-[var(--text)]"
+          className="enter max-w-[18ch] text-[clamp(2.25rem,6.5vw,3.5rem)] leading-[1] font-semibold tracking-[-0.035em] text-balance text-[var(--text)]"
           style={{ "--enter-delay": "80ms" } as CSSProperties}
         >
           {content.title}
         </h1>
 
         <p
-          className="enter mt-4 max-w-[52ch] text-[1.0625rem] leading-[1.6] text-[var(--text-secondary)] sm:text-[1.1875rem]"
+          className="enter mt-4 text-[1.0625rem] leading-[1.6] text-[var(--text-secondary)] sm:text-[1.1875rem]"
           style={{ "--enter-delay": "160ms" } as CSSProperties}
         >
           {content.lede}
@@ -118,7 +118,7 @@ export function LegalDocView({ doc, locale }: LegalDocViewProps) {
         </ul>
       </nav>
 
-      <article className="flex max-w-[68ch] flex-col gap-9">
+      <article className="flex flex-col gap-9">
         {content.sections.map((section, index) => (
           <section key={section.heading || `cont-${index}`} className="flex flex-col gap-3">
             {/* Una sección sin título es la continuación de la anterior: se
@@ -157,7 +157,7 @@ export function LegalDocView({ doc, locale }: LegalDocViewProps) {
         ))}
       </article>
 
-      <section className="mt-12 flex max-w-[68ch] flex-col items-start gap-3 rounded-3xl border border-[var(--border)] bg-[var(--bg-subtle)] px-6 py-8 sm:mt-16">
+      <section className="mt-12 flex flex-col items-start gap-3 rounded-3xl border border-[var(--border)] bg-[var(--bg-subtle)] px-6 py-8 sm:mt-16">
         <h2 className="text-[1.125rem] font-semibold tracking-[-0.015em] text-[var(--text)]">
           {contact.heading}
         </h2>

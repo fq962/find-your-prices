@@ -124,8 +124,9 @@ producto hace.
 - **Voz:** directa, hondureña, sin corporativismo ni relleno. Frases cortas.
   Voseo en español ("buscá", "comparás", "vos decidís"), no tuteo ni "usted".
   Decir lo que el producto no es tiene tanto valor como decir lo que es.
-- **Autoría:** lo hicieron dos personas, **haide** y **crywhat**, acreditadas en
-  la página "Acerca de". Sin empresa, sin inversionistas, sin comisiones.
+- **Autoría:** lo hicieron dos personas, acreditadas por su apodo de GitHub
+  dentro del texto de "Acerca de": **crywhat7** (github.com/crywhat7) y
+  **fq962** (github.com/fq962). Sin empresa, sin inversionistas, sin comisiones.
 - **Compromiso público con las tiendas:** la política de uso de contenido
   publicada promete retiro a pedido en 5 días hábiles, sin exigir reclamo legal.
   Está en vigor porque está publicada. (No fue marcada como innegociable en la

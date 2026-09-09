@@ -12,17 +12,17 @@ import type { Locale } from "@/features/i18n/translate";
  * imposible de mantener.
  */
 
-export interface AboutStep {
-  title: string;
-  body: string;
-}
-
 export interface AboutContent {
   title: string;
   lede: string;
   what: { heading: string; paragraphs: string[] };
-  how: { heading: string; steps: AboutStep[] };
-  creators: { heading: string; caption: string };
+  /**
+   * La firma de los autores, partida en dos porque los apodos van enlazados a
+   * GitHub en medio de la frase. `join` es la conjunción entre los dos nombres,
+   * que en español lleva espacios distintos que en inglés.
+   */
+  credit: { lead: string; join: string; tail: string };
+  sourcing: { heading: string; paragraphs: string[] };
   honesty: { heading: string; items: string[]; policiesNote: string };
   cta: { heading: string; body: string; action: string };
 }
@@ -40,28 +40,18 @@ const es: AboutContent = {
     ],
   },
 
-  how: {
-    heading: "Cómo funciona",
-    steps: [
-      {
-        title: "Leemos las tiendas",
-        body: "Un proceso automático revisa las páginas públicas de cada tienda y anota nombre, precio, disponibilidad y enlace.",
-      },
-      {
-        title: "Ordenamos el desorden",
-        body: "Cada tienda nombra y clasifica distinto. Normalizamos marcas, categorías y monedas para que dos productos comparables se puedan comparar de verdad.",
-      },
-      {
-        title: "Vos decidís",
-        body: "Buscá, filtrá, poné tiendas lado a lado o apartá hasta cuatro productos y miralos en una tabla. La decisión sigue siendo tuya.",
-      },
-    ],
+  credit: {
+    lead: "Somos dos,",
+    join: " y ",
+    tail: ", metiéndole a esto fuera de horas. No hay empresa detrás ni inversionistas: el sitio se paga con los anuncios que ves, y hasta ahí llega.",
   },
 
-  creators: {
-    heading: "Quiénes lo hicimos",
-    caption:
-      "Dos personas en Honduras, después del trabajo. Sin empresa detrás, sin inversionistas, sin comisión de nadie.",
+  sourcing: {
+    heading: "De dónde salen los precios",
+    paragraphs: [
+      "Un proceso automático pasa por las páginas públicas de Diunsa, Jetstereo, RadioShack, ACOSA y Lady Lee varias veces al día y anota lo que encuentra: nombre, precio, si hay existencia y el enlace. Nada que no puedas ver vos abriendo la página.",
+      "Leerlas no es lo difícil; emparejarlas sí. Una tienda escribe «Cel. Samsung A15 128Gb» y otra «SAMSUNG Galaxy A-15 Negro 128 GB», y es el mismo teléfono. Ahí se va la mayor parte del trabajo y todavía no está resuelto del todo: si ves un precio que no cuadra, o dos productos que deberían ser uno solo, escribinos y lo corregimos.",
+    ],
   },
 
   honesty: {
@@ -96,28 +86,18 @@ const en: AboutContent = {
     ],
   },
 
-  how: {
-    heading: "How it works",
-    steps: [
-      {
-        title: "We read the stores",
-        body: "An automated process visits each store's public pages and records name, price, availability and link.",
-      },
-      {
-        title: "We sort out the mess",
-        body: "Every store names and files things differently. We normalise brands, categories and currencies so two comparable products can actually be compared.",
-      },
-      {
-        title: "You decide",
-        body: "Search, filter, put stores side by side, or set aside up to four products and read them in one table. The call is still yours.",
-      },
-    ],
+  credit: {
+    lead: "There are two of us,",
+    join: " and ",
+    tail: ", working on this after hours. No company behind it and no investors: the site is paid for by the ads you see, and that is the whole of it.",
   },
 
-  creators: {
-    heading: "Who made it",
-    caption:
-      "Two people in Honduras, after hours. No company behind it, no investors, no commission from anyone.",
+  sourcing: {
+    heading: "Where the prices come from",
+    paragraphs: [
+      "An automated process walks the public pages of Diunsa, Jetstereo, RadioShack, ACOSA and Lady Lee several times a day and writes down what it finds: name, price, whether it is in stock, and the link. Nothing you could not see yourself by opening the page.",
+      "Reading them is not the hard part; matching them is. One store writes “Cel. Samsung A15 128Gb” and another “SAMSUNG Galaxy A-15 Black 128 GB”, and it is the same phone. That is where most of the work goes and it is not fully solved: if you spot a price that looks wrong, or two products that should be one, write to us and we will fix it.",
+    ],
   },
 
   honesty: {

@@ -13,6 +13,6 @@ export const revalidate = 300;
 
 /** Español en la raíz: es el idioma por defecto del sitio, sin prefijo. */
 export default async function Home() {
-  const catalog = await getCatalogSnapshot({ locale: "es", limit: 90 });
+  const catalog = await getCatalogSnapshot({ locale: "es", limit: 48 });
   return <HomeView locale="es" catalog={catalog} />;
 }

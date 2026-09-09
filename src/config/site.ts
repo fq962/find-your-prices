@@ -23,8 +23,15 @@ export const siteConfig = {
    */
   botUserAgent: "FindYourPricesBot",
 
-  /** Quiénes hicieron esto. Se muestran en la página "Acerca de". */
-  creators: [{ name: "haide" }, { name: "crywhat" }] as const,
+  /**
+   * Quiénes hicieron esto. Se mencionan dentro del texto de "Acerca de", con
+   * enlace a su perfil: el apodo de GitHub ya es la identidad pública de cada
+   * uno y su perfil dice más que cualquier biografía inventada.
+   */
+  creators: [
+    { nick: "crywhat7", url: "https://github.com/crywhat7" },
+    { nick: "fq962", url: "https://github.com/fq962" },
+  ] as const,
 
   links: {
     // Rellena aquí los enlaces sociales / repos cuando existan.
