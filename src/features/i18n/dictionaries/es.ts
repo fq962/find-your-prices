@@ -45,8 +45,7 @@ export const es: Dictionary = {
   onlyDiscountedLabel: "Solo con descuento",
   onlyInStockLabel: "Solo disponibles",
   brandFilterLabel: "Marca",
-  loadMoreLabel: "Ver más",
-  loadingLabel: "Cargando",
+  loadMoreLabel: "Cargar más productos",
   allResultsShownLabel: "Ya viste todos los resultados",
   ofLabel: "de",
   viewDetailLabel: "Ver detalle",
@@ -86,4 +85,11 @@ export const es: Dictionary = {
   compareAttrAvailability: "Disponibilidad",
   compareAttrRating: "Calificación",
   resultsListLabel: "Resultados",
+
+  // --- Desplazamiento del catálogo ---
+  loadingMoreLabel: "Cargando más productos…",
+  feedErrorLabel: "No se pudieron cargar más productos.",
+  searchErrorLabel: "No se pudo completar la búsqueda.",
+  retryLabel: "Reintentar",
+  backToTopLabel: "Volver arriba",
 };

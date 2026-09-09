@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { SHELL } from "@/components/layout/shell";
 import { MAX_COMPARE_ITEMS } from "@/features/products/compareTray";
 import type { Product } from "@/types";
 
@@ -38,7 +40,25 @@ export function CompareTrayDock({
   onRemove,
   onClear,
 }: CompareTrayDockProps) {
-  if (items.length === 0) return null;
+  const isVisible = items.length > 0;
+
+  /**
+   * Publica el alto de la barra en una custom property.
+   *
+   * Es la forma más barata de que otros elementos fijos —hoy el botón de volver
+   * arriba— se aparten sin que haya que conectarlos por props a través de media
+   * página. Quien no la conozca usa su valor por defecto y no se entera.
+   */
+  useEffect(() => {
+    if (!isVisible) return;
+    const root = document.documentElement;
+    root.style.setProperty("--fyp-dock", "5.25rem");
+    return () => {
+      root.style.removeProperty("--fyp-dock");
+    };
+  }, [isVisible]);
+
+  if (!isVisible) return null;
 
   const emptySlots = Math.max(MAX_COMPARE_ITEMS - items.length, 0);
 
@@ -50,7 +70,7 @@ export function CompareTrayDock({
         animation: "fyp-rise 380ms var(--ease-out-expo) both",
       }}
     >
-      <div className="mx-auto flex w-full max-w-[96rem] items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6">
+      <div className={`${SHELL} flex items-center gap-3 py-3 sm:gap-4`}>
         <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto sm:gap-3">
           {items.map((product) => (
             <div key={product.id} className="relative shrink-0">
