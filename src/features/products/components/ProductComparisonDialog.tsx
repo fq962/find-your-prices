@@ -181,7 +181,7 @@ export function ProductComparisonDialog({
                         {formatPrice(product.price, product.currency, locale)}
                       </span>
                       {bestPrice !== null && product.price === bestPrice && (
-                        <span className="rounded-full bg-[var(--accent-soft)] px-1.5 py-0.5 text-[0.625rem] font-semibold tracking-[0.02em] text-[var(--accent)] uppercase">
+                        <span className="rounded-full bg-[var(--price-win-soft)] px-1.5 py-0.5 text-[0.625rem] font-semibold tracking-[0.02em] text-[var(--price-win)] uppercase">
                           {labels.bestPrice}
                         </span>
                       )}

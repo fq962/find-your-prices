@@ -53,7 +53,6 @@ export type DictionaryKey =
   | "onlyInStockLabel"
   | "brandFilterLabel"
   | "loadMoreLabel"
-  | "loadingLabel"
   | "allResultsShownLabel"
   | "ofLabel"
   | "viewDetailLabel"
@@ -87,7 +86,12 @@ export type DictionaryKey =
   | "compareAttrCategory"
   | "compareAttrAvailability"
   | "compareAttrRating"
-  | "resultsListLabel";
+  | "resultsListLabel"
+  | "loadingMoreLabel"
+  | "feedErrorLabel"
+  | "searchErrorLabel"
+  | "retryLabel"
+  | "backToTopLabel";
 
 export type Dictionary = Record<DictionaryKey, string>;
 

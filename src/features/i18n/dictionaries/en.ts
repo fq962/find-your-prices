@@ -44,8 +44,7 @@ export const en: Dictionary = {
   onlyDiscountedLabel: "Discounted only",
   onlyInStockLabel: "In stock only",
   brandFilterLabel: "Brand",
-  loadMoreLabel: "Show more",
-  loadingLabel: "Loading",
+  loadMoreLabel: "Load more products",
   allResultsShownLabel: "You have seen every result",
   ofLabel: "of",
   viewDetailLabel: "View details",
@@ -85,4 +84,11 @@ export const en: Dictionary = {
   compareAttrAvailability: "Availability",
   compareAttrRating: "Rating",
   resultsListLabel: "Results",
+
+  // --- Catalogue paging ---
+  loadingMoreLabel: "Loading more products…",
+  feedErrorLabel: "We could not load more products.",
+  searchErrorLabel: "The search could not be completed.",
+  retryLabel: "Try again",
+  backToTopLabel: "Back to top",
 };

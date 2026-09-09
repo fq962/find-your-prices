@@ -2,9 +2,7 @@
 
 import {
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
   useState,
   useSyncExternalStore,
   type CSSProperties,
@@ -26,12 +24,14 @@ import {
   type ViewMode,
 } from "@/features/products/viewPreferences";
 import { useStoreComparison } from "@/features/products/useStoreComparison";
+import { useCatalogFeed } from "@/features/products/useCatalogFeed";
 import { SearchBar } from "./SearchBar";
 import { StoreFilter } from "./StoreFilter";
 import { CategoryFilter } from "./CategoryFilter";
 import { SortFilter } from "./SortFilter";
 import { ProductGrid } from "./ProductGrid";
 import { CatalogControls } from "./CatalogControls";
+import { CatalogFeedFooter } from "./CatalogFeedFooter";
 import { CompareBar } from "./CompareBar";
 import { CompareGrid } from "./CompareGrid";
 import { CompareTrayDock } from "./CompareTrayDock";
@@ -66,12 +66,6 @@ export interface ProductSearchAppProps {
   remoteSearch?: boolean;
   locale?: string;
 }
-
-/** Espera antes de consultar: evita una petición por cada tecla. */
-const SEARCH_DEBOUNCE_MS = 260;
-
-/** Artículos por página. */
-const PAGE_SIZE = 60;
 
 /**
  * Locale de formato de precio, derivado del idioma de la interfaz.
@@ -115,12 +109,6 @@ export function ProductSearchApp({
    * deja alguna columna en blanco a propósito.
    */
   const [compareStores, setCompareStores] = useState<(string | undefined)[] | null>(null);
-
-  const [remoteProducts, setRemoteProducts] = useState<Product[] | null>(null);
-  const [remoteTotal, setRemoteTotal] = useState<number | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [page, setPage] = useState(0);
 
   // Las preferencias viven en localStorage, que es estado externo y mutable:
   // useSyncExternalStore es la herramienta para eso. En el servidor devuelve
@@ -268,10 +256,16 @@ export function ProductSearchApp({
   });
 
   const activeExtraFilters = countActiveFilters(filters);
-  const hasCriteria =
-    query.trim() !== "" || store !== undefined || category !== undefined || activeExtraFilters > 0;
 
-  /** Los parámetros que definen una consulta al servidor. */
+  // ---------------------------------------------------------------------------
+  // El listado
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Los parámetros que definen una consulta al servidor. Sin `limit` ni
+   * `offset`: esos los pone la paginación, y meterlos acá haría que la clave de
+   * la consulta cambiara al pedir la página siguiente.
+   */
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     if (query.trim()) params.set("q", query.trim());
@@ -284,78 +278,45 @@ export function ProductSearchApp({
     if (filters.onlyInStock) params.set("onlyInStock", "1");
     params.set("sort", sort);
     if (locale) params.set("locale", locale);
-    params.set("limit", String(PAGE_SIZE));
     return params.toString();
   }, [query, store, category, filters, sort, locale]);
 
-  // Descarta respuestas de consultas ya superadas: sin esto, una petición lenta
-  // puede llegar después de otra más nueva y pisar resultados correctos.
-  const requestSeq = useRef(0);
+  /**
+   * Si esta consulta es la que el servidor ya resolvió al pintar la página.
+   *
+   * El orden cuenta como criterio, y esa es una corrección respecto de antes:
+   * elegir "Menor precio" sin ningún filtro reordenaba en el navegador los
+   * artículos ya cargados y mostraba el más barato DE ESE LOTE, con el rótulo
+   * "48 de 29 753 resultados" al lado. Ahora ordenar es una consulta nueva
+   * sobre el catálogo entero, que es lo que la etiqueta dice.
+   */
+  const isDefaultQuery =
+    query.trim() === "" &&
+    store === undefined &&
+    category === undefined &&
+    activeExtraFilters === 0 &&
+    sort === DEFAULT_SORT;
 
-  useEffect(() => {
-    if (!remoteSearch || !hasCriteria) return;
-
-    const seq = ++requestSeq.current;
-
-    const timer = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const response = await fetch(`/api/products/search?${queryString}`);
-        const payload = await response.json();
-        if (seq !== requestSeq.current) return;
-        setRemoteProducts(Array.isArray(payload.products) ? payload.products : []);
-        setRemoteTotal(typeof payload.total === "number" ? payload.total : null);
-        setPage(0);
-      } catch {
-        if (seq !== requestSeq.current) return;
-        setRemoteProducts([]);
-        setRemoteTotal(0);
-      } finally {
-        if (seq === requestSeq.current) setIsSearching(false);
-      }
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => clearTimeout(timer);
-  }, [remoteSearch, hasCriteria, queryString]);
-
-  /** Trae la página siguiente y la agrega a lo que ya se ve. */
-  async function loadMore() {
-    if (!remoteSearch || isLoadingMore) return;
-    const nextPage = page + 1;
-    setIsLoadingMore(true);
-
-    try {
-      const params = new URLSearchParams(queryString);
-      params.set("offset", String(nextPage * PAGE_SIZE));
-      const response = await fetch(`/api/products/search?${params}`);
-      const payload = await response.json();
-      const incoming: Product[] = Array.isArray(payload.products) ? payload.products : [];
-
-      setRemoteProducts((current) => [...(current ?? initialProducts), ...incoming]);
-      if (typeof payload.total === "number") setRemoteTotal(payload.total);
-      setPage(nextPage);
-    } catch {
-      // Un fallo al pedir más no debe borrar lo que ya se está viendo.
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }
+  const feed = useCatalogFeed({
+    enabled: remoteSearch,
+    queryString,
+    isDefaultQuery,
+    initialProducts,
+    initialTotal: totalResults ?? initialProducts.length,
+  });
 
   const visibleProducts = useMemo(() => {
-    // Con resultados del servidor el filtrado ya vino aplicado; solo se ordena
-    // en el cliente para que cambiar el orden se sienta instantáneo. Los
-    // resultados remotos solo cuentan mientras haya criterios: al limpiar se
-    // vuelve al lote inicial sin esperar a ningún efecto.
-    if (remoteSearch && hasCriteria && remoteProducts !== null) {
-      return sortProducts(remoteProducts, sort);
-    }
+    // Con catálogo real el servidor ya filtró Y ordenó sobre los miles de
+    // artículos: reordenar acá sólo reordenaría la parte cargada, que es
+    // justamente la mentira que se quería evitar. Sin API sí se filtra y ordena
+    // en memoria, que es todo lo que hay (fixture y pruebas).
+    if (remoteSearch) return feed.products;
     return sortProducts(filterProducts(initialProducts, { query, store, category }), sort);
-  }, [remoteSearch, hasCriteria, remoteProducts, initialProducts, query, store, category, sort]);
+  }, [remoteSearch, feed.products, initialProducts, query, store, category, sort]);
 
   const shownCount = visibleProducts.length;
-  const totalCount =
-    remoteSearch && hasCriteria && remoteTotal !== null ? remoteTotal : (totalResults ?? shownCount);
-  const canLoadMore = remoteSearch && shownCount < totalCount;
+  const totalCount = remoteSearch ? feed.total : shownCount;
+  const isSearching = feed.isSearching;
 
   const hasActiveFilters = store !== undefined || category !== undefined || activeExtraFilters > 0;
 
@@ -514,19 +475,20 @@ export function ProductSearchApp({
           <span
             aria-hidden="true"
             className={`h-1.5 w-1.5 rounded-full transition-opacity duration-[var(--dur-base)] ${
-              isSearching && hasCriteria ? "bg-[var(--accent)] opacity-100" : "opacity-0"
+              isSearching ? "bg-[var(--accent)] opacity-100" : "opacity-0"
             }`}
             style={
-              isSearching && hasCriteria
+              isSearching
                 ? { animation: "fyp-pulse 1.1s var(--ease-in-out-expo) infinite" }
                 : undefined
             }
           />
-          {/* Con paginación se dice cuántos se ven del total: "60 de 858" evita
-              creer que el catálogo se acabó al llegar al final de la página. */}
+          {/* Con la lista creciendo sola, esta cifra es lo único que dice dónde
+              estás: "96 de 29 753" mientras queden por traer, y el total a secas
+              cuando ya no. */}
           {isComparing
             ? ""
-            : canLoadMore
+            : feed.hasMore
               ? `${numberFormat.format(shownCount)} ${t("ofLabel")} ${numberFormat.format(totalCount)} ${resultsLabel}`
               : `${numberFormat.format(totalCount)} ${resultsLabel}`}
         </p>
@@ -570,30 +532,50 @@ export function ProductSearchApp({
           density={view.density}
           productHref={productHref}
           label={t("resultsListLabel")}
-          emptyMessage={t("noResultsMessage")}
+          /* Una búsqueda que falló no es una búsqueda sin resultados: decir
+             "no hay productos" cuando lo que pasó es que se cayó la red manda a
+             la gente a cambiar los filtros para arreglar algo que no está roto
+             ahí. El pie de la lista ofrece el reintento. */
+          emptyMessage={
+            feed.hasError && shownCount === 0 ? t("searchErrorLabel") : t("noResultsMessage")
+          }
           viewLargerImageLabel={t("viewLargerImageLabel")}
           closeImageLabel={t("closeImageLabel")}
           compareLabels={compareToggleLabels}
         />
       )}
 
-      {!isComparing && canLoadMore && (
-        <div className="flex justify-center pt-2">
-          <button
-            type="button"
-            onClick={loadMore}
-            disabled={isLoadingMore}
-            className="rounded-full border border-[var(--border-strong)] px-6 py-2.5 text-[0.875rem] font-medium text-[var(--text)] outline-none transition-[background-color,transform] duration-[var(--dur-base)] ease-[var(--ease-spring)] hover:bg-[var(--bg-subtle)] active:scale-[0.98] disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
-          >
-            {isLoadingMore ? `${t("loadingLabel")}…` : t("loadMoreLabel")}
-          </button>
-        </div>
+      {!isComparing && remoteSearch && (
+        <CatalogFeedFooter
+          sentinelRef={feed.sentinelRef}
+          hasMore={feed.hasMore}
+          isAutoPaused={feed.isAutoPaused}
+          isLoadingMore={feed.isLoadingMore}
+          hasError={feed.hasError}
+          hasProducts={shownCount > 0}
+          onLoadMore={feed.loadMore}
+          labels={{
+            loadingMore: t("loadingMoreLabel"),
+            loadMore: t("loadMoreLabel"),
+            error: t("feedErrorLabel"),
+            retry: t("retryLabel"),
+            allShown: t("allResultsShownLabel"),
+          }}
+        />
       )}
 
       {/* La barra tapa el final de la lista mientras hay algo apartado. Este
           espacio de reserva evita que el último producto quede debajo de ella y
-          haya que adivinar que existe. */}
-      {tray.count > 0 && <div aria-hidden="true" className="h-24" />}
+          haya que adivinar que existe.
+
+          Toma el alto real que la barra publica en lugar de repetir un número
+          a mano: eran dos constantes distintas (6rem acá, 5.25rem allá) para
+          una sola medida, y ninguna de las dos coincidía con lo que la barra
+          mide de verdad en teléfono. El respaldo cubre el primer pintado,
+          antes de que la barra alcance a medirse. */}
+      {tray.count > 0 && (
+        <div aria-hidden="true" style={{ height: "var(--fyp-dock, 5.5rem)" }} />
+      )}
 
       <CompareTrayDock
         items={tray.items}

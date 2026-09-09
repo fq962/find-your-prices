@@ -64,9 +64,11 @@ export function ProductCard({
   return (
     <div className="group relative flex items-center gap-4 px-3 py-5 transition-colors duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:bg-[var(--bg-subtle)] sm:gap-6 sm:px-4">
       {/* El porcentaje se ancla a la miniatura, no al precio: es la señal que
-          hace que el ojo se detenga al recorrer la lista. */}
+          hace que el ojo se detenga al recorrer la lista. Va en el verde de
+          "precio ganador" y no en el azul de la interfaz: es un hallazgo del
+          catálogo, no algo que se pueda pulsar. */}
       {hasDiscount && discountPercent !== undefined && (
-        <span className="pointer-events-none absolute top-3 left-1 z-10 rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[0.6875rem] font-semibold tabular-nums text-[var(--accent-contrast)] shadow-[var(--shadow-sm)] sm:left-2">
+        <span className="pointer-events-none absolute top-3 left-1 z-10 rounded-full bg-[var(--price-win)] px-1.5 py-0.5 text-[0.6875rem] font-semibold tabular-nums text-[var(--price-win-contrast)] shadow-[var(--shadow-sm)] sm:left-2">
           -{Math.round(discountPercent)}%
         </span>
       )}

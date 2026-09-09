@@ -28,8 +28,12 @@ export interface ProductTileProps {
  * Jerarquía deliberada (una sola cosa domina): la imagen ocupa la mayor parte
  * del bloque, el precio es el único texto en peso fuerte, y marca, tienda y
  * disponibilidad quedan en gris pequeño. El descuento es el único elemento con
- * color de acento: es lo que hace que el ojo se detenga al barrer la
- * cuadrícula.
+ * color fuerte: es lo que hace que el ojo se detenga al barrer la cuadrícula.
+ *
+ * Ese color es el verde de "precio ganador", no el azul de la interfaz. El azul
+ * dice "esto se puede pulsar" —enlaces, foco, limpiar filtros— y gastarlo
+ * también en el descuento obligaba a mirar dos veces para saber cuál de los dos
+ * azules de la ficha era la ganga.
  */
 export function ProductTile({
   product,
@@ -100,16 +104,21 @@ export function ProductTile({
           )}
 
           {hasDiscount && discountPercent !== undefined && (
-            <span className="absolute top-2.5 left-2.5 rounded-full bg-[var(--accent)] px-2 py-0.5 text-[0.6875rem] font-semibold tabular-nums text-[var(--accent-contrast)]">
+            <span className="absolute top-2.5 left-2.5 rounded-full bg-[var(--price-win)] px-2 py-0.5 text-[0.6875rem] font-semibold tabular-nums text-[var(--price-win-contrast)]">
               -{Math.round(discountPercent)}%
             </span>
           )}
 
           {/* Abajo a la izquierda: arriba a la derecha es ahora el sitio del
             control de comparar, y dos elementos en la misma esquina se pisan
-            en las densidades compactas. */}
+            en las densidades compactas.
+
+            "Agotado" es un estado, y en gris se leía igual que la marca o la
+            tienda: información de fondo. Teñido se ve sin buscarlo, que es lo
+            que necesita quien recorre la cuadrícula para no abrir una ficha
+            que no puede comprar. */}
           {inStock === false && (
-            <span className="absolute bottom-2.5 left-2.5 rounded-full bg-[var(--bg)]/90 px-2 py-0.5 text-[0.6875rem] font-medium text-[var(--text-secondary)] backdrop-blur-sm">
+            <span className="absolute bottom-2.5 left-2.5 rounded-full bg-[var(--critical-soft)] px-2 py-0.5 text-[0.6875rem] font-medium text-[var(--critical)] backdrop-blur-sm">
               {availability ?? "Agotado"}
             </span>
           )}

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { BackToTop } from "@/components/shared/BackToTop";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteNav } from "@/components/layout/SiteNav";
 import { LocaleProvider } from "@/features/i18n/LocaleContext";
@@ -12,6 +13,15 @@ import { ThemeProvider } from "@/features/theme/ThemeProvider";
  * y cada copia era una oportunidad de que una página se quedara sin
  * `ThemeProvider` y parpadeara en blanco al cargar.
  */
+/**
+ * El botón de volver arriba está fuera del proveedor de idioma —lo monta el
+ * mismo componente que lo instala—, así que su texto se resuelve acá.
+ */
+const BACK_TO_TOP: Record<Locale, string> = {
+  es: "Volver arriba",
+  en: "Back to top",
+};
+
 export interface PageLayoutProps {
   locale: Locale;
   /**
@@ -31,6 +41,9 @@ export function PageLayout({ locale, localePaths, children }: PageLayoutProps) {
           <SiteNav localePaths={localePaths} />
           <main className="flex-1">{children}</main>
           <SiteFooter />
+          {/* Vive acá y no en el catálogo porque las páginas de texto también
+              son largas, y el botón se esconde solo donde no hace falta. */}
+          <BackToTop label={BACK_TO_TOP[locale]} />
         </div>
       </LocaleProvider>
     </ThemeProvider>

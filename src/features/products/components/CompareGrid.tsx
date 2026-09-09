@@ -271,7 +271,7 @@ function CompareRow({
               {formatPrice(price, currency, locale)}
             </span>
             {hasDiscount && discountPercent !== undefined && (
-              <span className="text-[0.6875rem] font-semibold tabular-nums text-[var(--accent)]">
+              <span className="text-[0.6875rem] font-semibold tabular-nums text-[var(--price-win)]">
                 -{Math.round(discountPercent)}%
               </span>
             )}
@@ -279,13 +279,17 @@ function CompareRow({
 
           {(isBestPrice || inStock === false) && (
             <div className="flex flex-wrap items-center gap-1 pt-0.5">
+              {/* Esta es la respuesta que la vista de comparar vino a dar, así
+                  que lleva el color del hallazgo y no el de la interfaz: entre
+                  cuatro columnas del mismo gris, la ganadora se encuentra sin
+                  leer las cuatro. */}
               {isBestPrice && (
-                <span className="rounded-full bg-[var(--accent-soft)] px-1.5 py-0.5 text-[0.625rem] font-semibold tracking-[0.02em] text-[var(--accent)] uppercase">
+                <span className="rounded-full bg-[var(--price-win-soft)] px-1.5 py-0.5 text-[0.625rem] font-semibold tracking-[0.02em] text-[var(--price-win)] uppercase">
                   {t("compareBestPriceLabel")}
                 </span>
               )}
               {inStock === false && product.availability && (
-                <span className="text-[0.6875rem] text-[var(--text-tertiary)]">
+                <span className="text-[0.6875rem] text-[var(--critical)]">
                   {product.availability}
                 </span>
               )}

@@ -60,9 +60,7 @@ export function HomeView({ locale, catalog: snapshot }: HomeViewProps) {
           <Hero />
         </div>
 
-        {/* La herramienta usa el mismo ancho que el resto de la página:
-                antes vivía en una columna de 48rem y en pantalla grande el
-                catálogo quedaba encajonado entre dos franjas vacías. */}
+        {/* La herramienta comparte el ancho del resto de la página. */}
         <div className={SHELL}>
           <ProductSearchApp
             initialProducts={products}
@@ -74,9 +72,10 @@ export function HomeView({ locale, catalog: snapshot }: HomeViewProps) {
               max: snapshot.facets.maxPrice,
             }}
             totalResults={usingRealCatalog ? snapshot.total : products.length}
-            /* Con catálogo real la búsqueda va al servidor: filtrar en el
-                   navegador solo encontraría entre los 90 artículos servidos y
-                   el visitante creería que el resto no existe. */
+            /* Con catálogo real la búsqueda, el orden y la paginación van al
+               servidor: filtrar en el navegador sólo encontraría dentro del
+               primer lote servido y el visitante creería que el resto no
+               existe. */
             remoteSearch={usingRealCatalog}
             locale={locale}
           />
