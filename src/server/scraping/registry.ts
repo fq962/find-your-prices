@@ -4,6 +4,7 @@ import { ladyleeStrategy } from './strategies/ladylee';
 import { jetstereoStrategy } from './strategies/jetstereo';
 import { radioshackStrategy } from './strategies/radioshack';
 import { acosaStrategy } from './strategies/acosa';
+import { sterenStrategy } from './strategies/steren';
 
 /**
  * Registro de estrategias.
@@ -21,6 +22,7 @@ const STRATEGIES: ScrapeStrategy[] = [
   jetstereoStrategy,
   radioshackStrategy,
   acosaStrategy,
+  sterenStrategy,
   // Proximas: lacuracao, supermercados...
 ];
 
