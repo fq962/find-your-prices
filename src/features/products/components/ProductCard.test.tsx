@@ -45,7 +45,7 @@
 // fixture.
 
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { Product } from "@/types";
 import { formatPrice } from "@/lib/format";
 import { ProductCard } from "./ProductCard";
@@ -255,5 +255,83 @@ describe("ProductCard", () => {
     ]);
 
     expect(leftover).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Endurecimiento — el catálogo lo llena un scraper sobre cinco tiendas, así
+// que cada campo de `Product` es texto de terceros. Estas pruebas fijan qué
+// hace la fila cuando ese texto no es el que se esperaba.
+// ---------------------------------------------------------------------------
+
+describe("ProductCard — datos reales del scraping", () => {
+  it("no enlaza a un esquema peligroso: un `javascript:` en product.url deja el nombre como texto", () => {
+    const product = makeProduct({
+      name: "Licuadora",
+      url: "javascript:alert(document.cookie)",
+    });
+
+    render(<ProductCard product={product} />);
+
+    expect(screen.getByRole("heading", { level: 3, name: "Licuadora" })).toBeInTheDocument();
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("no enlaza a `data:` ni a esquemas desconocidos", () => {
+    for (const url of ["data:text/html,<script>1</script>", "vbscript:msgbox", "  "]) {
+      const { unmount } = render(<ProductCard product={makeProduct({ url })} />);
+      expect(screen.queryByRole("link")).toBeNull();
+      unmount();
+    }
+  });
+
+  it("sigue enlazando lo normal: http, https y las rutas internas", () => {
+    for (const url of ["https://diunsa.hn/p/1", "http://acosa.hn/p/2"]) {
+      const { unmount } = render(<ProductCard product={makeProduct({ url })} />);
+      expect(screen.getByRole("link")).toHaveAttribute("href", url);
+      unmount();
+    }
+
+    render(<ProductCard product={makeProduct({ url: undefined })} href="/es/producto/abc" />);
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/es/producto/abc");
+  });
+
+  it("una imagen que no carga cae en la marca de 'sin foto', no en el icono de rota del navegador", () => {
+    const product = makeProduct({ imageUrl: "https://cdn.example.com/se-cayo.jpg" });
+
+    const { container } = render(<ProductCard product={product} />);
+    const image = screen.getByAltText("Wireless Mouse");
+    expect(image).toBeInTheDocument();
+
+    fireEvent.error(image);
+
+    // Mismo contrato que un producto sin imagen: ningún <img> en el DOM.
+    expect(container.querySelector("img")).toBeNull();
+    expect(screen.queryByAltText("Wireless Mouse")).toBeNull();
+  });
+
+  it("no anuncia '-0%': un descuento que redondea a cero no lleva insignia", () => {
+    const product = makeProduct({ price: 99.6, listPrice: 100, discountPercent: 0.4 });
+
+    render(<ProductCard product={product} />);
+
+    expect(screen.queryByText(/-0\s*%/)).toBeNull();
+    // El precio tachado sí se mantiene: el ahorro existe, sólo no merece marca.
+    expect(screen.getByText(formatPrice(100, "USD"))).toBeInTheDocument();
+  });
+
+  it("descarta un porcentaje que no es creíble en vez de pintarlo", () => {
+    const product = makeProduct({ price: 1, listPrice: 100, discountPercent: 1200 });
+
+    render(<ProductCard product={product} />);
+
+    expect(screen.queryByText(/1200\s*%/)).toBeNull();
+  });
+
+  it("una moneda que Intl no admite no tumba la fila", () => {
+    const product = makeProduct({ price: 1299, currency: "L", name: "Cafetera" });
+
+    expect(() => render(<ProductCard product={product} locale="es-HN" />)).not.toThrow();
+    expect(screen.getByRole("heading", { level: 3, name: "Cafetera" })).toBeInTheDocument();
   });
 });

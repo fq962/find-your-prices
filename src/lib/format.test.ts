@@ -31,3 +31,40 @@ describe("discountPercent", () => {
     expect(discountPercent(0, 50)).toBe(0);
   });
 });
+
+// Endurecimiento — la moneda la pone cada tienda vía scraping
+// (`item.prices?.currency_code || store.default_currency`), así que llega
+// texto libre. `Intl.NumberFormat` no devuelve un error con esos valores:
+// lanza un `RangeError`. Y como el precio se pinta dentro de un componente
+// cliente, ese throw desmontaba el árbol entero y dejaba el catálogo en
+// blanco. Estas pruebas fijan que formatPrice NUNCA lance.
+describe("formatPrice — datos que vienen de las tiendas", () => {
+  const NOT_ISO = ["L", "L.", "Lempiras", "", "   ", "12", "HNLL"];
+
+  test.each(NOT_ISO)("no lanza con la moneda %j y muestra el importe", (currency) => {
+    expect(() => formatPrice(1299, currency, "es-HN")).not.toThrow();
+    expect(formatPrice(1299, currency, "es-HN")).toContain("1,299.00");
+  });
+
+  test("conserva el código tal como llegó cuando no es ISO", () => {
+    expect(formatPrice(1299, "L", "es-HN")).toBe("L 1,299.00");
+  });
+
+  test("sin código no inventa ninguno", () => {
+    expect(formatPrice(1299, "", "es-HN")).toBe("1,299.00");
+  });
+
+  test("no lanza con un locale mal formado", () => {
+    expect(() => formatPrice(1299, "HNL", "es_HN")).not.toThrow();
+    expect(() => formatPrice(1299, "L", "es_HN")).not.toThrow();
+  });
+
+  test("un importe que no es un número se muestra como cero, no como 'NaN'", () => {
+    expect(formatPrice(Number.NaN, "HNL", "es-HN")).not.toContain("NaN");
+    expect(formatPrice(Number.POSITIVE_INFINITY, "L", "es-HN")).not.toContain("∞");
+  });
+
+  test("una moneda ISO en minúsculas sigue funcionando", () => {
+    expect(formatPrice(1299, "hnl", "es-HN")).toBe(formatPrice(1299, "HNL", "es-HN"));
+  });
+});
