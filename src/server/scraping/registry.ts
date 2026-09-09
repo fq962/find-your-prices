@@ -1,6 +1,7 @@
 import type { ScrapeStrategy } from './types';
 import { diunsaStrategy } from './strategies/diunsa';
 import { ladyleeStrategy } from './strategies/ladylee';
+import { jetstereoStrategy } from './strategies/jetstereo';
 
 /**
  * Registro de estrategias.
@@ -15,7 +16,8 @@ import { ladyleeStrategy } from './strategies/ladylee';
 const STRATEGIES: ScrapeStrategy[] = [
   diunsaStrategy,
   ladyleeStrategy,
-  // Proximas: radioshack, lacuracao, jetstereo, supermercados...
+  jetstereoStrategy,
+  // Proximas: radioshack, lacuracao, supermercados...
 ];
 
 const byKey = new Map(STRATEGIES.map((strategy) => [strategy.key, strategy]));
