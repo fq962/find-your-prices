@@ -53,13 +53,38 @@ grep -c "PALABRA-DE-UN-PRODUCTO-QUE-VISTE-EN-EL-NAVEGADOR" /tmp/live.html
 
 | Resultado | Qué significa | Qué hacer |
 |---|---|---|
-| Aparece con conteos altos | SSR real | Estrategia HTML. Podés parsear. |
+| Aparece con conteos altos | SSR real | **Todavía no parsees.** Mirá primero si la plataforma publica JSON. |
 | Aparece 0 o 1 vez | SPA (React/Angular/Vue) | **Buscá la API.** Sigue abajo. |
 | Aparece dentro de un `<script>` JSON | Estado hidratado | Extraé ese JSON, no el DOM. Es lo más estable. |
 
 Para el tercer caso, buscá estos marcadores en el HTML: `__NEXT_DATA__` (Next.js),
 `__NUXT__` (Nuxt), `__STATE__` / `__RUNTIME__` (VTEX, muy común en retail
 latinoamericano), `ng-state` (Angular), `window.__INITIAL_STATE__`.
+
+### Que el HTML traiga los productos no significa que haya que parsearlo
+
+Ladylee es el caso opuesto a Diunsa y enseña la otra mitad de la lección: su
+HTML **sí** trae las 30 tarjetas de la categoría, así que el diagnóstico de
+arriba diría "podés parsear". Sería un error. Corre sobre **Shopify**, y
+Shopify publica el mismo catálogo como JSON sin autenticación:
+
+```bash
+# Si el HTML menciona "Shopify" o "ShopifyAnalytics", probá esto ANTES de parsear:
+curl -s "https://LA-TIENDA/collections/UNA-CATEGORIA/products.json?limit=250&page=1" | head -c 400
+curl -s "https://LA-TIENDA/collections/UNA-CATEGORIA.json"   # ficha de la colección
+```
+
+La regla general: **identificá la plataforma antes de decidir**. Casi todas
+tienen una puerta de datos documentada, y siempre es mejor que el DOM porque no
+se rompe cuando cambian el tema.
+
+| Marcador en el HTML | Plataforma | Puerta de datos |
+|---|---|---|
+| `Shopify`, `ShopifyAnalytics`, `cdn.shopify.com` | Shopify | `/collections/{handle}/products.json?limit=250&page=N` |
+| `__STATE__`, `vtex-` | VTEX | `/api/catalog_system/pub/products/search` |
+| `Mage.Cookies`, `/static/version` | Magento | `/rest/V1/products` |
+| `wp-content`, `woocommerce` | WooCommerce | `/wp-json/wc/store/products` |
+| `__NEXT_DATA__` | Next.js | El propio JSON embebido |
 
 ### Encontrar la API escondida
 
@@ -397,6 +422,37 @@ primera corrida contra 6 s la segunda**.
 | `markDelisted` en un target de categoría | Se da de baja el resto de la tienda | Solo en `full_catalog`, y solo sin errores |
 | `Number(param) \|\| default` | Un `0` explícito se convierte en el default | Comprobar `null`/`''` aparte |
 | Fechas sin `timeZone` fija | Falla de hidratación en React | `timeZone` explícito en `toLocaleString` |
+| `texto.slice(0, N)` sobre descripciones | `Empty or invalid json` al ingerir, siempre en el mismo lote | Cortá por caracteres, no por unidades UTF-16. Ver abajo. |
+| Cortar la paginación por el total que declara la tienda | Barrido incompleto o bucle de más | Verificá el total contra lo entregado. Shopify declara 11 837 en Ladylee y entrega 6 462: cuenta artículos sin publicar. |
+| `full_catalog` que no cubre todo el catálogo | `markDelisted` da de baja productos vivos | Si el barrido queda incompleto, devolvé un error no fatal: el runner ya se salta el delisting cuando `errors` no está vacío. |
+
+### El corte que parte un emoji por la mitad
+
+Vale la pena detallarlo porque el síntoma no señala la causa por ningún lado.
+
+Ladylee escribe emojis en sus descripciones. Un `🏖` ocupa **dos** unidades
+UTF-16, y `slice(0, 300)` corta por unidad: si el límite cae justo en medio,
+queda la mitad alta suelta (`\uD83C`). JavaScript la acepta sin quejarse y
+`JSON.stringify` la escribe como `\ud83c`, pero **Postgres rechaza ese escape**
+al construir el `jsonb`. PostgREST responde entonces sin cuerpo y supabase-js
+informa:
+
+```
+Fallo la ingesta del lote 500-750: Empty or invalid json
+```
+
+Ese mensaje no nombra el campo ni el artículo, y como el error corta la corrida
+entera, todos los lotes siguientes se pierden. Se ve idéntico a un problema de
+red o de tamaño de lote, y no lo es: es **determinista**, siempre el mismo lote.
+
+Cómo aislarlo si te vuelve a pasar: bisecá el lote llamando al RPC con mitades
+hasta quedarte con un artículo, y después bisecá **por campo** quitando uno a la
+vez. En este caso el culpable resultó `short_description`.
+
+La regla: cualquier recorte de texto libre se hace por caracteres reales
+(`Array.from(texto)`) y el resultado se sanea contra mitades sueltas. Está
+resuelto en `truncate` y `stripLoneSurrogates` de
+[`strategies/ladylee.ts`](./strategies/ladylee.ts); reusalos.
 
 ---
 
@@ -405,7 +461,8 @@ primera corrida contra 6 s la segunda**.
 | Necesitás… | Andá a |
 |---|---|
 | El contrato completo | [`types.ts`](./types.ts) |
-| Un ejemplo terminado | [`strategies/diunsa.ts`](./strategies/diunsa.ts) |
+| Un ejemplo terminado (SPA + API privada) | [`strategies/diunsa.ts`](./strategies/diunsa.ts) |
+| Un ejemplo terminado (Shopify + catálogo por categorías) | [`strategies/ladylee.ts`](./strategies/ladylee.ts) |
 | Cómo se orquesta una corrida | [`runner.ts`](./runner.ts) |
 | El cliente HTTP | [`http.ts`](./http.ts) |
 | Cómo se escribe en la base | [`repository.ts`](./repository.ts) |
