@@ -3,6 +3,9 @@ import { Instrument_Serif, Space_Grotesk } from "next/font/google";
 import { THEME_STORAGE_KEY } from "@/features/theme/themeStorage";
 import type { Locale } from "@/features/i18n/translate";
 
+/** Client id de AdSense (ca-pub-...), no un secreto: va en html publico. */
+const ADSENSE_CLIENT_ID = "ca-pub-4061396045570252";
+
 /** Display y UI: geométrica, con carácter propio en la 'g', la 'a' y los números. */
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-display",
@@ -50,6 +53,16 @@ export function RootDocument({ locale, children }: RootDocumentProps) {
       {/* eslint-disable-next-line @next/next/no-head-element */}
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* Etiqueta <script> literal (no next/script): el verificador de
+            AdSense lee el html crudo del servidor sin ejecutar JS, y
+            next/script con "beforeInteractive" solo deja un <link rel=preload>
+            en ese html (el <script> real lo inserta client-side antes de
+            hidratar), lo que el verificador no detecta. */}
+        <script
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
+          crossOrigin="anonymous"
+        />
       </head>
       <body className="flex min-h-full flex-col bg-[var(--bg)] font-sans text-[var(--text)]">
         {children}
