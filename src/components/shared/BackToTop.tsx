@@ -61,9 +61,12 @@ export function BackToTop({ label }: BackToTopProps) {
       title={label}
       /* El desplazamiento se mide desde el borde inferior, pero abajo puede
          haber dos cosas: el área de gestos del teléfono y la barra de la
-         bandeja de comparación, que publica su alto en `--fyp-dock`. */
+         bandeja de comparación, que publica su alto medido en `--fyp-dock`.
+         `max` y no una suma: ese alto medido YA incluye el área segura, así
+         que sumarlas dejaría el botón flotando el doble de arriba cuando hay
+         algo apartado. Sin barra queda el área segura sola. */
       style={{
-        bottom: "calc(1.25rem + var(--fyp-dock, 0px) + env(safe-area-inset-bottom))",
+        bottom: "calc(1.25rem + max(var(--fyp-dock, 0px), env(safe-area-inset-bottom)))",
         animation: "fyp-scale-in 320ms var(--ease-out-expo) both",
       }}
       className="fixed right-4 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--glass)] text-[var(--text-secondary)] shadow-[var(--shadow-md)] backdrop-blur-xl outline-none transition-[color,border-color,transform] duration-[var(--dur-base)] ease-[var(--ease-spring)] hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:text-[var(--text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] sm:right-6"

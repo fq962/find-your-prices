@@ -61,7 +61,10 @@ export function CatalogFeedFooter({
 
       {hasError && (
         <div className="flex flex-col items-center gap-2.5">
-          <p className="text-[0.875rem] text-[var(--text-secondary)]">{labels.error}</p>
+          {/* Teñido y no gris: en gris, "no se pudo cargar" se leía como una
+              nota al pie más de la lista y no como lo que es —algo que salió
+              mal y que el botón de al lado puede reintentar—. */}
+          <p className="text-[0.875rem] text-[var(--critical)]">{labels.error}</p>
           <button
             type="button"
             onClick={onLoadMore}

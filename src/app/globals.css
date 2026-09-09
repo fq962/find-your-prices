@@ -18,16 +18,45 @@
 
   --text: #1d1d1f;
   --text-secondary: #56565b;
-  --text-tertiary: #86868b;
+  /* Era #86868b, que sobre el fondo más claro daba 3.5:1 y sobre el más
+     apagado 3.1:1 — por debajo del 4.5:1 que pide un texto pequeño, y este
+     token lleva la tienda, la marca, la calificación y el contador de
+     resultados. Es el valor más cercano al original que pasa en las cuatro
+     superficies (4.57:1 en la peor). */
+  --text-tertiary: #6a6a6f;
   --text-inverted: #fbfbfd;
 
   --border: rgb(0 0 0 / 0.08);
   --border-strong: rgb(0 0 0 / 0.16);
 
+  /* Azul = lo que se puede accionar. Enlaces, foco, "limpiar filtros", el
+     pulso de la búsqueda en vuelo. Nada más. */
   --accent: #0071e3;
   --accent-hover: #0077ed;
   --accent-soft: rgb(0 113 227 / 0.1);
   --accent-contrast: #ffffff;
+
+  /* ---------------------------------------------------------------------
+   * Color de contenido, no de interfaz
+   * ---------------------------------------------------------------------
+   * El sitio existe para responder "dónde está más barato". Ese hallazgo
+   * —el descuento, el precio ganador— venía pintado del mismo azul que los
+   * enlaces y el anillo de foco, así que al barrer una cuadrícula el ojo no
+   * podía separar "esto es una ganga" de "esto es cromo". Tienen su propio
+   * color desde acá.
+   *
+   * Verde profundo y de poca saturación, no el verde de tienda de descuentos:
+   * el mundo es frío y casi neutro, y un verde chillón lo rompería. En oscuro
+   * sube a menta porque el mismo verde profundo se apagaría contra el fondo.
+   * ------------------------------------------------------------------ */
+  --price-win: #146c43;
+  --price-win-soft: rgb(20 108 67 / 0.1);
+  --price-win-contrast: #ffffff;
+
+  /* Agotado y "no se pudo cargar": estado, y el estado nunca debe ser gris,
+     que es el color de lo secundario. */
+  --critical: #b3261e;
+  --critical-soft: rgb(179 38 30 / 0.1);
 
   --glass: rgb(251 251 253 / 0.72);
   --scrim: rgb(0 0 0 / 0.6);
@@ -61,7 +90,9 @@
 
   --text: #f5f5f7;
   --text-secondary: #a1a1a6;
-  --text-tertiary: #76767c;
+  /* Era #76767c: 4.4:1 contra el fondo de la página y 3.6:1 contra el de una
+     ficha. Mismo motivo y mismo criterio que en claro (4.54:1 en la peor). */
+  --text-tertiary: #87878d;
   --text-inverted: #0c0c0e;
 
   --border: rgb(255 255 255 / 0.09);
@@ -71,6 +102,13 @@
   --accent-hover: #4aa8ff;
   --accent-soft: rgb(41 151 255 / 0.14);
   --accent-contrast: #08080a;
+
+  --price-win: #34c98a;
+  --price-win-soft: rgb(52 201 138 / 0.14);
+  --price-win-contrast: #08080a;
+
+  --critical: #f98d86;
+  --critical-soft: rgb(249 141 134 / 0.14);
 
   --glass: rgb(10 10 12 / 0.7);
   --scrim: rgb(0 0 0 / 0.78);
@@ -96,6 +134,11 @@
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-accent-contrast: var(--accent-contrast);
+  --color-price-win: var(--price-win);
+  --color-price-win-soft: var(--price-win-soft);
+  --color-price-win-contrast: var(--price-win-contrast);
+  --color-critical: var(--critical);
+  --color-critical-soft: var(--critical-soft);
 
   --font-sans: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-editorial), ui-serif, Georgia, serif;
@@ -283,10 +326,12 @@ select option {
   }
 
   /* Dentro de la píldora del componente Select el contorno y la flecha los
-     dibuja el envoltorio, así que el control se queda sin caja propia. */
+     dibuja el envoltorio, así que el control se queda sin caja propia.
+     El relleno NO se toca acá: lo pone el propio componente para que el
+     select llene la píldora entera y todo lo que se ve sea zona de clic.
+     Esta regla va sin capa y le ganaría a la utilidad de Tailwind. */
   .fyp-select select {
     border: 0;
-    padding: 0;
     background: transparent;
     color: inherit;
     text-align: start;

@@ -566,8 +566,16 @@ export function ProductSearchApp({
 
       {/* La barra tapa el final de la lista mientras hay algo apartado. Este
           espacio de reserva evita que el último producto quede debajo de ella y
-          haya que adivinar que existe. */}
-      {tray.count > 0 && <div aria-hidden="true" className="h-24" />}
+          haya que adivinar que existe.
+
+          Toma el alto real que la barra publica en lugar de repetir un número
+          a mano: eran dos constantes distintas (6rem acá, 5.25rem allá) para
+          una sola medida, y ninguna de las dos coincidía con lo que la barra
+          mide de verdad en teléfono. El respaldo cubre el primer pintado,
+          antes de que la barra alcance a medirse. */}
+      {tray.count > 0 && (
+        <div aria-hidden="true" style={{ height: "var(--fyp-dock, 5.5rem)" }} />
+      )}
 
       <CompareTrayDock
         items={tray.items}

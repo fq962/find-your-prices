@@ -49,6 +49,9 @@ next-env.d.ts
 # automatica de fuentes de Tailwind escanee ese html y genere utilidades basura.
 /to-scrap/
 
+# Credenciales en texto plano: nunca al repo.
+/dotenv-para-claude.txt
+
 # Impeccable
 # Ajustes locales de Impeccable (consentimientos, preferencias de sesion).
 # El resto de .impeccable/ SI va al repo: es contexto compartido del proyecto.
