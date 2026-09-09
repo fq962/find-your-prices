@@ -11,11 +11,11 @@ import {
 /**
  * Contrato de `sortProducts` (módulo puro, hermano de `filterProducts`):
  *
- *   export type SortOption = "relevance" | "price-asc" | "price-desc" | "name-asc";
+ *   export type SortOption = "newest" | "relevance" | "price-asc" | "price-desc" | "name-asc";
  *   export function sortProducts(products: Product[], option?: SortOption): Product[];
  *
  *   - Devuelve siempre un array NUEVO; nunca muta el que recibe.
- *   - "relevance" (default) conserva el orden de entrada.
+ *   - "newest" (default) y "relevance" conservan el orden de entrada.
  *   - Los empates conservan el orden de entrada (sort estable).
  *   - El precio se compara como número: válido mientras todos los productos
  *     compartan moneda (ver el comentario del módulo).
@@ -71,9 +71,13 @@ describe("sortProducts — criterios", () => {
     expect(ids(sortProducts(CATALOG, "relevance"))).toEqual(["c", "a", "b"]);
   });
 
-  it("sin opción explícita se comporta como el default ('relevance')", () => {
-    expect(DEFAULT_SORT).toBe("relevance");
-    expect(ids(sortProducts(CATALOG))).toEqual(ids(sortProducts(CATALOG, "relevance")));
+  it("'newest' conserva el orden de entrada: la antigüedad la resuelve la consulta", () => {
+    expect(ids(sortProducts(CATALOG, "newest"))).toEqual(["c", "a", "b"]);
+  });
+
+  it("sin opción explícita se comporta como el default ('newest')", () => {
+    expect(DEFAULT_SORT).toBe("newest");
+    expect(ids(sortProducts(CATALOG))).toEqual(ids(sortProducts(CATALOG, "newest")));
   });
 
   it("'price-asc' ordena de menor a mayor precio", () => {

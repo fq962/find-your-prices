@@ -2,13 +2,26 @@
 
 import type { ReactNode, SelectHTMLAttributes } from "react";
 
-export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+/**
+ * `size` nativo del <select> (número de filas visibles) se descarta: acá el
+ * control siempre es de una línea, y el nombre se reutiliza para el alto de la
+ * píldora, que es la única variante que la interfaz necesita.
+ */
+export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "size"> {
   /**
    * Glifo que identifica el filtro. Es decorativo (`aria-hidden` en el
    * contenedor): el nombre accesible del control sigue viniendo de su
    * `aria-label`, así no se duplica al leerlo con lector de pantalla.
    */
   icon?: ReactNode;
+  /**
+   * Alto del control. `md` (48px) es la barra principal; `sm` (40px) es para
+   * controles subordinados —la cabecera de una columna de comparación—, donde
+   * la píldora grande competiría con el filtro que de verdad manda. Sigue por
+   * encima del mínimo táctil de 44px en su área real de toque gracias al
+   * padding del contenedor.
+   */
+  size?: "sm" | "md";
 }
 
 /**
@@ -18,9 +31,16 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
  * filtros que muestran "Todas" se distinguen por su glifo, sin gastar ancho
  * repitiendo la palabra que el valor elegido ya va a decir.
  */
-export function Select({ className = "", icon, children, ...props }: SelectProps) {
+export function Select({ className = "", icon, size = "md", children, ...props }: SelectProps) {
+  const shell = size === "sm" ? "h-10 pr-8 pl-3 text-[0.875rem]" : "h-12 pr-9 pl-4";
+
   return (
-    <div className="group relative flex h-12 items-center rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] pr-9 pl-4 shadow-[var(--shadow-sm)] transition-[border-color,box-shadow] duration-[var(--dur-base)] ease-[var(--ease-out-expo)] hover:border-[var(--border-strong)] focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_4px_var(--accent-soft)]">
+    /* `fyp-select` es el gancho del CSS que reescribe el menú desplegable en
+       Chromium 135+ (ver globals.css): sin él, el menú lo pinta el sistema
+       operativo y en Windows se ve fuera de sitio. */
+    <div
+      className={`fyp-select group relative flex items-center rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] shadow-[var(--shadow-sm)] transition-[border-color,box-shadow] duration-[var(--dur-base)] ease-[var(--ease-out-expo)] hover:border-[var(--border-strong)] focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_4px_var(--accent-soft)] ${shell}`}
+    >
       {icon && (
         <span
           aria-hidden="true"
@@ -31,7 +51,9 @@ export function Select({ className = "", icon, children, ...props }: SelectProps
       )}
       <select
         {...props}
-        className={`w-full cursor-pointer appearance-none truncate bg-transparent text-[0.95rem] tracking-[-0.01em] text-[var(--text)] outline-none focus-visible:outline-none ${className}`}
+        className={`w-full cursor-pointer appearance-none truncate bg-transparent tracking-[-0.01em] text-[var(--text)] outline-none focus-visible:outline-none ${
+          size === "sm" ? "text-[0.875rem]" : "text-[0.95rem]"
+        } ${className}`}
       >
         {children}
       </select>
@@ -43,7 +65,7 @@ export function Select({ className = "", icon, children, ...props }: SelectProps
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="pointer-events-none absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)] transition-transform duration-[var(--dur-base)] ease-[var(--ease-spring)] group-hover:translate-y-[calc(-50%+1px)]"
+        className="pointer-events-none absolute top-1/2 right-3.5 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)] transition-transform duration-[var(--dur-base)] ease-[var(--ease-spring)] group-hover:translate-y-[calc(-50%+1px)]"
       >
         <path d="m6 9 6 6 6-6" />
       </svg>

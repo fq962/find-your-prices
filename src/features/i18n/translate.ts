@@ -58,7 +58,18 @@ export type DictionaryKey =
   | "ofLabel"
   | "viewDetailLabel"
   | "productsLabel"
-  | "activeFiltersLabel";
+  | "activeFiltersLabel"
+  | "sortNewest"
+  | "viewCompare"
+  | "compareColumnsLabel"
+  | "compareStoreLabel"
+  | "compareChooseStoreLabel"
+  | "compareEmptyStateTitle"
+  | "compareEmptyStateBody"
+  | "compareNoResultsInStore"
+  | "compareBestPriceLabel"
+  | "compareCheapestColumnLabel"
+  | "compareFromLabel";
 
 export type Dictionary = Record<DictionaryKey, string>;
 

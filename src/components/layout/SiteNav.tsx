@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SHELL } from "@/components/layout/shell";
 import { useScrollProgress } from "@/hooks/useScrollProgress";
 import { LocaleSwitcher } from "@/features/i18n/LocaleSwitcher";
 import { useLocale } from "@/features/i18n/LocaleContext";
@@ -36,7 +37,7 @@ export function SiteNav() {
           : "border-b border-transparent"
       }`}
     >
-      <div className="mx-auto flex h-full w-full max-w-3xl items-center justify-between px-4 sm:px-6">
+      <div className={`${SHELL} flex h-full items-center justify-between`}>
         <svg
           aria-hidden="true"
           viewBox="0 0 24 24"

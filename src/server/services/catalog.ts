@@ -42,6 +42,17 @@ const COLUMNS =
   'store_category_name, currency, price, list_price, discount_percent, availability, ' +
   'in_stock, rating_average, rating_count';
 
+/**
+ * Columna con la fecha en que el artículo apareció por primera vez.
+ *
+ * La agrega la migración 0017 a `v_store_products_current`. Antes de aplicarla
+ * la vista no la expone y ordenar por ella devuelve error 42703; por eso
+ * `searchCatalog` reintenta con `last_seen_at`, que está en la vista desde el
+ * principio. Así "Recién agregados" degrada a "visto hace poco" en vez de
+ * dejar la home en blanco mientras la migración no corre.
+ */
+const NEWEST_COLUMN = 'first_seen_at';
+
 /** Etiquetas de disponibilidad por idioma. El componente solo pinta el texto. */
 const AVAILABILITY_LABELS: Record<'es' | 'en', Partial<Record<AvailabilityStatus, string>>> = {
   es: {
@@ -257,6 +268,7 @@ async function computeFacetsByScan(): Promise<CatalogFacets> {
 // -----------------------------------------------------------------------------
 
 export type CatalogSort =
+  | 'newest'
   | 'relevance'
   | 'price-asc'
   | 'price-desc'
@@ -293,6 +305,25 @@ export interface SearchCatalogResult {
  * resto no existe.
  */
 export async function searchCatalog(params: SearchCatalogParams): Promise<SearchCatalogResult> {
+  const result = await runCatalogQuery(params, NEWEST_COLUMN);
+
+  // Sin la migración 0017 la vista no tiene `first_seen_at` y la consulta falla
+  // entera. Se reintenta una vez con la columna que sí existe en vez de
+  // devolver un catálogo vacío que parecería una base sin datos.
+  if (result === null) {
+    return (await runCatalogQuery(params, 'last_seen_at')) ?? { products: [], total: 0 };
+  }
+  return result;
+}
+
+/**
+ * Una pasada de la consulta. Devuelve `null` —y solo `null`— cuando la columna
+ * de novedad no existe, que es la única condición que vale la pena reintentar.
+ */
+async function runCatalogQuery(
+  params: SearchCatalogParams,
+  newestColumn: string,
+): Promise<SearchCatalogResult | null> {
   const limit = Math.min(params.limit ?? 60, 200);
   const offset = Math.max(params.offset ?? 0, 0);
   const locale = params.locale ?? 'es';
@@ -326,6 +357,11 @@ export async function searchCatalog(params: SearchCatalogParams): Promise<Search
     if (params.onlyInStock) request = request.eq('in_stock', true);
 
     switch (params.sort) {
+      // Lo más nuevo primero. `nullsFirst: false` deja al final lo que no tiene
+      // fecha: un artículo sin registrar no es un artículo antiquísimo.
+      case 'newest':
+        request = request.order(newestColumn, { ascending: false, nullsFirst: false });
+        break;
       case 'price-asc':
         request = request.order('price', { ascending: true });
         break;
@@ -348,7 +384,14 @@ export async function searchCatalog(params: SearchCatalogParams): Promise<Search
     request = request.order('id', { ascending: true });
 
     const { data, error, count } = await request.range(offset, offset + limit - 1);
-    if (error) throw new Error(error.message);
+    if (error) {
+      // 42703 = undefined_column en Postgres. Es lo que responde PostgREST
+      // cuando se ordena por una columna que la vista todavía no publica.
+      const missingColumn =
+        error.code === '42703' || String(error.message).includes(newestColumn);
+      if (missingColumn && params.sort === 'newest') return null;
+      throw new Error(error.message);
+    }
 
     return {
       products: ((data ?? []) as unknown as CatalogRow[]).map((row) => toProduct(row, locale)),
@@ -374,9 +417,10 @@ const EMPTY_SNAPSHOT: CatalogSnapshot = {
 /**
  * Primer lote que ve el visitante, más las facetas.
  *
- * Se ordena por descuento: lo que más bajó de precio es lo que justifica que
- * exista un comparador. Los primeros N alfabéticamente no le dirían nada a
- * nadie.
+ * Se ordena por lo recién agregado, que es el mismo criterio por defecto del
+ * selector de orden: el primer lote y lo que devuelve la primera búsqueda
+ * tienen que estar ordenados igual, o cambiar de opinión sobre el orden
+ * parecería un fallo.
  */
 export async function getCatalogSnapshot(options?: {
   limit?: number;
@@ -385,7 +429,7 @@ export async function getCatalogSnapshot(options?: {
   try {
     const [listing, facets] = await Promise.all([
       searchCatalog({
-        sort: 'discount',
+        sort: 'newest',
         limit: options?.limit ?? 90,
         locale: options?.locale ?? 'es',
       }),

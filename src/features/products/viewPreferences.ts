@@ -10,7 +10,7 @@
  * visita sería obligarlo a repetir una decisión que ya tomó.
  */
 
-export const VIEW_MODES = ["list", "grid", "gallery"] as const;
+export const VIEW_MODES = ["list", "grid", "gallery", "compare"] as const;
 export type ViewMode = (typeof VIEW_MODES)[number];
 
 export const DENSITIES = ["compact", "cosy", "roomy"] as const;
@@ -19,15 +19,36 @@ export type Density = (typeof DENSITIES)[number];
 export const DEFAULT_VIEW_MODE: ViewMode = "list";
 export const DEFAULT_DENSITY: Density = "cosy";
 
+/**
+ * Cuántas tiendas se enfrentan a la vez en el modo comparar.
+ *
+ * El tope es cuatro y no es arbitrario: con cinco columnas el nombre de un
+ * producto baja de ~20 caracteres visibles en un portátil y comparar deja de
+ * ser leer para pasar a ser adivinar. Dos es el default porque comparar es, en
+ * la práctica, "esta tienda contra esta otra".
+ */
+export const MIN_COMPARE_COLUMNS = 2;
+export const MAX_COMPARE_COLUMNS = 4;
+export const DEFAULT_COMPARE_COLUMNS = 2;
+
 export interface ViewPreferences {
   mode: ViewMode;
   density: Density;
+  compareColumns: number;
 }
 
 export const DEFAULT_VIEW_PREFERENCES: ViewPreferences = {
   mode: DEFAULT_VIEW_MODE,
   density: DEFAULT_DENSITY,
+  compareColumns: DEFAULT_COMPARE_COLUMNS,
 };
+
+/** Recorta al rango publicado cualquier valor guardado o llegado de la UI. */
+export function clampCompareColumns(value: unknown): number {
+  const parsed = Math.round(Number(value));
+  if (!Number.isFinite(parsed)) return DEFAULT_COMPARE_COLUMNS;
+  return Math.min(Math.max(parsed, MIN_COMPARE_COLUMNS), MAX_COMPARE_COLUMNS);
+}
 
 const STORAGE_KEY = "fyp.catalog.view";
 
@@ -60,6 +81,7 @@ export function readViewPreferences(): ViewPreferences {
     return {
       mode: isViewMode(candidate.mode) ? candidate.mode : DEFAULT_VIEW_MODE,
       density: isDensity(candidate.density) ? candidate.density : DEFAULT_DENSITY,
+      compareColumns: clampCompareColumns(candidate.compareColumns),
     };
   } catch {
     return DEFAULT_VIEW_PREFERENCES;
@@ -137,27 +159,31 @@ export function getViewPreferencesServerSnapshot(): ViewPreferences {
  * Mobile-first y con saltos elegidos por el ancho mínimo legible de una
  * ficha, no por múltiplos redondos: en `grid` compacto una tarjeta baja de
  * ~150px y el nombre del producto deja de leerse.
+ *
+ * Los saltos `lg`/`xl` existen porque el catálogo dejó de vivir en una columna
+ * de lectura de 48rem: con el contenedor ancho, tres columnas en un monitor
+ * dejaban fichas de 400px de ancho con una foto diminuta en el medio.
  */
 export function gridClassesFor(mode: ViewMode, density: Density): string {
-  if (mode === "list") return "";
+  if (mode === "list" || mode === "compare") return "";
 
   if (mode === "gallery") {
     return {
-      compact: "grid grid-cols-1 gap-4 sm:grid-cols-2",
-      cosy: "grid grid-cols-1 gap-5 sm:grid-cols-2",
-      roomy: "grid grid-cols-1 gap-6",
+      compact: "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+      cosy: "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3",
+      roomy: "grid grid-cols-1 gap-6 lg:grid-cols-2",
     }[density];
   }
 
   return {
-    compact: "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4",
-    cosy: "grid grid-cols-2 gap-4 sm:grid-cols-3",
-    roomy: "grid grid-cols-1 gap-5 sm:grid-cols-2",
+    compact: "grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6",
+    cosy: "grid grid-cols-2 gap-4 sm:gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
+    roomy: "grid grid-cols-1 gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
   }[density];
 }
 
 /** Alto de la imagen en las vistas de ficha. */
-export function imageHeightFor(mode: ViewMode, density: Density): string {
+export function imageHeightFor(mode: Exclude<ViewMode, "list" | "compare">, density: Density): string {
   if (mode === "gallery") {
     return { compact: "h-52", cosy: "h-64", roomy: "h-80" }[density];
   }

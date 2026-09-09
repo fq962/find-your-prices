@@ -2,7 +2,6 @@ import type { CSSProperties } from "react";
 import type { Product } from "@/types";
 import {
   DEFAULT_DENSITY,
-  DEFAULT_VIEW_MODE,
   gridClassesFor,
   type Density,
   type ViewMode,
@@ -16,8 +15,12 @@ export interface ProductGridProps {
   emptyMessage?: string;
   viewLargerImageLabel?: string;
   closeImageLabel?: string;
-  /** Modo de presentación. Por defecto la lista, que es la vista de comparar. */
-  mode?: ViewMode;
+  /**
+   * Modo de presentación. Por defecto la lista. `compare` no entra acá: esa
+   * vista no es una retícula de productos sino una columna por tienda, y la
+   * resuelve `CompareGrid`.
+   */
+  mode?: Exclude<ViewMode, "compare">;
   density?: Density;
   /** Ruta de la ficha de cada producto. Sin esto no se enlaza al detalle. */
   productHref?: (product: Product) => string;
@@ -39,7 +42,7 @@ export function ProductGrid({
   emptyMessage,
   viewLargerImageLabel,
   closeImageLabel,
-  mode = DEFAULT_VIEW_MODE,
+  mode = "list",
   density = DEFAULT_DENSITY,
   productHref,
 }: ProductGridProps) {

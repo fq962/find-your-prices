@@ -1,3 +1,4 @@
+import { SHELL } from "@/components/layout/shell";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteNav } from "@/components/layout/SiteNav";
 import { LocaleProvider } from "@/features/i18n/LocaleContext";
@@ -60,11 +61,14 @@ export function HomeView({ locale, catalog: snapshot }: HomeViewProps) {
           <SiteNav />
 
           <main className="flex-1">
-            <div className="mx-auto w-full max-w-[68rem] px-4 sm:px-6">
+            <div className={SHELL}>
               <Hero />
             </div>
 
-            <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
+            {/* La herramienta usa el mismo ancho que el resto de la página:
+                antes vivía en una columna de 48rem y en pantalla grande el
+                catálogo quedaba encajonado entre dos franjas vacías. */}
+            <div className={SHELL}>
               <ProductSearchApp
                 initialProducts={products}
                 storeFacets={storeFacets}

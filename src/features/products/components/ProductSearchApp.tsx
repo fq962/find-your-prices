@@ -16,19 +16,24 @@ import { filterProducts, getFacets } from "@/features/products/filterProducts";
 import { productPath } from "@/features/products/productPath";
 import { DEFAULT_SORT, sortProducts, type SortOption } from "@/features/products/sortProducts";
 import {
+  clampCompareColumns,
   getViewPreferencesServerSnapshot,
   getViewPreferencesSnapshot,
+  MAX_COMPARE_COLUMNS,
   subscribeToViewPreferences,
   writeViewPreferences,
   type Density,
   type ViewMode,
 } from "@/features/products/viewPreferences";
+import { useStoreComparison } from "@/features/products/useStoreComparison";
 import { SearchBar } from "./SearchBar";
 import { StoreFilter } from "./StoreFilter";
 import { CategoryFilter } from "./CategoryFilter";
 import { SortFilter } from "./SortFilter";
 import { ProductGrid } from "./ProductGrid";
 import { CatalogControls } from "./CatalogControls";
+import { CompareBar } from "./CompareBar";
+import { CompareGrid } from "./CompareGrid";
 import {
   countActiveFilters,
   EMPTY_FILTER_STATE,
@@ -95,6 +100,17 @@ export function ProductSearchApp({
   const [sort, setSort] = useState<SortOption>(DEFAULT_SORT);
   const [filters, setFilters] = useState<CatalogFilterState>(EMPTY_FILTER_STATE);
   const [showFilters, setShowFilters] = useState(false);
+  /**
+   * Tienda de cada columna de comparación, por posición. Se guardan las cuatro
+   * aunque se vean menos: bajar de 4 a 2 columnas y volver a subir no debería
+   * borrar lo que ya se había elegido.
+   *
+   * `null` significa "nadie ha tocado esto todavía", que no es lo mismo que
+   * "las cuatro vacías": con `null` mandan las tiendas sembradas por defecto, y
+   * en cuanto se elige una vez el array pasa a ser la verdad, incluso si se
+   * deja alguna columna en blanco a propósito.
+   */
+  const [compareStores, setCompareStores] = useState<(string | undefined)[] | null>(null);
 
   const [remoteProducts, setRemoteProducts] = useState<Product[] | null>(null);
   const [remoteTotal, setRemoteTotal] = useState<number | null>(null);
@@ -113,11 +129,15 @@ export function ProductSearchApp({
   );
 
   const updateView = useCallback(
-    (next: { mode?: ViewMode; density?: Density }) => {
+    (next: { mode?: ViewMode; density?: Density; compareColumns?: number }) => {
       writeViewPreferences({ ...view, ...next });
     },
     [view],
   );
+
+  const isComparing = view.mode === "compare";
+  /** Modo que entiende la retícula: comparar no es uno de sus modos. */
+  const gridMode = view.mode === "compare" ? "list" : view.mode;
 
   // Sin locale explícito se deja que ProductCard use su default: es lo que
   // esperan las pruebas del componente, que lo montan sin idioma.
@@ -153,6 +173,68 @@ export function ProductSearchApp({
     () => Object.fromEntries((categoryFacets ?? []).map((facet) => [facet.value, facet.count])),
     [categoryFacets],
   );
+
+  // ---------------------------------------------------------------------------
+  // Comparación por tienda
+  // ---------------------------------------------------------------------------
+
+  const compareColumnCount = clampCompareColumns(view.compareColumns);
+
+  /**
+   * Selección efectiva de tiendas.
+   *
+   * Sin elección previa se siembra con las tiendas más grandes del catálogo
+   * (las facetas ya llegan ordenadas por cantidad). Abrir la vista en blanco y
+   * exigir dos decisiones antes de mostrar nada la haría parecer rota; con
+   * tiendas puestas se ve la forma de entrada y cambiarlas es un gesto, no un
+   * requisito. Se deriva en vez de sembrarse desde un efecto: un efecto que
+   * escribe estado en el primer render sólo agrega un render de más.
+   */
+  const seededCompareStores = useMemo(
+    () => compareStores ?? Array.from({ length: MAX_COMPARE_COLUMNS }, (_, i) => stores[i]),
+    [compareStores, stores],
+  );
+
+  /**
+   * Orden dentro de cada columna.
+   *
+   * "Recién agregados" y "Destacados" no significan nada enfrentados entre
+   * tiendas —cada una publica a su ritmo—, así que en esta vista se traducen a
+   * precio ascendente, que es la pregunta que la comparación viene a
+   * responder. Cualquier otro criterio elegido a mano se respeta tal cual.
+   */
+  const compareSort: SortOption = sort === "newest" || sort === "relevance" ? "price-asc" : sort;
+
+  /**
+   * Filtros comunes a todas las columnas. Va sin `store` a propósito: esa es
+   * justamente la variable que cambia de una columna a otra.
+   */
+  const compareBaseQuery = useMemo(() => {
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    if (category) params.set("category", category);
+    if (filters.brand) params.set("brand", filters.brand);
+    if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
+    if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
+    if (filters.onlyDiscounted) params.set("onlyDiscounted", "1");
+    if (filters.onlyInStock) params.set("onlyInStock", "1");
+    params.set("sort", compareSort);
+    if (locale) params.set("locale", locale);
+    return params.toString();
+  }, [query, category, filters, compareSort, locale]);
+
+  const visibleCompareStores = useMemo(
+    () => seededCompareStores.slice(0, compareColumnCount),
+    [seededCompareStores, compareColumnCount],
+  );
+
+  const comparisonColumns = useStoreComparison({
+    enabled: isComparing,
+    stores: visibleCompareStores,
+    baseQuery: compareBaseQuery,
+    remoteSearch,
+    localProducts: initialProducts,
+  });
 
   const activeExtraFilters = countActiveFilters(filters);
   const hasCriteria =
@@ -265,23 +347,36 @@ export function ProductSearchApp({
         className="enter sticky top-14 z-30 -mx-4 flex flex-col gap-2.5 bg-[var(--glass)] px-4 py-3 backdrop-blur-xl sm:mx-0 sm:rounded-2xl sm:border sm:border-[var(--border)] sm:px-3"
         style={{ "--enter-delay": "560ms" } as CSSProperties}
       >
-        <SearchBar onQueryChange={setQuery} />
+        {/* En teléfono la búsqueda ocupa su propia línea —es la acción
+            principal y necesita el ancho completo— y los selectores van debajo.
+            A partir de lg todo cabe en una línea: con el contenedor ancho, tres
+            selectores repartidos a lo largo de 1200px daban píldoras de 400px
+            para elegir entre "Todas" y un nombre de tienda. */}
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-3">
+          <div className="lg:min-w-0 lg:flex-1">
+            <SearchBar onQueryChange={setQuery} />
+          </div>
 
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-          <StoreFilter
-            stores={stores}
-            counts={storeCounts}
-            selectedStore={store}
-            onChange={setStore}
-          />
-          <CategoryFilter
-            categories={categories}
-            counts={categoryCounts}
-            selectedCategory={category}
-            onChange={setCategory}
-          />
-          <div className="col-span-2 sm:col-span-1">
-            <SortFilter selectedSort={sort} onChange={setSort} />
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:flex lg:shrink-0 lg:gap-3">
+            <div className="lg:w-[12.5rem]">
+              <StoreFilter
+                stores={stores}
+                counts={storeCounts}
+                selectedStore={store}
+                onChange={setStore}
+              />
+            </div>
+            <div className="lg:w-[12.5rem]">
+              <CategoryFilter
+                categories={categories}
+                counts={categoryCounts}
+                selectedCategory={category}
+                onChange={setCategory}
+              />
+            </div>
+            <div className="col-span-2 sm:col-span-1 lg:w-[14.5rem]">
+              <SortFilter selectedSort={sort} onChange={setSort} />
+            </div>
           </div>
         </div>
 
@@ -329,6 +424,7 @@ export function ProductSearchApp({
                 list: t("viewList"),
                 grid: t("viewGrid"),
                 gallery: t("viewGallery"),
+                compare: t("viewCompare"),
               },
               densities: {
                 compact: t("densityCompact"),
@@ -359,8 +455,23 @@ export function ProductSearchApp({
         />
       )}
 
+      {isComparing && (
+        <CompareBar
+          stores={stores}
+          columnCount={compareColumnCount}
+          onColumnCountChange={(count) => updateView({ compareColumns: count })}
+          selection={seededCompareStores}
+          onSelectionChange={(index, store) => {
+            const next = [...seededCompareStores];
+            next[index] = store;
+            setCompareStores(next);
+          }}
+        />
+      )}
+
       {/* Línea de estado: cuántos resultados hay y, sólo cuando hace falta, la
-          salida rápida de vuelta al catálogo completo. */}
+          salida rápida de vuelta al catálogo completo. En comparar no se pinta:
+          el total útil es el de cada columna, y va en su cabecera. */}
       <div className="flex min-h-8 items-center justify-between gap-4 px-1">
         <p
           aria-live="polite"
@@ -382,9 +493,11 @@ export function ProductSearchApp({
           />
           {/* Con paginación se dice cuántos se ven del total: "60 de 858" evita
               creer que el catálogo se acabó al llegar al final de la página. */}
-          {canLoadMore
-            ? `${numberFormat.format(shownCount)} ${t("ofLabel")} ${numberFormat.format(totalCount)} ${resultsLabel}`
-            : `${numberFormat.format(totalCount)} ${resultsLabel}`}
+          {isComparing
+            ? ""
+            : canLoadMore
+              ? `${numberFormat.format(shownCount)} ${t("ofLabel")} ${numberFormat.format(totalCount)} ${resultsLabel}`
+              : `${numberFormat.format(totalCount)} ${resultsLabel}`}
         </p>
 
         {hasActiveFilters && (
@@ -410,18 +523,27 @@ export function ProductSearchApp({
         )}
       </div>
 
-      <ProductGrid
-        products={visibleProducts}
-        locale={priceLocale}
-        mode={view.mode}
-        density={view.density}
-        productHref={productHref}
-        emptyMessage={t("noResultsMessage")}
-        viewLargerImageLabel={t("viewLargerImageLabel")}
-        closeImageLabel={t("closeImageLabel")}
-      />
+      {isComparing ? (
+        <CompareGrid
+          columns={comparisonColumns}
+          locale={priceLocale}
+          productHref={productHref}
+          showEmptyState={visibleCompareStores.every((store) => !store)}
+        />
+      ) : (
+        <ProductGrid
+          products={visibleProducts}
+          locale={priceLocale}
+          mode={gridMode}
+          density={view.density}
+          productHref={productHref}
+          emptyMessage={t("noResultsMessage")}
+          viewLargerImageLabel={t("viewLargerImageLabel")}
+          closeImageLabel={t("closeImageLabel")}
+        />
+      )}
 
-      {canLoadMore && (
+      {!isComparing && canLoadMore && (
         <div className="flex justify-center pt-2">
           <button
             type="button"

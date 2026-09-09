@@ -4,6 +4,7 @@
 import type { Product } from "@/types";
 
 export type SortOption =
+  | "newest"
   | "relevance"
   | "discount"
   | "price-asc"
@@ -12,6 +13,7 @@ export type SortOption =
   | "rating";
 
 export const SORT_OPTIONS: readonly SortOption[] = [
+  "newest",
   "relevance",
   "discount",
   "price-asc",
@@ -20,7 +22,15 @@ export const SORT_OPTIONS: readonly SortOption[] = [
   "rating",
 ];
 
-export const DEFAULT_SORT: SortOption = "relevance";
+/**
+ * Lo recién agregado abre la lista.
+ *
+ * "Destacados" era el orden de entrada del origen de datos: un criterio que no
+ * significa nada para quien llega y que hace que la home se vea igual semana
+ * tras semana. Lo que cambia entre visitas —y por tanto lo que justifica
+ * volver— es el catálogo nuevo, así que ese es el primer plano por defecto.
+ */
+export const DEFAULT_SORT: SortOption = "newest";
 
 export function isSortOption(value: string): value is SortOption {
   return (SORT_OPTIONS as readonly string[]).includes(value);
@@ -58,6 +68,10 @@ export function sortProducts(products: Product[], option: SortOption = DEFAULT_S
       // `localeCompare` para que acentos y mayúsculas ordenen como espera un
       // lector humano, no por code point.
       return sorted.sort((a, b) => a.name.localeCompare(b.name));
+    // Ni "newest" ni "relevance" reordenan acá: el `Product` del cliente no
+    // lleva fecha, así que la antigüedad solo la sabe la consulta que trajo la
+    // lista. Reordenar en el navegador rompería ese orden en vez de afinarlo.
+    case "newest":
     case "relevance":
     default:
       return sorted;

@@ -51,4 +51,18 @@ export const en: Dictionary = {
   viewDetailLabel: "View details",
   productsLabel: "products",
   activeFiltersLabel: "active filters",
+
+  // --- Store comparison ---
+  sortNewest: "Recently added",
+  viewCompare: "Compare",
+  compareColumnsLabel: "Columns",
+  compareStoreLabel: "Store for column",
+  compareChooseStoreLabel: "Pick a store",
+  compareEmptyStateTitle: "Search for a product to compare",
+  compareEmptyStateBody:
+    "Type what you are after and each column shows what that store carries, side by side.",
+  compareNoResultsInStore: "Nothing here matches your search.",
+  compareBestPriceLabel: "Best price",
+  compareCheapestColumnLabel: "Cheapest here",
+  compareFromLabel: "From",
 };

@@ -9,7 +9,7 @@ import { imageHeightFor } from "@/features/products/viewPreferences";
 export interface ProductTileProps {
   product: Product;
   href: string;
-  mode: Exclude<ViewMode, "list">;
+  mode: Exclude<ViewMode, "list" | "compare">;
   density: Density;
   locale?: string;
 }

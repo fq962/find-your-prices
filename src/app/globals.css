@@ -159,6 +159,132 @@
 }
 
 /* ---------------------------------------------------------------------------
+ * <select> — el desplegable, y por qué se ve distinto en Windows
+ * ---------------------------------------------------------------------------
+ * El menú que abre un <select> nativo lo dibuja el sistema operativo, no la
+ * página. En macOS, iOS y Android ese menú ya es redondeado, con tipografía del
+ * sistema y respeta el modo oscuro; en Windows es una lista cuadrada, con fuente
+ * de UI de escritorio y fondo blanco duro, y hasta hace poco no había CSS que
+ * la tocara. De ahí que el mismo control se vea bien en un lado y feo en el otro.
+ *
+ * Se resuelve en dos niveles, sin abandonar el <select> nativo — que es lo que
+ * da teclado, lector de pantalla y la rueda de iOS gratis:
+ *
+ *   1. Base, en todas partes: se pintan `option` y se declara el `color-scheme`
+ *      correcto. Chromium en Windows sí honra el color de fondo y de texto de
+ *      cada opción, así que al menos el menú deja de ser blanco sobre un sitio
+ *      oscuro.
+ *   2. Chromium 135+: `appearance: base-select` entrega el menú entero al CSS.
+ *      Ahí se le da el mismo radio, borde, sombra y espaciado que al resto de la
+ *      interfaz, y el desplegable de Windows termina viéndose como el de macOS.
+ *      Donde no exista, no pasa nada: el navegador ignora la regla y queda el
+ *      nivel 1.
+ * ------------------------------------------------------------------------ */
+
+select {
+  color-scheme: inherit;
+}
+
+/* El menú nativo hereda estos colores en Chromium/Windows y en Firefox. */
+select option {
+  background-color: var(--bg-elevated);
+  color: var(--text);
+}
+
+@supports (appearance: base-select) {
+  /* `.fyp-select` lo pone el componente Select: sólo los desplegables de la
+     interfaz entran acá, nunca un <select> de un embed de terceros. */
+  .fyp-select select,
+  .fyp-select select::picker(select) {
+    appearance: base-select;
+  }
+
+  /* El botón. `base-select` trae su propio borde y su propia flecha; acá se
+     quitan porque el borde ya lo pone la píldora que lo envuelve y la flecha
+     es un SVG del componente. */
+  .fyp-select select {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+  }
+
+  .fyp-select select::picker-icon {
+    display: none;
+  }
+
+  /* El menú desplegado. */
+  .fyp-select select::picker(select) {
+    /* Borde fuerte y no el sutil de las tarjetas: el menú flota sobre el
+       contenido y en modo oscuro la sombra no lo despega del fondo. */
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+    /* Que el menú no sea más angosto que el control del que sale: un
+       desplegable más chico que su botón se lee como otro elemento. */
+    min-width: anchor-size(width);
+    background-color: var(--bg-elevated);
+    box-shadow: var(--shadow-lg);
+    padding: 6px;
+    /* Un catálogo real trae cientos de categorías: se acota el alto y se
+       desplaza dentro, en vez de dejar una lista más larga que la pantalla. */
+    max-height: min(22rem, 60vh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* Sin esto el menú aparece de golpe; `allow-discrete` es lo que permite
+       animar la entrada de un elemento del top layer. */
+    opacity: 0;
+    transition:
+      opacity var(--dur-fast) var(--ease-out-quart),
+      display var(--dur-fast) allow-discrete;
+  }
+
+  .fyp-select select:open::picker(select) {
+    opacity: 1;
+  }
+
+  @starting-style {
+    .fyp-select select:open::picker(select) {
+      opacity: 0;
+    }
+  }
+
+  .fyp-select select option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    /* 40px de alto: el mínimo táctil cómodo para una fila de menú. */
+    min-height: 40px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background-color: transparent;
+    color: var(--text);
+    font-size: 0.9375rem;
+    line-height: 1.35;
+  }
+
+  .fyp-select select option:hover,
+  .fyp-select select option:focus,
+  .fyp-select select option:active {
+    background-color: var(--bg-subtle);
+    color: var(--text);
+  }
+
+  .fyp-select select option:checked {
+    background-color: var(--accent-soft);
+    color: var(--text);
+    font-weight: 550;
+  }
+
+  /* La palomita del check por defecto ocupa una columna en todas las filas y
+     desalinea el texto; el estado seleccionado ya se lee por el fondo. */
+  .fyp-select select option::checkmark {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * Motion primitives
  * ------------------------------------------------------------------------ */
 
