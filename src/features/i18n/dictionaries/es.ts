@@ -85,4 +85,5 @@ export const es: Dictionary = {
   compareAttrCategory: "Categoría",
   compareAttrAvailability: "Disponibilidad",
   compareAttrRating: "Calificación",
+  resultsListLabel: "Resultados",
 };

@@ -27,6 +27,13 @@ export interface ProductGridProps {
   productHref?: (product: Product) => string;
   /** Textos del control que aparta un producto para compararlo. */
   compareLabels?: CompareToggleLabels;
+  /**
+   * Nombre accesible de la lista. Desde que el pie de página tiene su propia
+   * lista de enlaces, "la lista" dejó de ser una sola en el documento: sin
+   * nombre, un lector de pantalla anuncia dos listas idénticas y no hay forma
+   * de saltar a los resultados.
+   */
+  label?: string;
 }
 
 /** Tope del escalonado: pasado el 8º elemento el retardo deja de crecer. */
@@ -49,6 +56,7 @@ export function ProductGrid({
   density = DEFAULT_DENSITY,
   productHref,
   compareLabels,
+  label,
 }: ProductGridProps) {
   const hasProducts = products.length > 0;
   const isList = mode === "list";
@@ -58,7 +66,10 @@ export function ProductGrid({
 
   return (
     <>
-      <ul className={hasProducts ? (isList ? listClasses : gridClassesFor(mode, density)) : ""}>
+      <ul
+        aria-label={label}
+        className={hasProducts ? (isList ? listClasses : gridClassesFor(mode, density)) : ""}
+      >
         {products.map((product, index) => (
           <li
             key={product.id}

@@ -569,6 +569,7 @@ export function ProductSearchApp({
           mode={gridMode}
           density={view.density}
           productHref={productHref}
+          label={t("resultsListLabel")}
           emptyMessage={t("noResultsMessage")}
           viewLargerImageLabel={t("viewLargerImageLabel")}
           closeImageLabel={t("closeImageLabel")}

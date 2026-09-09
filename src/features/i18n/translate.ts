@@ -86,7 +86,8 @@ export type DictionaryKey =
   | "compareAttrBrand"
   | "compareAttrCategory"
   | "compareAttrAvailability"
-  | "compareAttrRating";
+  | "compareAttrRating"
+  | "resultsListLabel";
 
 export type Dictionary = Record<DictionaryKey, string>;
 
