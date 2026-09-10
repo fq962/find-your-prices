@@ -32,20 +32,37 @@ const VIEW = 'v_store_products_current';
 /**
  * Artículos por archivo de sitemap.
  *
- * El límite del protocolo son 50 000 URLs o 50 MB por archivo. Se usa 10 000 y
- * no 50 000 por dos razones: un archivo de 10 000 entradas pesa ~2 MB y se
- * genera en pocos segundos, y cuando cambian precios de una tanda sólo se
- * invalida ese archivo. Google no penaliza tener más archivos —para eso está
- * el índice.
+ * El límite del protocolo son 50 000 URLs o 50 MB por archivo, pero NO es el
+ * límite que manda acá. El que manda es el de la plataforma: una función
+ * serverless de Vercel no puede devolver más de 4,5 MB de cuerpo, y pasarse no
+ * da un aviso —da un error, y Search Console lo reporta como "no se ha podido
+ * obtener" sin decir por qué.
+ *
+ * Ya pasó: con 10 000 artículos por archivo cada uno pesaba 6,38 MB medidos, y
+ * los cinco archivos de producto fallaron mientras el de páginas fijas (unos
+ * pocos KB) se leía bien. Ese contraste es la firma del problema.
+ *
+ * La cuenta, con datos reales: cada `<url>` pesa ~670 bytes, porque lleva la
+ * dirección cuatro veces —la propia más tres `hreflang`—. A 2 500 entradas el
+ * archivo queda en ~1,6 MB, poco más de un tercio del techo, que es el margen
+ * que hace falta para que un nombre de dominio más largo o un `hreflang` más
+ * no vuelvan a romperlo.
+ *
+ * De paso arregla lo otro: 2 500 entradas son 3 viajes a PostgREST en vez de
+ * 10, y el archivo se genera en menos de un segundo en lugar de rozar el
+ * tiempo máximo de la función.
+ *
+ * Si alguna vez hay que subirlo, medí primero: `curl -s <url> | wc -c`.
  */
-export const SITEMAP_CHUNK_SIZE = 10_000;
+export const SITEMAP_CHUNK_SIZE = 2_500;
 
 /**
  * Tamaño de lote contra PostgREST.
  *
  * Supabase corta las respuestas en 1 000 filas por petición. No es negociable
- * desde el cliente, así que cada archivo de sitemap se arma con diez viajes
- * encadenados en vez de uno solo que devolvería mil filas en silencio.
+ * desde el cliente, así que cada archivo de sitemap se arma encadenando varios
+ * viajes en vez de uno solo que devolvería mil filas en silencio. Con tandas de
+ * 2 500 son tres.
  */
 const FETCH_PAGE = 1_000;
 
@@ -99,12 +116,25 @@ export async function getSitemapProducts(chunk: number): Promise<SitemapProduct[
 
     for (let offset = 0; offset < SITEMAP_CHUNK_SIZE; offset += FETCH_PAGE) {
       const from = start + offset;
+      /**
+       * El último viaje se recorta al borde de la tanda.
+       *
+       * Sin esto se pide siempre un lote entero y la tanda se pasa de largo:
+       * con tandas de 2 500 y lotes de 1 000 se traían 3 000, así que el
+       * archivo 1 llevaba las filas 0–2999 y el archivo 2 empezaba en la 2 500.
+       * Quinientas fichas repetidas en cada frontera, y ni el archivo ni el
+       * protocolo se quejan —Google simplemente las rastrea dos veces.
+       *
+       * El fallo estaba escondido porque con tandas de 10 000 la división daba
+       * exacta (10 lotes de 1 000) y nunca sobraba nada.
+       */
+      const size = Math.min(FETCH_PAGE, SITEMAP_CHUNK_SIZE - offset);
       const { data, error } = await db
         .from(VIEW)
         .select('id, last_seen_at')
         .gt('price', 0)
         .order('id', { ascending: true })
-        .range(from, from + FETCH_PAGE - 1);
+        .range(from, from + size - 1);
 
       if (error) break;
       const rows = (data ?? []) as Array<{ id: string; last_seen_at: string | null }>;
@@ -119,7 +149,7 @@ export async function getSitemapProducts(chunk: number): Promise<SitemapProduct[
 
       // Menos filas que el lote significa fin del catálogo: no hay más páginas
       // que pedir y seguir sólo gasta viajes.
-      if (rows.length < FETCH_PAGE) break;
+      if (rows.length < size) break;
     }
   } catch {
     return results;
