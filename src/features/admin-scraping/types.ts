@@ -28,6 +28,12 @@ export interface TargetHealth {
   last_price_changes: number | null;
   last_error_message: string | null;
   store_active_products: number;
+  /** Origen de la rejilla horaria; ver src/lib/schedule.ts. */
+  schedule_anchor_at: string | null;
+  priority: number;
+  max_pages: number | null;
+  config: Record<string, unknown> | null;
+  notes: string | null;
 }
 
 export interface StoreOption {

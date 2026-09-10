@@ -1,5 +1,6 @@
 import { assertAdminAuthorized, toErrorResponse } from '@/server/scraping/api-guard';
 import { getSupabaseAdmin } from '@/server/db/supabase';
+import { nextRunFromAnchor } from '@/lib/schedule';
 
 /**
  *   PATCH  /api/scraping/targets/:id   -> edita un target
@@ -18,6 +19,7 @@ const EDITABLE_FIELDS = new Set([
   'config',
   'frequency_minutes',
   'cron_expression',
+  'schedule_anchor_at',
   'priority',
   'max_pages',
   'is_active',
@@ -48,6 +50,36 @@ export async function PATCH(
     if (patch.is_active === true) {
       patch.paused_reason = null;
       patch.consecutive_failures = 0;
+    }
+
+    /**
+     * Cambiar el horario tiene que surtir efecto ya, no despues de la proxima
+     * corrida. Si se toco el ancla o el intervalo y el que llama no fijo un
+     * `next_run_at` explicito, se recalcula el primer punto de la rejilla.
+     *
+     * Hace falta leer la fila para el caso de que solo venga uno de los dos
+     * campos: el otro sigue siendo el que ya estaba guardado.
+     */
+    const touchedSchedule = 'schedule_anchor_at' in patch || 'frequency_minutes' in patch;
+    if (touchedSchedule && !('next_run_at' in patch)) {
+      const { data: current, error: readError } = await getSupabaseAdmin()
+        .from('scrape_targets')
+        .select('schedule_anchor_at, frequency_minutes')
+        .eq('id', id)
+        .single();
+      if (readError) throw new Error(readError.message);
+
+      const anchor = ('schedule_anchor_at' in patch ? patch.schedule_anchor_at : current?.schedule_anchor_at) as
+        | string
+        | null
+        | undefined;
+      const frequency = Number(
+        'frequency_minutes' in patch ? patch.frequency_minutes : current?.frequency_minutes,
+      );
+
+      if (anchor && Number.isFinite(frequency) && frequency > 0) {
+        patch.next_run_at = nextRunFromAnchor(anchor, frequency).toISOString();
+      }
     }
 
     const { data, error } = await getSupabaseAdmin()

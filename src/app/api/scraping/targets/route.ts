@@ -58,6 +58,16 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const frequency = Number(body.frequency_minutes);
+    const frequencyMinutes = Number.isFinite(frequency) && frequency >= 1 ? Math.floor(frequency) : 720;
+
+    /**
+     * Ancla del horario. Si no viene, la primera corrida es ahora y la rejilla
+     * queda anclada a este momento; el panel manda una fecha explicita cuando el
+     * operador elige "todos los lunes a las 08:00".
+     */
+    const anchorRaw = typeof body.schedule_anchor_at === 'string' ? body.schedule_anchor_at : null;
+    const anchorDate = anchorRaw ? new Date(anchorRaw) : new Date();
+    const anchor = Number.isFinite(anchorDate.getTime()) ? anchorDate : new Date();
 
     const { data, error } = await getSupabaseAdmin()
       .from('scrape_targets')
@@ -68,7 +78,9 @@ export async function POST(request: Request): Promise<Response> {
         url: typeof body.url === 'string' && body.url ? body.url : null,
         strategy_key: strategyKey,
         config: typeof body.config === 'object' && body.config !== null ? body.config : {},
-        frequency_minutes: Number.isFinite(frequency) && frequency >= 1 ? Math.floor(frequency) : 720,
+        frequency_minutes: frequencyMinutes,
+        schedule_anchor_at: anchor.toISOString(),
+        next_run_at: anchor.toISOString(),
         max_pages: Number(body.max_pages) > 0 ? Math.floor(Number(body.max_pages)) : null,
         priority: Number.isFinite(Number(body.priority)) ? Number(body.priority) : 100,
         is_active: body.is_active !== false,

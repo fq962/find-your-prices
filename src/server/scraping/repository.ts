@@ -1,5 +1,6 @@
 import 'server-only';
 import { getSupabaseAdmin } from '@/server/db/supabase';
+import { nextRunFromAnchor } from '@/lib/schedule';
 import type {
   NormalizedCategory,
   NormalizedProduct,
@@ -137,17 +138,35 @@ export async function updateTargetAfterRun(params: {
   const shouldPause = !succeeded && failures >= target.failure_threshold;
 
   const frequency = target.frequency_minutes ?? 24 * 60;
-  // Tras un fallo se reintenta antes que el intervalo normal, pero con backoff
-  // creciente para no insistir cada minuto sobre un sitio caido.
-  const minutesUntilNext = succeeded
-    ? frequency
-    : Math.min(frequency, 5 * 2 ** Math.min(failures, 5));
+
+  /**
+   * Reprogramacion.
+   *
+   * Con exito se salta al siguiente punto de la rejilla `ancla + k*intervalo`,
+   * NO a `ahora + intervalo`. La diferencia importa para toda agenda de
+   * calendario: sumar desde el final de la corrida empuja el horario unos
+   * segundos cada vez, y en un mes "los lunes a las 08:00" ya cae en cualquier
+   * lado (ver src/db/migrations/0023_schedule_anchor.sql).
+   *
+   * Tras un fallo se sale de la rejilla a proposito: se reintenta antes, con
+   * backoff creciente para no insistir cada minuto sobre un sitio caido. En
+   * cuanto una corrida vuelve a salir bien, la formula de arriba lo devuelve
+   * solo a su horario.
+   */
+  const anchor = target.schedule_anchor_at;
+  const nextRunAt = succeeded
+    ? // Sin ancla (targets anteriores a la migracion 0023) se conserva el
+      // comportamiento viejo en vez de inventar una rejilla.
+      anchor
+      ? nextRunFromAnchor(anchor, frequency)
+      : new Date(Date.now() + frequency * 60_000)
+    : new Date(Date.now() + Math.min(frequency, 5 * 2 ** Math.min(failures, 5)) * 60_000);
 
   const patch: Record<string, unknown> = {
     last_run_at: new Date().toISOString(),
     last_status: status,
     consecutive_failures: failures,
-    next_run_at: new Date(Date.now() + minutesUntilNext * 60_000).toISOString(),
+    next_run_at: nextRunAt.toISOString(),
   };
 
   if (succeeded) patch.last_success_at = new Date().toISOString();

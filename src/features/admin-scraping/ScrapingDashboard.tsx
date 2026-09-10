@@ -2,6 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from 'react';
+import {
+  MINUTES_PER_DAY,
+  describeSchedule,
+  fromLocalInputValue,
+  joinFrequency,
+  splitFrequency,
+  toLocalInputValue,
+  type FrequencyParts,
+} from '@/lib/schedule';
 import type { RunSummary, StoreOption, StrategyOption, TargetHealth } from './types';
 
 /**
@@ -105,13 +114,6 @@ function formatDuration(ms: number | null): string {
   return `${(ms / 1000).toFixed(1)} s`;
 }
 
-function formatFrequency(minutes: number | null): string {
-  if (!minutes) return 'manual';
-  if (minutes % 1440 === 0) return `cada ${minutes / 1440} d`;
-  if (minutes % 60 === 0) return `cada ${minutes / 60} h`;
-  return `cada ${minutes} min`;
-}
-
 const numberFormatter = new Intl.NumberFormat('es-HN');
 
 /**
@@ -172,6 +174,19 @@ export function ScrapingDashboard({
   const [busyTargetId, setBusyTargetId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [showForm, setShowForm] = useState(false);
+  /** Target abierto en modo edición. Solo uno a la vez: editar dos horarios en paralelo invita a equivocarse de fila. */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  /**
+   * Horario del formulario de alta. El ancla arranca vacía a propósito: poner
+   * `new Date()` en el estado inicial de un componente que también se renderiza
+   * en el servidor da una hora distinta en cada lado y rompe la hidratación.
+   * Vacío significa "desde ahora", y eso lo resuelve el servidor.
+   */
+  const [newSchedule, setNewSchedule] = useState<ScheduleDraft>({
+    frequencyMinutes: 720,
+    anchor: '',
+  });
 
   const trackedProducts = useCountUp(metrics.trackedProducts, 1200, 260);
 
@@ -181,6 +196,21 @@ export function ScrapingDashboard({
     const lastRun = recentRuns[0]?.started_at ?? null;
     return { failing, paused, lastRun, active: targets.filter((t) => t.is_active).length };
   }, [targets, recentRuns]);
+
+  /**
+   * Activos y archivados van en listas separadas.
+   *
+   * Un target pausado no lo mira el cron: mezclarlo con los vivos obliga a leer
+   * el punto de color de cada fila para saber qué se está rastreando de verdad.
+   * Archivados abajo, plegados y con su cuenta a la vista.
+   */
+  const { activeTargets, archivedTargets } = useMemo(
+    () => ({
+      activeTargets: targets.filter((t) => t.is_active),
+      archivedTargets: targets.filter((t) => !t.is_active),
+    }),
+    [targets],
+  );
 
   async function call(path: string, init?: RequestInit) {
     const response = await fetch(path, {
@@ -226,6 +256,20 @@ export function ScrapingDashboard({
     });
   }
 
+  function handleSaveEdit(target: TargetHealth, patch: Record<string, unknown>) {
+    withFeedback(target.target_id, async () => {
+      const payload = await call(`/api/scraping/targets/${target.target_id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      });
+      setEditingId(null);
+      // La respuesta trae la fila ya reprogramada por el servidor: se muestra
+      // el horario que quedó de verdad, no el que el formulario suponía.
+      const saved = payload.target as { frequency_minutes: number | null; schedule_anchor_at: string | null };
+      return `${target.target_name} · ${describeSchedule(saved.schedule_anchor_at, saved.frequency_minutes)}`;
+    });
+  }
+
   function handleDelete(target: TargetHealth) {
     if (!window.confirm(`¿Eliminar el target "${target.target_name}"? No se puede deshacer.`)) return;
     withFeedback(target.target_id, async () => {
@@ -255,6 +299,11 @@ export function ScrapingDashboard({
           kind: formData.get('kind'),
           url: formData.get('url') || null,
           frequency_minutes: Number(formData.get('frequency_minutes')) || 720,
+          // El input no lleva zona: se interpreta como hora de Honduras antes
+          // de mandarlo. Vacío deja que el servidor ancle en "ahora".
+          schedule_anchor_at:
+            fromLocalInputValue(String(formData.get('schedule_anchor_at') ?? ''))?.toISOString() ??
+            null,
           config,
         }),
       });
@@ -413,15 +462,15 @@ export function ScrapingDashboard({
                 </select>
               </Field>
 
-              <Field label="Frecuencia (minutos)">
-                <input
-                  name="frequency_minutes"
-                  type="number"
-                  min={1}
-                  defaultValue={720}
-                  className={inputClass}
-                />
-              </Field>
+              <ScheduleControls
+                frequencyMinutes={newSchedule.frequencyMinutes}
+                anchorLocal={newSchedule.anchor}
+                onChange={setNewSchedule}
+                anchorLabel="Primera corrida"
+                anchorHint="Vacío = a partir de ahora. La hora es de Honduras."
+              />
+              <input type="hidden" name="frequency_minutes" value={newSchedule.frequencyMinutes} />
+              <input type="hidden" name="schedule_anchor_at" value={newSchedule.anchor} />
 
               <Field
                 label="URL pública"
@@ -472,108 +521,103 @@ export function ScrapingDashboard({
               action="Nuevo target"
               onAction={() => setShowForm(true)}
             />
+          ) : activeTargets.length === 0 ? (
+            <EmptyState
+              title="Todo está archivado"
+              body="Ningún target activo: el cron no tiene qué hacer. Reactivá alguno desde los archivados, abajo."
+            />
           ) : (
             <ul>
-              {targets.map((target, index) => (
-                <li
+              {activeTargets.map((target, index) => (
+                <TargetRow
                   key={target.target_id}
-                  className="enter group border-b border-[var(--border)]"
-                  style={{ '--enter-delay': `${640 + index * 70}ms` } as CSSProperties}
-                >
-                  <div className="grid grid-cols-1 items-start gap-4 py-7 transition-colors duration-[var(--dur-base)] ease-[var(--ease-out-quart)] md:grid-cols-12 md:items-center">
-                    {/* Identidad: lo único que crece en escala dentro de la fila. */}
-                    <div className="md:col-span-4">
-                      <div className="flex items-center gap-2.5">
-                        <span
-                          aria-hidden="true"
-                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                            target.is_active
-                              ? (STATUS_DOT[target.last_status ?? 'queued'] ?? STATUS_DOT.queued)
-                              : 'bg-[var(--text-tertiary)]'
-                          }`}
-                        />
-                        <h3 className="truncate text-[1.0625rem] font-medium tracking-[-0.015em] text-[var(--text)]">
-                          {target.target_name}
-                        </h3>
-                      </div>
-                      <p className="mt-1.5 pl-4 text-[0.75rem] tracking-[0.06em] text-[var(--text-tertiary)] uppercase">
-                        {KIND_LABELS[target.kind] ?? target.kind} · {target.strategy_key}
-                      </p>
-                      {!target.is_active && target.paused_reason && (
-                        <p className="mt-2 pl-4 text-[0.75rem] leading-relaxed text-amber-600 dark:text-amber-400">
-                          {target.paused_reason}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Ritmo */}
-                    <div className="md:col-span-2">
-                      <Cell label="Ritmo" value={formatFrequency(target.frequency_minutes)} />
-                      <p className="mt-0.5 text-[0.75rem] text-[var(--text-tertiary)] tabular-nums">
-                        {target.is_active ? `próxima ${formatDateTime(target.next_run_at)}` : 'pausado'}
-                      </p>
-                    </div>
-
-                    {/* Última corrida */}
-                    <div className="md:col-span-2">
-                      <Cell
-                        label="Última"
-                        value={formatRelative(target.last_run_at)}
-                        tone={target.last_status ? STATUS_TEXT[target.last_status] : undefined}
-                      />
-                      <p className="mt-0.5 text-[0.75rem] text-[var(--text-tertiary)] tabular-nums">
-                        {target.last_status ?? 'sin correr'} · {formatDuration(target.last_duration_ms)}
-                      </p>
-                    </div>
-
-                    {/* Resultado */}
-                    <div className="md:col-span-2">
-                      {target.last_items_found !== null ? (
-                        <>
-                          <Cell
-                            label="Resultado"
-                            value={numberFormatter.format(target.last_items_found)}
-                          />
-                          <p className="mt-0.5 text-[0.75rem] text-[var(--text-tertiary)] tabular-nums">
-                            {target.last_items_new} nuevos · {target.last_price_changes} precios
-                          </p>
-                        </>
-                      ) : (
-                        <Cell label="Resultado" value="—" />
-                      )}
-                      {target.last_error_message && (
-                        <p
-                          className="mt-1 truncate text-[0.75rem] text-red-600 dark:text-red-400"
-                          title={target.last_error_message}
-                        >
-                          {target.last_error_message}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Acciones: aparecen al enfocar la fila, para que la lista
-                        se lea limpia en reposo. En táctil siempre visibles. */}
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 md:col-span-2 md:justify-end md:opacity-40 md:transition-opacity md:duration-[var(--dur-base)] md:group-focus-within:opacity-100 md:group-hover:opacity-100">
-                      <RowAction
-                        onClick={() => handleRunNow(target)}
-                        disabled={busy}
-                        busy={busyTargetId === target.target_id}
-                      >
-                        Ejecutar
-                      </RowAction>
-                      <RowAction onClick={() => handleToggle(target)} disabled={busy}>
-                        {target.is_active ? 'Pausar' : 'Reactivar'}
-                      </RowAction>
-                      <RowAction onClick={() => handleDelete(target)} disabled={busy} tone="danger">
-                        Eliminar
-                      </RowAction>
-                    </div>
-                  </div>
-                </li>
+                  target={target}
+                  delayMs={640 + index * 70}
+                  busy={busy}
+                  busyTargetId={busyTargetId}
+                  isEditing={editingId === target.target_id}
+                  onEdit={() => setEditingId(target.target_id)}
+                  onCancelEdit={() => setEditingId(null)}
+                  onSave={(patch) => handleSaveEdit(target, patch)}
+                  onRunNow={() => handleRunNow(target)}
+                  onToggle={() => handleToggle(target)}
+                  onDelete={() => handleDelete(target)}
+                />
               ))}
             </ul>
           )}
         </section>
+
+        {/* ---------------------------------------------------------------
+            Archivados
+
+            Un target pausado no lo mira el cron. Vive acá abajo, plegado, en
+            vez de mezclado entre los vivos: la lista de arriba tiene que poder
+            leerse como "esto es lo que se está rastreando", sin excepciones.
+           --------------------------------------------------------------- */}
+        {archivedTargets.length > 0 && (
+          <section className="mt-20">
+            <button
+              type="button"
+              onClick={() => setShowArchived((value) => !value)}
+              aria-expanded={showArchived}
+              className="group flex w-full items-baseline justify-between gap-6 border-b border-[var(--border)] pb-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--bg)]"
+            >
+              <span className="flex items-baseline gap-3">
+                <span className="text-[1.75rem] font-semibold tracking-[-0.03em] text-[var(--text-tertiary)]">
+                  Archivados
+                </span>
+                <span className="text-[0.9375rem] text-[var(--text-tertiary)] tabular-nums">
+                  {archivedTargets.length}
+                </span>
+              </span>
+              <span className="flex items-center gap-2 text-[0.8125rem] font-medium text-[var(--accent)] transition-opacity duration-[var(--dur-base)] group-hover:opacity-70">
+                {showArchived ? 'Ocultar' : 'Mostrar'}
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`h-3.5 w-3.5 transition-transform duration-[var(--dur-base)] ease-[var(--ease-spring)] ${
+                    showArchived ? 'rotate-180' : ''
+                  }`}
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </span>
+            </button>
+
+            {showArchived && (
+              <>
+                <p className="pt-4 text-[0.875rem] leading-relaxed text-[var(--text-secondary)]">
+                  Pausados a mano o por el circuit breaker tras demasiados fallos seguidos. El cron
+                  los ignora hasta que se reactiven; su historial de corridas se conserva.
+                </p>
+                <ul className="mt-2">
+                  {archivedTargets.map((target, index) => (
+                    <TargetRow
+                      key={target.target_id}
+                      target={target}
+                      delayMs={index * 60}
+                      busy={busy}
+                      busyTargetId={busyTargetId}
+                      isEditing={editingId === target.target_id}
+                      onEdit={() => setEditingId(target.target_id)}
+                      onCancelEdit={() => setEditingId(null)}
+                      onSave={(patch) => handleSaveEdit(target, patch)}
+                      onRunNow={() => handleRunNow(target)}
+                      onToggle={() => handleToggle(target)}
+                      onDelete={() => handleDelete(target)}
+                    />
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
+        )}
 
         {/* ---------------------------------------------------------------
             Bitácora
@@ -735,5 +779,390 @@ function RowAction({
     >
       {busy ? 'corriendo…' : children}
     </button>
+  );
+}
+/* -------------------------------------------------------------------------
+   Agenda
+   ------------------------------------------------------------------------- */
+
+/**
+ * Horario en edición.
+ *
+ * `anchor` es el texto crudo de un `<input type="datetime-local">`, sin zona.
+ * Se interpreta siempre como hora de Honduras al mandarlo (ver `src/lib/schedule.ts`);
+ * vacío significa "desde ahora" y lo resuelve el servidor.
+ */
+export interface ScheduleDraft {
+  frequencyMinutes: number;
+  anchor: string;
+}
+
+const FREQUENCY_UNITS: Array<{ value: FrequencyParts['unit']; label: string }> = [
+  { value: 'minutes', label: 'minutos' },
+  { value: 'hours', label: 'horas' },
+  { value: 'days', label: 'días' },
+  { value: 'weeks', label: 'semanas' },
+];
+
+/**
+ * El par intervalo + ancla, con la frase que resulta debajo.
+ *
+ * La frase no es decoración: "cada 7 días desde el 15/09 08:00" y "cada lunes a
+ * las 08:00" son el mismo dato, pero solo la segunda deja ver que te
+ * equivocaste de día. Es la única forma de que el operador confirme lo que va a
+ * quedar guardado antes de guardarlo.
+ */
+function ScheduleControls({
+  frequencyMinutes,
+  anchorLocal,
+  onChange,
+  anchorLabel = 'Ancla del horario',
+  anchorHint,
+}: {
+  frequencyMinutes: number;
+  anchorLocal: string;
+  onChange: (draft: ScheduleDraft) => void;
+  anchorLabel?: string;
+  anchorHint?: string;
+}) {
+  const parts = splitFrequency(frequencyMinutes);
+  const anchorIso = anchorLocal ? (fromLocalInputValue(anchorLocal)?.toISOString() ?? null) : null;
+
+  return (
+    <>
+      <Field label="Ritmo">
+        <div className="flex items-center gap-3">
+          <input
+            type="number"
+            min={1}
+            value={parts.value}
+            onChange={(event) =>
+              onChange({
+                frequencyMinutes: joinFrequency({
+                  value: Math.max(1, Number(event.target.value) || 1),
+                  unit: parts.unit,
+                }),
+                anchor: anchorLocal,
+              })
+            }
+            className={`${inputClass} w-20 shrink-0`}
+            aria-label="Cada cuántas unidades"
+          />
+          <select
+            value={parts.unit}
+            onChange={(event) =>
+              onChange({
+                frequencyMinutes: joinFrequency({
+                  value: parts.value,
+                  unit: event.target.value as FrequencyParts['unit'],
+                }),
+                anchor: anchorLocal,
+              })
+            }
+            // `flex-1 min-w-0` y no el `w-full` de inputClass a secas: dentro de
+            // un flex, width:100% se mide contra el contenedor entero y el
+            // select se desborda encima de la columna de al lado.
+            className={`${inputClass} min-w-0 flex-1`}
+            aria-label="Unidad del ritmo"
+          >
+            {FREQUENCY_UNITS.map((unit) => (
+              <option key={unit.value} value={unit.value}>
+                {unit.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </Field>
+
+      <Field label={anchorLabel} hint={anchorHint}>
+        <input
+          type="datetime-local"
+          value={anchorLocal}
+          onChange={(event) => onChange({ frequencyMinutes, anchor: event.target.value })}
+          className={inputClass}
+        />
+      </Field>
+
+      <p className="text-[0.8125rem] text-[var(--text-secondary)] sm:col-span-2">
+        Queda:{' '}
+        <span className="font-medium text-[var(--text)]">
+          {anchorIso
+            ? describeSchedule(anchorIso, frequencyMinutes)
+            : `${describeSchedule(new Date(0), frequencyMinutes).replace(/ \(desde.*\)$/, '')}, a partir de ahora`}
+        </span>
+        {anchorIso && frequencyMinutes >= MINUTES_PER_DAY && (
+          <span className="text-[var(--text-tertiary)]">
+            {' '}
+            · anclá unos minutos antes de la hora del cron para que la corrida ya esté vencida
+            cuando dispare
+          </span>
+        )}
+      </p>
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------
+   Fila de target
+   ------------------------------------------------------------------------- */
+
+function TargetRow({
+  target,
+  delayMs,
+  busy,
+  busyTargetId,
+  isEditing,
+  onEdit,
+  onCancelEdit,
+  onSave,
+  onRunNow,
+  onToggle,
+  onDelete,
+}: {
+  target: TargetHealth;
+  delayMs: number;
+  busy: boolean;
+  busyTargetId: string | null;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (patch: Record<string, unknown>) => void;
+  onRunNow: () => void;
+  onToggle: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <li
+      className="enter group border-b border-[var(--border)]"
+      style={{ '--enter-delay': `${delayMs}ms` } as CSSProperties}
+    >
+      <div className="grid grid-cols-1 items-start gap-4 py-7 transition-colors duration-[var(--dur-base)] ease-[var(--ease-out-quart)] md:grid-cols-12 md:items-center">
+        {/* Identidad: lo único que crece en escala dentro de la fila. */}
+        <div className="md:col-span-4">
+          <div className="flex items-center gap-2.5">
+            <span
+              aria-hidden="true"
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                target.is_active
+                  ? (STATUS_DOT[target.last_status ?? 'queued'] ?? STATUS_DOT.queued)
+                  : 'bg-[var(--text-tertiary)]'
+              }`}
+            />
+            <h3 className="truncate text-[1.0625rem] font-medium tracking-[-0.015em] text-[var(--text)]">
+              {target.target_name}
+            </h3>
+          </div>
+          <p className="mt-1.5 pl-4 text-[0.75rem] tracking-[0.06em] text-[var(--text-tertiary)] uppercase">
+            {KIND_LABELS[target.kind] ?? target.kind} · {target.strategy_key}
+          </p>
+          {!target.is_active && target.paused_reason && (
+            <p className="mt-2 pl-4 text-[0.75rem] leading-relaxed text-amber-600 dark:text-amber-400">
+              {target.paused_reason}
+            </p>
+          )}
+        </div>
+
+        {/* Ritmo, dicho como lo entiende un humano y no en minutos. */}
+        <div className="md:col-span-2">
+          <Cell label="Ritmo" value={describeSchedule(target.schedule_anchor_at, target.frequency_minutes)} />
+          <p className="mt-0.5 text-[0.75rem] text-[var(--text-tertiary)] tabular-nums">
+            {target.is_active ? `próxima ${formatDateTime(target.next_run_at)}` : 'archivado'}
+          </p>
+        </div>
+
+        {/* Última corrida */}
+        <div className="md:col-span-2">
+          <Cell
+            label="Última"
+            value={formatRelative(target.last_run_at)}
+            tone={target.last_status ? STATUS_TEXT[target.last_status] : undefined}
+          />
+          <p className="mt-0.5 text-[0.75rem] text-[var(--text-tertiary)] tabular-nums">
+            {target.last_status ?? 'sin correr'} · {formatDuration(target.last_duration_ms)}
+          </p>
+        </div>
+
+        {/* Resultado */}
+        <div className="md:col-span-2">
+          {target.last_items_found !== null ? (
+            <>
+              <Cell label="Resultado" value={numberFormatter.format(target.last_items_found)} />
+              <p className="mt-0.5 text-[0.75rem] text-[var(--text-tertiary)] tabular-nums">
+                {target.last_items_new} nuevos · {target.last_price_changes} precios
+              </p>
+            </>
+          ) : (
+            <Cell label="Resultado" value="—" />
+          )}
+          {target.last_error_message && (
+            <p
+              className="mt-1 truncate text-[0.75rem] text-red-600 dark:text-red-400"
+              title={target.last_error_message}
+            >
+              {target.last_error_message}
+            </p>
+          )}
+        </div>
+
+        {/* Acciones: aparecen al enfocar la fila, para que la lista
+            se lea limpia en reposo. En táctil siempre visibles. */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 md:col-span-2 md:justify-end md:opacity-40 md:transition-opacity md:duration-[var(--dur-base)] md:group-focus-within:opacity-100 md:group-hover:opacity-100">
+          <RowAction onClick={onRunNow} disabled={busy} busy={busyTargetId === target.target_id}>
+            Ejecutar
+          </RowAction>
+          <RowAction onClick={isEditing ? onCancelEdit : onEdit} disabled={busy}>
+            {isEditing ? 'Cerrar' : 'Editar'}
+          </RowAction>
+          <RowAction onClick={onToggle} disabled={busy}>
+            {target.is_active ? 'Archivar' : 'Reactivar'}
+          </RowAction>
+          <RowAction onClick={onDelete} disabled={busy} tone="danger">
+            Eliminar
+          </RowAction>
+        </div>
+      </div>
+
+      {isEditing && <TargetEditor target={target} busy={busy} onCancel={onCancelEdit} onSave={onSave} />}
+    </li>
+  );
+}
+
+/**
+ * Edición en la propia fila.
+ *
+ * Se manda solo lo que cambió: un PATCH con los seis campos siempre pisaría el
+ * `config` que alguien haya tocado por API mientras el formulario estaba
+ * abierto. Y el `next_run_at` no se manda nunca desde acá — lo recalcula el
+ * servidor a partir del ancla y el intervalo, que es el único lugar donde esa
+ * regla debe vivir.
+ */
+function TargetEditor({
+  target,
+  busy,
+  onCancel,
+  onSave,
+}: {
+  target: TargetHealth;
+  busy: boolean;
+  onCancel: () => void;
+  onSave: (patch: Record<string, unknown>) => void;
+}) {
+  const [name, setName] = useState(target.target_name);
+  const [schedule, setSchedule] = useState<ScheduleDraft>({
+    frequencyMinutes: target.frequency_minutes ?? 720,
+    anchor: toLocalInputValue(target.schedule_anchor_at ?? target.next_run_at),
+  });
+  const [priority, setPriority] = useState(String(target.priority ?? 100));
+  const [maxPages, setMaxPages] = useState(target.max_pages === null ? '' : String(target.max_pages));
+  const [config, setConfig] = useState(() => JSON.stringify(target.config ?? {}, null, 2));
+  const [configError, setConfigError] = useState<string | null>(null);
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+
+    let parsedConfig: unknown;
+    try {
+      parsedConfig = config.trim() ? JSON.parse(config) : {};
+    } catch {
+      setConfigError('No es JSON válido');
+      return;
+    }
+    setConfigError(null);
+
+    const anchorIso = fromLocalInputValue(schedule.anchor)?.toISOString() ?? null;
+    const patch: Record<string, unknown> = {};
+
+    if (name.trim() && name.trim() !== target.target_name) patch.name = name.trim();
+    if (schedule.frequencyMinutes !== target.frequency_minutes) {
+      patch.frequency_minutes = schedule.frequencyMinutes;
+    }
+    if (anchorIso && anchorIso !== target.schedule_anchor_at) patch.schedule_anchor_at = anchorIso;
+
+    const priorityValue = Number(priority);
+    if (Number.isFinite(priorityValue) && priorityValue !== target.priority) {
+      patch.priority = Math.trunc(priorityValue);
+    }
+
+    const maxPagesValue = maxPages.trim() === '' ? null : Math.trunc(Number(maxPages));
+    if (maxPagesValue !== target.max_pages && (maxPagesValue === null || maxPagesValue > 0)) {
+      patch.max_pages = maxPagesValue;
+    }
+
+    if (JSON.stringify(parsedConfig) !== JSON.stringify(target.config ?? {})) {
+      patch.config = parsedConfig;
+    }
+
+    if (Object.keys(patch).length === 0) {
+      onCancel();
+      return;
+    }
+    onSave(patch);
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="grid gap-x-8 gap-y-6 border-t border-[var(--border)] py-8 sm:grid-cols-2"
+      style={{ animation: 'fyp-rise 420ms var(--ease-out-expo) both' }}
+    >
+      <Field label="Nombre">
+        <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+      </Field>
+
+      <Field label="Prioridad" hint="Menor corre primero cuando varios vencen en la misma tanda.">
+        <input
+          type="number"
+          value={priority}
+          onChange={(e) => setPriority(e.target.value)}
+          className={inputClass}
+        />
+      </Field>
+
+      <ScheduleControls
+        frequencyMinutes={schedule.frequencyMinutes}
+        anchorLocal={schedule.anchor}
+        onChange={setSchedule}
+        anchorHint="Define el día y la hora exactos de la rejilla. Hora de Honduras."
+      />
+
+      <Field label="Máx. páginas" hint="Tope de peticiones por corrida. Vacío = sin tope propio.">
+        <input
+          type="number"
+          min={1}
+          value={maxPages}
+          onChange={(e) => setMaxPages(e.target.value)}
+          placeholder="sin tope"
+          className={inputClass}
+        />
+      </Field>
+
+      <Field label="Configuración (JSON)" hint={configError ?? undefined}>
+        <textarea
+          rows={4}
+          value={config}
+          onChange={(e) => setConfig(e.target.value)}
+          className={`${inputClass} font-mono text-[0.8125rem] ${
+            configError ? 'border-red-500' : ''
+          }`}
+        />
+      </Field>
+
+      <div className="flex items-center gap-5 sm:col-span-2">
+        <button
+          type="submit"
+          disabled={busy}
+          className="rounded-full bg-[var(--text)] px-6 py-2.5 text-[0.8125rem] font-medium text-[var(--text-inverted)] outline-none transition-[transform,opacity] duration-[var(--dur-base)] ease-[var(--ease-spring)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--bg)]"
+        >
+          Guardar
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-[0.8125rem] text-[var(--text-secondary)] transition-opacity duration-[var(--dur-fast)] hover:opacity-60"
+        >
+          Cancelar
+        </button>
+      </div>
+    </form>
   );
 }

@@ -62,6 +62,68 @@ Corre todos los targets vencidos (`next_run_at <= now()`). Sin `CRON_SECRET`
 configurado el endpoint responde 401: un scraper abierto a internet es un ataque
 de denegación de servicio gratis contra las tiendas que rastreamos.
 
+Parámetros que importan:
+
+| | Default | Cuándo tocarlo |
+|---|---|---|
+| `limit` | 5 | **Casi siempre.** Es cuántos targets como máximo atiende una tanda. Con 20 targets registrados, el default deja trabajo sin hacer sin avisar más que con `remaining > 0` en la respuesta. |
+| `timeBudgetMs` | 240 000 | Presupuesto **total** de la tanda, no por target. El runner deja de arrancar targets nuevos cuando quedan menos de 15 s. |
+
+### Programación: ancla + intervalo
+
+Un horario son dos datos, no uno: **dónde empieza la rejilla**
+(`schedule_anchor_at`) y **cada cuánto se repite** (`frequency_minutes`). Todo
+momento válido cumple `next_run_at = ancla + k × intervalo`, y al terminar bien
+una corrida el runner salta al primer punto de esa rejilla posterior a ahora.
+
+Eso permite las dos formas que hacen falta, con el mismo mecanismo:
+
+| Lo que querés | Ancla | Intervalo |
+|---|---|---|
+| Todos los lunes a las 08:00 | un lunes a las 07:55 | 1 semana |
+| Cada 3 días a las 03:00 | cualquier día a las 02:55 | 3 días |
+| Cada 6 horas | cualquier hora en punto | 6 horas |
+
+**Por qué no se suma desde el final de la corrida.** Era lo que hacía el runner
+antes: `next_run_at = now() + intervalo`. Una corrida que empieza a las 08:00:04
+y dura 90 s deja la próxima en lunes 08:01:34; el lunes siguiente el cron
+dispara a las 08:00:02, todavía no vence, y el target se salta hasta la tanda de
+la noche. Desde ahí la agenda se desliza sola y en un mes "los lunes a las 8" ya
+cayó en cualquier lado. Con ancla, la duración de la corrida no cuenta.
+
+**Por qué no `cron_expression`** (la columna existe y sigue sin uso): el cron
+estándar no sabe decir "cada 3 días". Un paso `/3` en el campo de día de mes
+reinicia el conteo cada mes y salta de 1 a 3 días entre el 31 y el 1.
+
+**Por qué el ancla va unos minutos antes de la hora del cron.** Un target es
+elegible cuando `next_run_at <= now()`. Si el ancla dice 08:00 exactas y la
+plataforma dispara a las 07:59:58, no vence y se cae a la tanda siguiente.
+Anclar a las 07:55 elimina la carrera: nada corre a las 07:55 porque a esa hora
+no dispara nada, pero a las 08:00 el target ya está vencido con seguridad.
+
+### Repartir el trabajo entre pocas tandas al día
+
+Con el cron disparando, digamos, a las 03:00, 08:00 y 20:00, cada tanda atiende
+solo lo que venció. Asignar tienda → día → hora es entonces elegir el ancla de
+cada target desde `/admin/scraping`.
+
+Dos cosas garantizan que no se repita trabajo:
+
+1. Al terminar bien, `next_run_at` salta al siguiente punto de la rejilla, así
+   que el mismo target no puede volver a caer en la misma tanda.
+2. El índice único parcial `scrape_runs_one_active_per_target` impide dos
+   corridas vivas del mismo target: si una tanda se solapa con la anterior, la
+   segunda responde `skipped` en vez de duplicar la ingesta.
+
+Lo que sí hay que dosificar es el **presupuesto de la tanda**: 240 s repartidos
+entre todos los targets que vencieron juntos. Medido en producción, un catálogo
+completo cuesta ~300 s (ACOSA), ~165 s (Walmart Abarrotes), ~160 s (Ladylee),
+~130 s (Diunsa), ~115 s (Jetstereo), ~50 s (Steren) y ~32 s (PriceSmart). La
+regla práctica que sale de ahí: **una tienda pesada por tanda**, o dos livianas.
+ACOSA, con 297 s medidos, ya no entra en los 240 s del presupuesto compartido:
+necesita una tanda para ella sola y es la próxima candidata a partirse por
+categorías, como se hizo con Walmart en la migración 0019.
+
 ### Agregar una tienda
 
 > **Manual completo: [`src/server/scraping/README.md`](src/server/scraping/README.md).**

@@ -73,6 +73,12 @@ export interface ScrapeTargetRow {
   frequency_minutes: number | null;
   max_pages: number | null;
   priority: number;
+  /**
+   * Origen de la rejilla horaria: todo `next_run_at` sano es
+   * `schedule_anchor_at + k * frequency_minutes`. Null en targets anteriores a
+   * la migracion 0023, que siguen reprogramandose desde el final de la corrida.
+   */
+  schedule_anchor_at: string | null;
   next_run_at: string;
   last_run_at: string | null;
   last_status: ScrapeRunStatus | null;
