@@ -52,6 +52,15 @@ export const es: Dictionary = {
   productsLabel: "productos",
   activeFiltersLabel: "filtros activos",
 
+  // --- Panel de facetas (barra lateral / hoja de teléfono) ---
+  filterByLabel: "Filtrar por",
+  filtersLabel: "Filtros",
+  seeResultsLabel: "Ver resultados",
+  filterSearchLabel: "Buscar",
+  filterNoMatchesLabel: "Sin coincidencias",
+  anyPriceLabel: "Cualquier precio",
+  andUpLabel: "y más",
+
   // --- Comparación por tienda ---
   sortNewest: "Recién agregados",
   viewCompare: "Comparar",

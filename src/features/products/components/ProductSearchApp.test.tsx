@@ -113,12 +113,32 @@ function getSearchInput() {
   return screen.getByRole("searchbox", { name: t("searchPlaceholder") });
 }
 
-function getStoreSelect() {
-  return screen.getByRole("combobox", { name: t("storeFilterLabel") });
+/**
+ * Abre una sección del panel de facetas si está plegada.
+ *
+ * Las facetas dejaron de ser tres <select> en la barra superior y pasaron a un
+ * panel lateral con secciones plegables. Tienda y marca arrancan plegadas —y su
+ * contenido se DESMONTA, no se esconde con CSS—, así que para llegar a una
+ * opción hay que abrir su sección primero, igual que haría una persona.
+ */
+function openFacetSection(title: string): HTMLElement {
+  const heading = screen.getByRole("button", { name: new RegExp(`^${title}`) });
+  if (heading.getAttribute("aria-expanded") === "false") fireEvent.click(heading);
+  const panelId = heading.getAttribute("aria-controls");
+  const panel = panelId === null ? null : document.getElementById(panelId);
+  if (panel === null) throw new Error(`La sección "${title}" no expone su panel`);
+  return panel;
 }
 
-function getCategorySelect() {
-  return screen.getByRole("combobox", { name: t("categoryFilterLabel") });
+/**
+ * El radio de una opción, buscado DENTRO de su sección.
+ *
+ * El acotado no es cosmético: "todas" es una opción de cada faceta, así que
+ * con dos secciones abiertas una búsqueda global encontraría varias y fallaría
+ * sin decir cuál quería.
+ */
+function getFacetOption(section: string, option: string) {
+  return within(openFacetSection(section)).getByRole("radio", { name: option });
 }
 
 function typeQuery(value: string) {
@@ -129,15 +149,22 @@ function typeQuery(value: string) {
 }
 
 function selectStore(value: string) {
-  fireEvent.change(getStoreSelect(), { target: { value } });
+  fireEvent.click(getFacetOption(t("storeFilterLabel"), value));
 }
 
 function selectCategory(value: string) {
-  fireEvent.change(getCategorySelect(), { target: { value } });
+  fireEvent.click(getFacetOption(t("categoryFilterLabel"), value));
 }
 
+/**
+ * Los artículos de la lista de resultados.
+ *
+ * Se busca por su nombre accesible y no con un `getByRole("list")` a secas:
+ * el panel de facetas también pinta listas (una por sección de opciones), así
+ * que sin el nombre la consulta encuentra varias y falla.
+ */
 function getListItems() {
-  const list = screen.getByRole("list");
+  const list = screen.getByRole("list", { name: t("resultsListLabel") });
   return within(list).queryAllByRole("listitem");
 }
 
@@ -169,19 +196,11 @@ describe("ProductSearchApp", () => {
 
     expect(getSearchInput()).toHaveValue("");
 
-    const storeSelect = getStoreSelect();
-    expect(storeSelect).toHaveValue("");
-    const storeAllOption = within(storeSelect).getByRole("option", {
-      name: t("filterAllOption"),
-    }) as HTMLOptionElement;
-    expect(storeAllOption.value).toBe("");
-
-    const categorySelect = getCategorySelect();
-    expect(categorySelect).toHaveValue("");
-    const categoryAllOption = within(categorySelect).getByRole("option", {
-      name: t("filterAllOption"),
-    }) as HTMLOptionElement;
-    expect(categoryAllOption.value).toBe("");
+    // Sin filtros puestos, la opción "todas" es la marcada en tienda y en
+    // categoría. Se abre cada sección para comprobarlo, que es exactamente lo
+    // que tendría que hacer una persona.
+    expect(getFacetOption(t("storeFilterLabel"), t("filterAllOption"))).toBeChecked();
+    expect(getFacetOption(t("categoryFilterLabel"), t("filterAllOption"))).toBeChecked();
   });
 
   // Task 28
@@ -263,7 +282,7 @@ describe("ProductSearchApp", () => {
     selectCategory("Garden");
 
     expect(getListItems()).toHaveLength(0);
-    expect(screen.getByRole("list")).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: t("resultsListLabel") })).toBeInTheDocument();
     expect(screen.getByText(t("noResultsMessage"))).toBeInTheDocument();
   });
 
@@ -278,15 +297,15 @@ describe("ProductSearchApp", () => {
     expect(getListItems()).toHaveLength(1);
 
     typeQuery("");
-    selectStore("");
-    selectCategory("");
+    selectStore(t("filterAllOption"));
+    selectCategory(t("filterAllOption"));
 
     for (const product of PRODUCTS) {
       expect(screen.getByText(product.name)).toBeInTheDocument();
     }
     expect(getListItems()).toHaveLength(PRODUCTS.length);
     expect(getSearchInput()).toHaveValue("");
-    expect(getStoreSelect()).toHaveValue("");
-    expect(getCategorySelect()).toHaveValue("");
+    expect(getFacetOption(t("storeFilterLabel"), t("filterAllOption"))).toBeChecked();
+    expect(getFacetOption(t("categoryFilterLabel"), t("filterAllOption"))).toBeChecked();
   });
 });
