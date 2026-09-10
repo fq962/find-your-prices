@@ -37,6 +37,33 @@ interface CatalogRow {
 }
 
 const VIEW = 'v_store_products_current';
+
+/**
+ * Estados de disponibilidad que sacan un artículo del catálogo por defecto.
+ *
+ * `out_of_stock` y `discontinued` son las dos formas explícitas de "no lo podés
+ * comprar". `unknown` NO está en la lista, y es deliberado: cuando el scraper
+ * no logró determinar la existencia, esconder el artículo sería tratar un vacío
+ * de información como una respuesta negativa. En Diunsa eso solo dejaría fuera
+ * miles de artículos que sí están a la venta.
+ */
+const UNAVAILABLE_STATES = ['out_of_stock', 'discontinued'] as const;
+
+/**
+ * El piso de "esto se puede comprar hoy" que se aplica salvo que alguien pida
+ * lo contrario: precio real —mayor que cero— y disponibilidad que no sea una
+ * negativa explícita.
+ *
+ * Vive en una función y no repetido en cada consulta porque lo usan el listado,
+ * el conteo y el cálculo de facetas de respaldo. Si las tres no filtran igual,
+ * el selector ofrece "Televisores (120)" y la búsqueda devuelve 90.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyAvailabilityFloor(request: any): any {
+  return request
+    .gt('price', 0)
+    .not('availability', 'in', `("${UNAVAILABLE_STATES.join('","')}")`);
+}
 const COLUMNS =
   'id, store_slug, store_name, name, url, primary_image_url, brand, category_raw, ' +
   'store_category_name, currency, price, list_price, discount_percent, availability, ' +
@@ -213,11 +240,15 @@ async function computeFacetsByScan(): Promise<CatalogFacets> {
   let discounted = 0;
 
   for (let page = 0; page < MAX_PAGES; page += 1) {
-    const { data, error } = await db
-      .from(VIEW)
-      .select('store_category_name, store_name, brand, price, list_price')
-      .not('price', 'is', null)
-      .range(page * PAGE, page * PAGE + PAGE - 1);
+    // Mismo piso de disponibilidad que el listado: estas cuentas alimentan los
+    // selectores, y un selector que promete más de lo que la búsqueda devuelve
+    // parece un fallo del sitio, no un filtro.
+    const { data, error } = await applyAvailabilityFloor(
+      db
+        .from(VIEW)
+        .select('store_category_name, store_name, brand, price, list_price')
+        .not('price', 'is', null),
+    ).range(page * PAGE, page * PAGE + PAGE - 1);
 
     if (error) break;
     const rows = (data ?? []) as Array<Record<string, unknown>>;
@@ -284,7 +315,22 @@ export interface SearchCatalogParams {
   minPrice?: number;
   maxPrice?: number;
   onlyDiscounted?: boolean;
-  onlyInStock?: boolean;
+  /**
+   * Traer también lo que no se puede comprar hoy: agotados, descontinuados y
+   * artículos con precio 0.
+   *
+   * El default es `false`, y esa es la decisión de producto: un comparador de
+   * precios que abre mostrando cosas agotadas o a "L 0.00" está gastando la
+   * primera pantalla —la única que casi todo el mundo mira— en resultados que
+   * no responden la pregunta que trajo a la persona. Un precio 0 además no es
+   * una ganga: es un dato que la tienda no publicó y que el scraper anotó como
+   * cero.
+   *
+   * Se puede desactivar, y por eso existe la bandera en vez de un filtro
+   * cableado: quien está siguiendo un artículo agotado para saber cuándo vuelve
+   * tiene un motivo legítimo para verlo. Pero lo tiene que pedir.
+   */
+  includeUnavailable?: boolean;
   sort?: CatalogSort;
   limit?: number;
   offset?: number;
@@ -354,7 +400,7 @@ async function runCatalogQuery(
     if (params.minPrice !== undefined) request = request.gte('price', params.minPrice);
     if (params.maxPrice !== undefined) request = request.lte('price', params.maxPrice);
     if (params.onlyDiscounted) request = request.not('list_price', 'is', null);
-    if (params.onlyInStock) request = request.eq('in_stock', true);
+    if (!params.includeUnavailable) request = applyAvailabilityFloor(request);
 
     switch (params.sort) {
       // Lo más nuevo primero. `nullsFirst: false` deja al final lo que no tiene

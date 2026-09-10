@@ -50,7 +50,7 @@ export type DictionaryKey =
   | "minPriceLabel"
   | "maxPriceLabel"
   | "onlyDiscountedLabel"
-  | "onlyInStockLabel"
+  | "includeUnavailableLabel"
   | "brandFilterLabel"
   | "loadMoreLabel"
   | "allResultsShownLabel"

@@ -21,7 +21,16 @@ export interface CatalogFilterState {
   maxPrice?: number;
   brand?: string;
   onlyDiscounted: boolean;
-  onlyInStock: boolean;
+  /**
+   * Mostrar también lo que no se puede comprar hoy: agotados, descontinuados
+   * y artículos con precio 0.
+   *
+   * Está redactado en positivo —"incluir"— y no como "solo disponibles" a
+   * propósito. El default del catálogo ya es mostrar solo lo comprable, así
+   * que un control llamado "solo disponibles" que arranca apagado mentiría
+   * sobre lo que está pasando: sugeriría que sin marcarlo se ve todo.
+   */
+  includeUnavailable: boolean;
 }
 
 export const EMPTY_FILTER_STATE: CatalogFilterState = {
@@ -29,7 +38,7 @@ export const EMPTY_FILTER_STATE: CatalogFilterState = {
   maxPrice: undefined,
   brand: undefined,
   onlyDiscounted: false,
-  onlyInStock: false,
+  includeUnavailable: false,
 };
 
 /** Cuántos de estos filtros están activos. Alimenta el contador del botón. */
@@ -39,7 +48,9 @@ export function countActiveFilters(state: CatalogFilterState): number {
   if (state.maxPrice !== undefined) count += 1;
   if (state.brand) count += 1;
   if (state.onlyDiscounted) count += 1;
-  if (state.onlyInStock) count += 1;
+  // Cuenta como filtro activo porque se aparta del default. El contador del
+  // botón existe para que plegar el panel nunca esconda estado.
+  if (state.includeUnavailable) count += 1;
   return count;
 }
 
@@ -56,7 +67,7 @@ export interface FilterPanelProps {
     brand: string;
     all: string;
     onlyDiscounted: string;
-    onlyInStock: string;
+    includeUnavailable: string;
   };
 }
 
@@ -172,9 +183,9 @@ export function FilterPanel({
           label={labels.onlyDiscounted}
         />
         <Toggle
-          checked={state.onlyInStock}
-          onChange={(checked) => patch({ onlyInStock: checked })}
-          label={labels.onlyInStock}
+          checked={state.includeUnavailable}
+          onChange={(checked) => patch({ includeUnavailable: checked })}
+          label={labels.includeUnavailable}
         />
       </div>
     </div>
@@ -211,7 +222,11 @@ function Toggle({
       <span className="relative h-5 w-9 shrink-0 rounded-full bg-[var(--bg-inset)] transition-colors duration-[var(--dur-base)] ease-[var(--ease-out-quart)] peer-checked:bg-[var(--accent)] peer-checked:[&>span]:translate-x-4 peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--accent)] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[var(--bg-elevated)]">
         <span className="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow-[var(--shadow-sm)]  transition-transform duration-[var(--dur-base)] ease-[var(--ease-spring)]" />
       </span>
-      <span className="text-[0.875rem] text-[var(--text-secondary)] peer-checked:text-[var(--text)]">
+      {/* `text-balance` reparte las líneas de una etiqueta larga en vez de
+          dejar una palabra sola abajo. "Incluir agotados y sin precio" caía
+          como cuatro palabras y un huérfano, y esa segunda línea corta
+          desalineaba el ritmo entre los dos interruptores de la columna. */}
+      <span className="text-[0.875rem] text-balance text-[var(--text-secondary)] peer-checked:text-[var(--text)]">
         {label}
       </span>
     </label>
