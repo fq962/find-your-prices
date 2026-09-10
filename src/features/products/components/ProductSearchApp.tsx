@@ -236,7 +236,7 @@ export function ProductSearchApp({
     if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
     if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
     if (filters.onlyDiscounted) params.set("onlyDiscounted", "1");
-    if (filters.onlyInStock) params.set("onlyInStock", "1");
+    if (filters.includeUnavailable) params.set("includeUnavailable", "1");
     params.set("sort", compareSort);
     if (locale) params.set("locale", locale);
     return params.toString();
@@ -275,7 +275,7 @@ export function ProductSearchApp({
     if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
     if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
     if (filters.onlyDiscounted) params.set("onlyDiscounted", "1");
-    if (filters.onlyInStock) params.set("onlyInStock", "1");
+    if (filters.includeUnavailable) params.set("includeUnavailable", "1");
     params.set("sort", sort);
     if (locale) params.set("locale", locale);
     return params.toString();
@@ -442,7 +442,7 @@ export function ProductSearchApp({
             brand: t("brandFilterLabel"),
             all: t("filterAllOption"),
             onlyDiscounted: t("onlyDiscountedLabel"),
-            onlyInStock: t("onlyInStockLabel"),
+            includeUnavailable: t("includeUnavailableLabel"),
           }}
         />
       )}

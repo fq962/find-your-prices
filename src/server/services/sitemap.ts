@@ -15,6 +15,21 @@ import { getSupabaseAdmin } from '@/server/db/supabase';
 const VIEW = 'v_store_products_current';
 
 /**
+ * Los artículos con precio 0 quedan fuera del sitemap.
+ *
+ * Un precio 0 no es una ganga: es un precio que la tienda no publicó y que el
+ * scraper anotó como cero. Una ficha que sale en Google anunciando "L 0.00" es
+ * un mal resultado —la persona hace clic, no encuentra el precio y se va—, y
+ * Google lee esa vuelta atrás como una señal contra todo el dominio.
+ *
+ * Los AGOTADOS sí se listan, aunque el catálogo los esconda por defecto. Son
+ * dos preguntas distintas: qué merece la primera pantalla de quien viene a
+ * comparar, y qué merece existir en el índice. Un agotado vuelve a tener
+ * existencias, su historial de precios sigue sirviendo, y el JSON-LD ya declara
+ * `OutOfStock`, que es exactamente el caso que Google sabe manejar.
+ */
+
+/**
  * Artículos por archivo de sitemap.
  *
  * El límite del protocolo son 50 000 URLs o 50 MB por archivo. Se usa 10 000 y
@@ -49,7 +64,7 @@ export async function countSitemapProducts(): Promise<number> {
     const { count, error } = await getSupabaseAdmin()
       .from(VIEW)
       .select('id', { count: 'exact', head: true })
-      .not('price', 'is', null);
+      .gt('price', 0);
 
     if (error) return 0;
     return count ?? 0;
@@ -87,7 +102,7 @@ export async function getSitemapProducts(chunk: number): Promise<SitemapProduct[
       const { data, error } = await db
         .from(VIEW)
         .select('id, last_seen_at')
-        .not('price', 'is', null)
+        .gt('price', 0)
         .order('id', { ascending: true })
         .range(from, from + FETCH_PAGE - 1);
 

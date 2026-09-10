@@ -43,7 +43,7 @@ export const es: Dictionary = {
   minPriceLabel: "Desde",
   maxPriceLabel: "Hasta",
   onlyDiscountedLabel: "Solo con descuento",
-  onlyInStockLabel: "Solo disponibles",
+  includeUnavailableLabel: "Incluir agotados y sin precio",
   brandFilterLabel: "Marca",
   loadMoreLabel: "Cargar más productos",
   allResultsShownLabel: "Ya viste todos los resultados",

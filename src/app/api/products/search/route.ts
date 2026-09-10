@@ -4,7 +4,7 @@ import { searchCatalog, type CatalogLocale, type CatalogSort } from '@/server/se
  * GET /api/products/search
  *
  * Parámetros: q, store, category, brand, minPrice, maxPrice, onlyDiscounted,
- * onlyInStock, sort, limit, offset, locale.
+ * includeUnavailable, sort, limit, offset, locale.
  *
  * Búsqueda y filtrado sobre el catálogo completo. La página sirve un primer
  * lote curado; en cuanto el visitante escribe o filtra, la consulta se resuelve
@@ -51,7 +51,10 @@ export async function GET(request: Request): Promise<Response> {
     minPrice: numericParam(url.searchParams.get('minPrice')),
     maxPrice: numericParam(url.searchParams.get('maxPrice')),
     onlyDiscounted: url.searchParams.get('onlyDiscounted') === '1',
-    onlyInStock: url.searchParams.get('onlyInStock') === '1',
+    // Sin el parámetro, el endpoint filtra agotados y precio 0 igual que la
+    // página. Es lo correcto para un default: quien no dice nada recibe lo que
+    // se puede comprar hoy, y verlo todo hay que pedirlo.
+    includeUnavailable: url.searchParams.get('includeUnavailable') === '1',
     sort,
     locale,
     limit: numericParam(url.searchParams.get('limit')) ?? 60,
