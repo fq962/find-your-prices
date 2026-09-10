@@ -426,6 +426,7 @@ primera corrida contra 6 s la segunda**.
 | Asumir que el límite de paginación es uno solo | Barrido que se corta en seco a mitad de una categoría grande | Probá también el **desplazamiento** máximo, no solo el tamaño de página. En Walmart HN la ventana es de 50 y `_from` no pasa de 2500: son 2550 artículos por consulta como techo, sin importar que la categoría declare 4430. La salida fue repartir por subcategorías. |
 | Bloquear la estrategia porque un endpoint rechaza al bot | 429 con `rate-limit-reason: bot`, y la tentación de disfrazar el user agent | Probá los demás endpoints antes de rendirte: en Walmart HN `category/tree` y `facets/search` bloquean al bot pero `products/search` y el sitemap no, y con esos dos alcanza. Si el sitio dice que no quiere robots en una puerta, se usa otra. |
 | Cortar la paginación por el total que declara la tienda | Barrido incompleto o bucle de más | Verificá el total contra lo entregado. Shopify declara 11 837 en Ladylee y entrega 6 462: cuenta artículos sin publicar. |
+| Usar el campo `url` que trae la API sin mirarlo | Todas las fichas llevan al sitio de otro país | PriceSmart devuelve `.../site/cr/es/pagina-producto/50630` —**cr**, Costa Rica— para el catálogo hondureño, sea cual sea el `view_id`. Compará el campo contra el sitemap antes de confiar en él: que exista no quiere decir que sirva. |
 | `full_catalog` que no cubre todo el catálogo | `markDelisted` da de baja productos vivos | Si el barrido queda incompleto, devolvé un error no fatal: el runner ya se salta el delisting cuando `errors` no está vacío. |
 
 ### El corte que parte un emoji por la mitad
@@ -466,6 +467,7 @@ resuelto en `truncate` y `stripLoneSurrogates` de
 | Un ejemplo terminado (SPA + API privada) | [`strategies/diunsa.ts`](./strategies/diunsa.ts) |
 | Un ejemplo terminado (Shopify + catálogo por categorías) | [`strategies/ladylee.ts`](./strategies/ladylee.ts) |
 | Un ejemplo terminado (VTEX + reparto por subcategorías) | [`strategies/walmarthn.ts`](./strategies/walmarthn.ts) |
+| Un ejemplo terminado (Bloomreach Discovery vía el proxy del propio sitio) | [`strategies/pricesmart.ts`](./strategies/pricesmart.ts) |
 | Cómo se orquesta una corrida | [`runner.ts`](./runner.ts) |
 | El cliente HTTP | [`http.ts`](./http.ts) |
 | Cómo se escribe en la base | [`repository.ts`](./repository.ts) |

@@ -94,6 +94,33 @@ Para revalidar el contrato cuando Diunsa cambie algo:
 SCRAPER_LIVE_TESTS=1 npx vitest run src/server/scraping/strategies/diunsa.live.test.ts
 ```
 
+### PriceSmart
+
+pricesmart.com/es-hn es un Nuxt con Vue Storefront 2: el HTML del servidor pesa
+384 KB y trae **cero** productos. Las tarjetas las pinta el navegador contra
+Bloomreach Discovery, que el propio sitio expone como proxy
+(`/api/br_discovery/getProductsByKeyword`), así que la estrategia consume esa
+API en vez de parsear HTML.
+
+Tres particularidades que vale la pena saber:
+
+- **Consultar una categoría raíz incluye a todos sus descendientes**, así que
+  las 25 categorías de nivel 1 *son* el catálogo completo. Medido contra
+  producción: **2 763 artículos únicos en 31 peticiones y ~19 s**, con 543
+  categorías que llegan gratis en el facet de la misma respuesta.
+- **El campo `url` de la API apunta al sitio de Costa Rica** y hay que
+  ignorarlo. La URL pública de Honduras se arma con `slug` + `master_sku`,
+  verificado al 100% contra el sitemap (707/707 exactas).
+- **`price` y `sale_price` son siempre 0.** El precio real es `price_HN`, en
+  centavos; y `availability_HN` dice `"true"` incluso en artículos agotados, así
+  que la señal de existencias es `inventory_HN`.
+
+Para revalidar el contrato cuando PriceSmart cambie algo:
+
+```bash
+SCRAPER_LIVE_TESTS=1 npx vitest run src/server/scraping/strategies/pricesmart.live.test.ts
+```
+
 ## Getting Started
 
 First, run the development server:
