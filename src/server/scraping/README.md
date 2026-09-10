@@ -423,6 +423,8 @@ primera corrida contra 6 s la segunda**.
 | `Number(param) \|\| default` | Un `0` explícito se convierte en el default | Comprobar `null`/`''` aparte |
 | Fechas sin `timeZone` fija | Falla de hidratación en React | `timeZone` explícito en `toLocaleString` |
 | `texto.slice(0, N)` sobre descripciones | `Empty or invalid json` al ingerir, siempre en el mismo lote | Cortá por caracteres, no por unidades UTF-16. Ver abajo. |
+| Asumir que el límite de paginación es uno solo | Barrido que se corta en seco a mitad de una categoría grande | Probá también el **desplazamiento** máximo, no solo el tamaño de página. En Walmart HN la ventana es de 50 y `_from` no pasa de 2500: son 2550 artículos por consulta como techo, sin importar que la categoría declare 4430. La salida fue repartir por subcategorías. |
+| Bloquear la estrategia porque un endpoint rechaza al bot | 429 con `rate-limit-reason: bot`, y la tentación de disfrazar el user agent | Probá los demás endpoints antes de rendirte: en Walmart HN `category/tree` y `facets/search` bloquean al bot pero `products/search` y el sitemap no, y con esos dos alcanza. Si el sitio dice que no quiere robots en una puerta, se usa otra. |
 | Cortar la paginación por el total que declara la tienda | Barrido incompleto o bucle de más | Verificá el total contra lo entregado. Shopify declara 11 837 en Ladylee y entrega 6 462: cuenta artículos sin publicar. |
 | `full_catalog` que no cubre todo el catálogo | `markDelisted` da de baja productos vivos | Si el barrido queda incompleto, devolvé un error no fatal: el runner ya se salta el delisting cuando `errors` no está vacío. |
 
@@ -463,6 +465,7 @@ resuelto en `truncate` y `stripLoneSurrogates` de
 | El contrato completo | [`types.ts`](./types.ts) |
 | Un ejemplo terminado (SPA + API privada) | [`strategies/diunsa.ts`](./strategies/diunsa.ts) |
 | Un ejemplo terminado (Shopify + catálogo por categorías) | [`strategies/ladylee.ts`](./strategies/ladylee.ts) |
+| Un ejemplo terminado (VTEX + reparto por subcategorías) | [`strategies/walmarthn.ts`](./strategies/walmarthn.ts) |
 | Cómo se orquesta una corrida | [`runner.ts`](./runner.ts) |
 | El cliente HTTP | [`http.ts`](./http.ts) |
 | Cómo se escribe en la base | [`repository.ts`](./repository.ts) |
