@@ -1,18 +1,16 @@
 import type { Metadata } from "next";
 import { PageLayout } from "@/components/layout/PageLayout";
-import { alternatesFor, SITE_ROUTES } from "@/features/i18n/routes";
+import { SITE_ROUTES } from "@/features/i18n/routes";
+import { legalJsonLd, legalMetadata } from "@/lib/seo/legalSeo";
+import { JsonLd } from "@/lib/seo/JsonLd";
 import { LegalDocView } from "@/features/legal/LegalDocView";
-import { LEGAL_DOCS } from "@/features/legal/legalContent";
 
-export const metadata: Metadata = {
-  title: LEGAL_DOCS.en.content.title,
-  description: LEGAL_DOCS.en.content.lede,
-  alternates: { canonical: SITE_ROUTES.content.en, languages: alternatesFor("content") },
-};
+export const metadata: Metadata = legalMetadata("content", "en");
 
 export default function ContentUsePage() {
   return (
     <PageLayout locale="en" localePaths={SITE_ROUTES.content}>
+      <JsonLd data={legalJsonLd("content", "en")} />
       <LegalDocView doc="content" locale="en" />
     </PageLayout>
   );

@@ -1,18 +1,16 @@
 import type { Metadata } from "next";
 import { PageLayout } from "@/components/layout/PageLayout";
-import { alternatesFor, SITE_ROUTES } from "@/features/i18n/routes";
+import { SITE_ROUTES } from "@/features/i18n/routes";
+import { legalJsonLd, legalMetadata } from "@/lib/seo/legalSeo";
+import { JsonLd } from "@/lib/seo/JsonLd";
 import { LegalDocView } from "@/features/legal/LegalDocView";
-import { LEGAL_DOCS } from "@/features/legal/legalContent";
 
-export const metadata: Metadata = {
-  title: LEGAL_DOCS.es.terms.title,
-  description: LEGAL_DOCS.es.terms.lede,
-  alternates: { canonical: SITE_ROUTES.terms.es, languages: alternatesFor("terms") },
-};
+export const metadata: Metadata = legalMetadata("terms", "es");
 
 export default function TerminosPage() {
   return (
     <PageLayout locale="es" localePaths={SITE_ROUTES.terms}>
+      <JsonLd data={legalJsonLd("terms", "es")} />
       <LegalDocView doc="terms" locale="es" />
     </PageLayout>
   );

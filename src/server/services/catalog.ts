@@ -476,6 +476,16 @@ export interface PricePointRow {
 
 export interface ProductDetail extends Product {
   externalId: string;
+  /**
+   * Estado de disponibilidad sin traducir.
+   *
+   * `availability` (heredado de `Product`) ya viene como etiqueta legible en el
+   * idioma de la página, que es lo que la vista pinta. El JSON-LD necesita el
+   * valor crudo: "agotado" y "descontinuado" se traducen a URLs distintas de
+   * schema.org —Google deja de mostrar el precio del segundo— y esa distinción
+   * se pierde en la etiqueta.
+   */
+  availabilityStatus: AvailabilityStatus;
   sku?: string;
   gtin?: string;
   barcode?: string;
@@ -609,6 +619,7 @@ export async function getProductDetail(
       categoryPath: (row.category_path as string[] | null) ?? [],
       imageUrl: str(row.primary_image_url),
       availability: AVAILABILITY_LABELS[locale][availability],
+      availabilityStatus: availability,
       description: str(row.description),
       url: str(row.url),
       brand: str(row.brand_raw),
