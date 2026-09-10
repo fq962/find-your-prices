@@ -1,13 +1,11 @@
-import { SiteFooter } from "@/components/layout/SiteFooter";
-import { SiteNav } from "@/components/layout/SiteNav";
-import { LocaleProvider } from "@/features/i18n/LocaleContext";
+import { PageLayout } from "@/components/layout/PageLayout";
+import { SHELL } from "@/components/layout/shell";
 import type { Locale } from "@/features/i18n/translate";
 import { CatalogStats } from "@/features/products/components/CatalogStats";
 import { Hero } from "@/features/products/components/Hero";
 import { ProductSearchApp } from "@/features/products/components/ProductSearchApp";
 import { products as fixtureProducts } from "@/features/products/data";
 import { getFacets } from "@/features/products/filterProducts";
-import { ThemeProvider } from "@/features/theme/ThemeProvider";
 import type { CatalogSnapshot } from "@/server/services/catalog";
 
 export interface HomeViewProps {
@@ -43,7 +41,9 @@ export function HomeView({ locale, catalog: snapshot }: HomeViewProps) {
   const toFacets = (values: string[]) =>
     values.map((value) => ({
       value,
-      count: fixtureProducts.filter((p) => p.store === value || p.category === value).length,
+      count: fixtureProducts.filter(
+        (p) => p.store === value || p.category === value,
+      ).length,
     }));
 
   const storeFacets = usingRealCatalog
@@ -54,47 +54,47 @@ export function HomeView({ locale, catalog: snapshot }: HomeViewProps) {
     : toFacets(fallbackFacets.categories);
 
   return (
-    <ThemeProvider>
-      <LocaleProvider initialLocale={locale}>
-        <div className="flex flex-1 flex-col">
-          <SiteNav />
-
-          <main className="flex-1">
-            <div className="mx-auto w-full max-w-[68rem] px-4 sm:px-6">
-              <Hero />
-            </div>
-
-            <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
-              <ProductSearchApp
-                initialProducts={products}
-                storeFacets={storeFacets}
-                categoryFacets={categoryFacets}
-                brandFacets={snapshot.facets.brands}
-                priceBounds={{
-                  min: snapshot.facets.minPrice,
-                  max: snapshot.facets.maxPrice,
-                }}
-                totalResults={usingRealCatalog ? snapshot.total : products.length}
-                /* Con catálogo real la búsqueda va al servidor: filtrar en el
-                   navegador solo encontraría entre los 90 artículos servidos y
-                   el visitante creería que el resto no existe. */
-                remoteSearch={usingRealCatalog}
-                locale={locale}
-              />
-            </div>
-
-            <CatalogStats
-              productCount={usingRealCatalog ? snapshot.facets.totalProducts : products.length}
-              storeCount={usingRealCatalog ? snapshot.facets.totalStores : storeFacets.length}
-              categoryCount={
-                usingRealCatalog ? snapshot.facets.totalCategories : categoryFacets.length
-              }
-            />
-          </main>
-
-          <SiteFooter />
+    <PageLayout locale={locale}>
+      <>
+        <div className={SHELL}>
+          <Hero />
         </div>
-      </LocaleProvider>
-    </ThemeProvider>
+
+        {/* La herramienta comparte el ancho del resto de la página. */}
+        <div className={SHELL}>
+          <ProductSearchApp
+            initialProducts={products}
+            storeFacets={storeFacets}
+            categoryFacets={categoryFacets}
+            brandFacets={snapshot.facets.brands}
+            priceBounds={{
+              min: snapshot.facets.minPrice,
+              max: snapshot.facets.maxPrice,
+            }}
+            totalResults={usingRealCatalog ? snapshot.total : products.length}
+            /* Con catálogo real la búsqueda, el orden y la paginación van al
+               servidor: filtrar en el navegador sólo encontraría dentro del
+               primer lote servido y el visitante creería que el resto no
+               existe. */
+            remoteSearch={usingRealCatalog}
+            locale={locale}
+          />
+        </div>
+
+        <CatalogStats
+          productCount={
+            usingRealCatalog ? snapshot.facets.totalProducts : products.length
+          }
+          storeCount={
+            usingRealCatalog ? snapshot.facets.totalStores : storeFacets.length
+          }
+          categoryCount={
+            usingRealCatalog
+              ? snapshot.facets.totalCategories
+              : categoryFacets.length
+          }
+        />
+      </>
+    </PageLayout>
   );
 }

@@ -15,11 +15,18 @@ export function Hero() {
   const nativeTitle = t("heroNativeTitle");
 
   return (
-    <header className="relative isolate flex flex-col items-start pt-16 pb-10 sm:pt-24 sm:pb-14">
+    <header className="relative isolate flex flex-col items-start overflow-hidden pt-16 pb-10 sm:pt-24 sm:pb-14">
       {/* Dos capas porque son dos movimientos distintos y cada clase declara
           su propia `animation`: la de afuera se desplaza con el scroll, la de
           adentro deriva sola. Ambas decorativas — el parallax nunca toca el
-          texto. */}
+          texto.
+
+          `overflow-hidden` en el header: el blob mide 760px y en un teléfono
+          angosto (~375px) sobra por la derecha aunque haya `max-w-[150vw]`
+          (150vw en 375px siguen siendo 562px). Sin recorte ese sobrante se
+          convertía en scroll horizontal de toda la página. El parallax solo
+          traslada en vertical, así que recortar en el borde del header no le
+          quita nada al efecto. */}
       <div
         aria-hidden="true"
         className="parallax-slow pointer-events-none absolute -top-32 -left-40 -z-10 h-[520px] w-[760px] max-w-[150vw]"

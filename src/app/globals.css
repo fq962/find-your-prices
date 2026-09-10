@@ -18,16 +18,45 @@
 
   --text: #1d1d1f;
   --text-secondary: #56565b;
-  --text-tertiary: #86868b;
+  /* Era #86868b, que sobre el fondo más claro daba 3.5:1 y sobre el más
+     apagado 3.1:1 — por debajo del 4.5:1 que pide un texto pequeño, y este
+     token lleva la tienda, la marca, la calificación y el contador de
+     resultados. Es el valor más cercano al original que pasa en las cuatro
+     superficies (4.57:1 en la peor). */
+  --text-tertiary: #6a6a6f;
   --text-inverted: #fbfbfd;
 
   --border: rgb(0 0 0 / 0.08);
   --border-strong: rgb(0 0 0 / 0.16);
 
+  /* Azul = lo que se puede accionar. Enlaces, foco, "limpiar filtros", el
+     pulso de la búsqueda en vuelo. Nada más. */
   --accent: #0071e3;
   --accent-hover: #0077ed;
   --accent-soft: rgb(0 113 227 / 0.1);
   --accent-contrast: #ffffff;
+
+  /* ---------------------------------------------------------------------
+   * Color de contenido, no de interfaz
+   * ---------------------------------------------------------------------
+   * El sitio existe para responder "dónde está más barato". Ese hallazgo
+   * —el descuento, el precio ganador— venía pintado del mismo azul que los
+   * enlaces y el anillo de foco, así que al barrer una cuadrícula el ojo no
+   * podía separar "esto es una ganga" de "esto es cromo". Tienen su propio
+   * color desde acá.
+   *
+   * Verde profundo y de poca saturación, no el verde de tienda de descuentos:
+   * el mundo es frío y casi neutro, y un verde chillón lo rompería. En oscuro
+   * sube a menta porque el mismo verde profundo se apagaría contra el fondo.
+   * ------------------------------------------------------------------ */
+  --price-win: #146c43;
+  --price-win-soft: rgb(20 108 67 / 0.1);
+  --price-win-contrast: #ffffff;
+
+  /* Agotado y "no se pudo cargar": estado, y el estado nunca debe ser gris,
+     que es el color de lo secundario. */
+  --critical: #b3261e;
+  --critical-soft: rgb(179 38 30 / 0.1);
 
   --glass: rgb(251 251 253 / 0.72);
   --scrim: rgb(0 0 0 / 0.6);
@@ -61,7 +90,9 @@
 
   --text: #f5f5f7;
   --text-secondary: #a1a1a6;
-  --text-tertiary: #76767c;
+  /* Era #76767c: 4.4:1 contra el fondo de la página y 3.6:1 contra el de una
+     ficha. Mismo motivo y mismo criterio que en claro (4.54:1 en la peor). */
+  --text-tertiary: #87878d;
   --text-inverted: #0c0c0e;
 
   --border: rgb(255 255 255 / 0.09);
@@ -71,6 +102,13 @@
   --accent-hover: #4aa8ff;
   --accent-soft: rgb(41 151 255 / 0.14);
   --accent-contrast: #08080a;
+
+  --price-win: #34c98a;
+  --price-win-soft: rgb(52 201 138 / 0.14);
+  --price-win-contrast: #08080a;
+
+  --critical: #f98d86;
+  --critical-soft: rgb(249 141 134 / 0.14);
 
   --glass: rgb(10 10 12 / 0.7);
   --scrim: rgb(0 0 0 / 0.78);
@@ -96,6 +134,11 @@
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-accent-contrast: var(--accent-contrast);
+  --color-price-win: var(--price-win);
+  --color-price-win-soft: var(--price-win-soft);
+  --color-price-win-contrast: var(--price-win-contrast);
+  --color-critical: var(--critical);
+  --color-critical-soft: var(--critical-soft);
 
   --font-sans: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-editorial), ui-serif, Georgia, serif;
@@ -155,6 +198,147 @@
   ::-webkit-scrollbar-thumb:hover {
     background-color: var(--text-tertiary);
     background-clip: content-box;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * <select> — el desplegable, y por qué se ve distinto en Windows
+ * ---------------------------------------------------------------------------
+ * El menú que abre un <select> nativo lo dibuja el sistema operativo, no la
+ * página. En macOS, iOS y Android ese menú ya es redondeado, con tipografía del
+ * sistema y respeta el modo oscuro; en Windows es una lista cuadrada, con fuente
+ * de UI de escritorio y fondo blanco duro, y hasta hace poco no había CSS que
+ * la tocara. De ahí que el mismo control se vea bien en un lado y feo en el otro.
+ *
+ * Se resuelve en dos niveles, sin abandonar el <select> nativo — que es lo que
+ * da teclado, lector de pantalla y la rueda de iOS gratis:
+ *
+ *   1. Base, en todas partes: se pintan `option` y se declara el `color-scheme`
+ *      correcto. Chromium en Windows sí honra el color de fondo y de texto de
+ *      cada opción, así que al menos el menú deja de ser blanco sobre un sitio
+ *      oscuro.
+ *      Nada de esto está limitado a un componente: cualquier <select> de la app
+ *      —el de marca del panel de filtros, los del panel de administración—
+ *      abre el mismo menú del sistema y necesita el mismo trato.
+ *   2. Chromium 135+: `appearance: base-select` entrega el menú entero al CSS.
+ *      Ahí se le da el mismo radio, borde, sombra y espaciado que al resto de la
+ *      interfaz, y el desplegable de Windows termina viéndose como el de macOS.
+ *      Donde no exista, no pasa nada: el navegador ignora la regla y queda el
+ *      nivel 1.
+ * ------------------------------------------------------------------------ */
+
+select {
+  color-scheme: inherit;
+}
+
+/* El menú nativo hereda estos colores en Chromium/Windows y en Firefox. */
+select option {
+  background-color: var(--bg-elevated);
+  color: var(--text);
+}
+
+@supports (appearance: base-select) {
+  /* Todos los <select> de la app, no sólo los del componente Select: el de
+     marca en el panel de filtros y los del panel de administración abren el
+     mismo menú del sistema y sufren el mismo problema en Windows. */
+  select,
+  select::picker(select) {
+    appearance: base-select;
+  }
+
+  /* La flecha de `base-select` sustituye a la del sistema. Gira al abrir, que
+     es la única señal de estado que tiene un desplegable cerrado. */
+  select::picker-icon {
+    color: var(--text-tertiary);
+    transition: transform var(--dur-base) var(--ease-spring);
+  }
+
+  select:open::picker-icon {
+    transform: rotate(180deg);
+  }
+
+  /* El menú desplegado. */
+  select::picker(select) {
+    /* Borde fuerte y no el sutil de las tarjetas: el menú flota sobre el
+       contenido y en modo oscuro la sombra no lo despega del fondo. */
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+    /* Que el menú no sea más angosto que el control del que sale: un
+       desplegable más chico que su botón se lee como otro elemento. */
+    min-width: anchor-size(width);
+    background-color: var(--bg-elevated);
+    box-shadow: var(--shadow-lg);
+    padding: 6px;
+    /* Un catálogo real trae cientos de marcas: se acota el alto y se desplaza
+       dentro, en vez de dejar una lista más larga que la pantalla. */
+    max-height: min(22rem, 60vh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* Sin esto el menú aparece de golpe; `allow-discrete` es lo que permite
+       animar la entrada de un elemento del top layer. */
+    opacity: 0;
+    transition:
+      opacity var(--dur-fast) var(--ease-out-quart),
+      display var(--dur-fast) allow-discrete;
+  }
+
+  select:open::picker(select) {
+    opacity: 1;
+  }
+
+  @starting-style {
+    select:open::picker(select) {
+      opacity: 0;
+    }
+  }
+
+  select option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    /* 40px de alto: el mínimo táctil cómodo para una fila de menú. */
+    min-height: 40px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background-color: transparent;
+    color: var(--text);
+    font-size: 0.9375rem;
+    line-height: 1.35;
+  }
+
+  select option:hover,
+  select option:focus,
+  select option:active {
+    background-color: var(--bg-subtle);
+    color: var(--text);
+  }
+
+  select option:checked {
+    background-color: var(--accent-soft);
+    color: var(--text);
+    font-weight: 550;
+  }
+
+  /* La palomita del check por defecto ocupa una columna en todas las filas y
+     desalinea el texto; el estado seleccionado ya se lee por el fondo. */
+  select option::checkmark {
+    display: none;
+  }
+
+  /* Dentro de la píldora del componente Select el contorno y la flecha los
+     dibuja el envoltorio, así que el control se queda sin caja propia.
+     El relleno NO se toca acá: lo pone el propio componente para que el
+     select llene la píldora entera y todo lo que se ve sea zona de clic.
+     Esta regla va sin capa y le ganaría a la utilidad de Tailwind. */
+  .fyp-select select {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: start;
+  }
+
+  .fyp-select select::picker-icon {
+    display: none;
   }
 }
 

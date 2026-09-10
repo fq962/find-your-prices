@@ -220,7 +220,7 @@ export function ProductDetailView({ product, related, locale }: ProductDetailVie
             </div>
 
             {hasDiscount && (
-              <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-[var(--accent-soft)] px-3 py-1 text-[0.8125rem] font-medium text-[var(--accent)] tabular-nums">
+              <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-[var(--price-win-soft)] px-3 py-1 text-[0.8125rem] font-medium text-[var(--price-win)] tabular-nums">
                 {copy.save} {formatPrice(savings, product.currency, priceLocale)}
                 {product.discountPercent !== undefined &&
                   ` · ${Math.round(product.discountPercent)}%`}

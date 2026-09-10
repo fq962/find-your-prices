@@ -48,3 +48,12 @@ next-env.d.ts
 # Ademas de no pertenecer al repo, dejarlo fuera evita que la deteccion
 # automatica de fuentes de Tailwind escanee ese html y genere utilidades basura.
 /to-scrap/
+
+# Credenciales en texto plano: nunca al repo.
+/dotenv-para-claude.txt
+
+# Impeccable
+# Ajustes locales de Impeccable (consentimientos, preferencias de sesion).
+# El resto de .impeccable/ SI va al repo: es contexto compartido del proyecto.
+/.impeccable/config.local.json
+/.impeccable/live/inject-journal.json

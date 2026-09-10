@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Product } from "@/types";
 import { formatPrice } from "@/lib/format";
+import { CompareToggle, type CompareToggleLabels } from "./CompareToggle";
 
 export interface ProductCardProps {
   product: Product;
@@ -17,6 +18,12 @@ export interface ProductCardProps {
   href?: string;
   viewLargerImageLabel?: string;
   closeImageLabel?: string;
+  /**
+   * Textos del control de comparar. Sin esto el control usa sus propios
+   * defaults en inglés, igual que las otras etiquetas de este componente: así
+   * la tarjeta se sigue montando sin proveedor de idioma.
+   */
+  compareLabels?: CompareToggleLabels;
 }
 
 export function ProductCard({
@@ -25,6 +32,7 @@ export function ProductCard({
   href,
   viewLargerImageLabel = "View larger image of",
   closeImageLabel = "Close",
+  compareLabels,
 }: ProductCardProps) {
   const { name, price, currency, store, imageUrl, description, availability } = product;
   const { url, listPrice, discountPercent } = product;
@@ -56,9 +64,11 @@ export function ProductCard({
   return (
     <div className="group relative flex items-center gap-4 px-3 py-5 transition-colors duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:bg-[var(--bg-subtle)] sm:gap-6 sm:px-4">
       {/* El porcentaje se ancla a la miniatura, no al precio: es la señal que
-          hace que el ojo se detenga al recorrer la lista. */}
+          hace que el ojo se detenga al recorrer la lista. Va en el verde de
+          "precio ganador" y no en el azul de la interfaz: es un hallazgo del
+          catálogo, no algo que se pueda pulsar. */}
       {hasDiscount && discountPercent !== undefined && (
-        <span className="pointer-events-none absolute top-3 left-1 z-10 rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[0.6875rem] font-semibold tabular-nums text-[var(--accent-contrast)] shadow-[var(--shadow-sm)] sm:left-2">
+        <span className="pointer-events-none absolute top-3 left-1 z-10 rounded-full bg-[var(--price-win)] px-1.5 py-0.5 text-[0.6875rem] font-semibold tabular-nums text-[var(--price-win-contrast)] shadow-[var(--shadow-sm)] sm:left-2">
           -{Math.round(discountPercent)}%
         </span>
       )}
@@ -137,6 +147,11 @@ export function ProductCard({
           </p>
         )}
       </div>
+
+      {/* Al final de la fila y no sobre la miniatura: en la lista el ojo baja
+          por la columna de precios, y apartar algo para comparar es la decisión
+          que se toma justo después de leer ese precio. */}
+      <CompareToggle product={product} labels={compareLabels} className="ml-1 sm:ml-2" />
 
       {/* El visor va por portal a <body>: la fila lleva una animación de
           entrada cuyo `transform` persiste, y un ancestro transformado

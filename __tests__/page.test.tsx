@@ -116,7 +116,9 @@ describe.each(ROUTES)("Home $name", ({ Page, dict }) => {
     const categoryCombobox = screen.getByRole("combobox", {
       name: dict.categoryFilterLabel,
     });
-    const list = screen.getByRole("list");
+    // Por nombre y no a secas: el pie de página aporta su propia lista de
+    // enlaces, así que "la lista" del documento ya no es única.
+    const list = screen.getByRole("list", { name: dict.resultsListLabel });
 
     const allNodes = Array.from(container.querySelectorAll("*"));
     const indexOf = (node: Element) => allNodes.indexOf(node);
@@ -178,7 +180,7 @@ describe.each(ROUTES)("Home $name", ({ Page, dict }) => {
 
     test("expone una lista con un item por producto del fixture", async () => {
       await renderPage(Page);
-      const list = screen.getByRole("list");
+      const list = screen.getByRole("list", { name: dict.resultsListLabel });
       expect(list).toBeInTheDocument();
       expect(within(list).getAllByRole("listitem")).toHaveLength(products.length);
     });

@@ -1,4 +1,5 @@
 import { HomeView } from "@/components/layout/HomeView";
+import { CATALOG_PAGE_SIZE } from "@/features/products/catalogPaging";
 import { getCatalogSnapshot } from "@/server/services/catalog";
 
 
@@ -13,6 +14,6 @@ export const revalidate = 300;
 
 /** Español en la raíz: es el idioma por defecto del sitio, sin prefijo. */
 export default async function Home() {
-  const catalog = await getCatalogSnapshot({ locale: "es", limit: 90 });
+  const catalog = await getCatalogSnapshot({ locale: "es", limit: CATALOG_PAGE_SIZE });
   return <HomeView locale="es" catalog={catalog} />;
 }

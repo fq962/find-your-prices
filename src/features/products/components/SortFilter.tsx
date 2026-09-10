@@ -12,6 +12,7 @@ export interface SortFilterProps {
 
 /** Cada criterio de orden y la clave de diccionario que lo nombra. */
 const SORT_LABEL_KEYS: Record<SortOption, DictionaryKey> = {
+  newest: "sortNewest",
   relevance: "sortRelevance",
   "price-asc": "sortPriceAsc",
   "price-desc": "sortPriceDesc",

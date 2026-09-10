@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Select } from "@/components/ui/Select";
 import { useLocale } from "@/features/i18n/LocaleContext";
 
@@ -37,6 +38,15 @@ const CategoryIcon = (
 export function CategoryFilter({ categories, selectedCategory, onChange, counts }: CategoryFilterProps) {
   const { t } = useLocale();
 
+  // Las facetas llegan de la base y pueden traer el mismo nombre dos veces
+  // (dos tiendas nombran igual su categoría, o la vista cuenta variantes por
+  // separado). Duplicar el `value` de una opción rompe la clave de React y deja
+  // el <select> mostrando la misma entrada repetida, así que se colapsan acá.
+  const options = useMemo(
+    () => [...new Set(categories.filter((value) => value.trim() !== ""))],
+    [categories],
+  );
+
   return (
     <Select
       aria-label={t("categoryFilterLabel")}
@@ -45,7 +55,7 @@ export function CategoryFilter({ categories, selectedCategory, onChange, counts 
       onChange={(event) => onChange(event.target.value === "" ? undefined : event.target.value)}
     >
       <option value="">{t("filterAllOption")}</option>
-      {categories.map((category) => (
+      {options.map((category) => (
         <option key={category} value={category}>
           {category}
           {counts?.[category] !== undefined ? ` (${counts[category]})` : ""}

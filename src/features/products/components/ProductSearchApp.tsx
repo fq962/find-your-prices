@@ -2,9 +2,7 @@
 
 import {
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
   useState,
   useSyncExternalStore,
   type CSSProperties,
@@ -16,19 +14,30 @@ import { filterProducts, getFacets } from "@/features/products/filterProducts";
 import { productPath } from "@/features/products/productPath";
 import { DEFAULT_SORT, sortProducts, type SortOption } from "@/features/products/sortProducts";
 import {
+  clampCompareColumns,
   getViewPreferencesServerSnapshot,
   getViewPreferencesSnapshot,
+  MAX_COMPARE_COLUMNS,
   subscribeToViewPreferences,
   writeViewPreferences,
   type Density,
   type ViewMode,
 } from "@/features/products/viewPreferences";
+import { useStoreComparison } from "@/features/products/useStoreComparison";
+import { useCatalogFeed } from "@/features/products/useCatalogFeed";
 import { SearchBar } from "./SearchBar";
 import { StoreFilter } from "./StoreFilter";
 import { CategoryFilter } from "./CategoryFilter";
 import { SortFilter } from "./SortFilter";
 import { ProductGrid } from "./ProductGrid";
 import { CatalogControls } from "./CatalogControls";
+import { CatalogFeedFooter } from "./CatalogFeedFooter";
+import { CompareBar } from "./CompareBar";
+import { CompareGrid } from "./CompareGrid";
+import { CompareTrayDock } from "./CompareTrayDock";
+import { ProductComparisonDialog } from "./ProductComparisonDialog";
+import { useCompareTray } from "@/features/products/useCompareTray";
+import type { CompareToggleLabels } from "./CompareToggle";
 import {
   countActiveFilters,
   EMPTY_FILTER_STATE,
@@ -57,12 +66,6 @@ export interface ProductSearchAppProps {
   remoteSearch?: boolean;
   locale?: string;
 }
-
-/** Espera antes de consultar: evita una petición por cada tecla. */
-const SEARCH_DEBOUNCE_MS = 260;
-
-/** Artículos por página. */
-const PAGE_SIZE = 60;
 
 /**
  * Locale de formato de precio, derivado del idioma de la interfaz.
@@ -95,12 +98,17 @@ export function ProductSearchApp({
   const [sort, setSort] = useState<SortOption>(DEFAULT_SORT);
   const [filters, setFilters] = useState<CatalogFilterState>(EMPTY_FILTER_STATE);
   const [showFilters, setShowFilters] = useState(false);
-
-  const [remoteProducts, setRemoteProducts] = useState<Product[] | null>(null);
-  const [remoteTotal, setRemoteTotal] = useState<number | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [page, setPage] = useState(0);
+  /**
+   * Tienda de cada columna de comparación, por posición. Se guardan las cuatro
+   * aunque se vean menos: bajar de 4 a 2 columnas y volver a subir no debería
+   * borrar lo que ya se había elegido.
+   *
+   * `null` significa "nadie ha tocado esto todavía", que no es lo mismo que
+   * "las cuatro vacías": con `null` mandan las tiendas sembradas por defecto, y
+   * en cuanto se elige una vez el array pasa a ser la verdad, incluso si se
+   * deja alguna columna en blanco a propósito.
+   */
+  const [compareStores, setCompareStores] = useState<(string | undefined)[] | null>(null);
 
   // Las preferencias viven en localStorage, que es estado externo y mutable:
   // useSyncExternalStore es la herramienta para eso. En el servidor devuelve
@@ -113,11 +121,15 @@ export function ProductSearchApp({
   );
 
   const updateView = useCallback(
-    (next: { mode?: ViewMode; density?: Density }) => {
+    (next: { mode?: ViewMode; density?: Density; compareColumns?: number }) => {
       writeViewPreferences({ ...view, ...next });
     },
     [view],
   );
+
+  const isComparing = view.mode === "compare";
+  /** Modo que entiende la retícula: comparar no es uno de sus modos. */
+  const gridMode = view.mode === "compare" ? "list" : view.mode;
 
   // Sin locale explícito se deja que ProductCard use su default: es lo que
   // esperan las pruebas del componente, que lo montan sin idioma.
@@ -154,11 +166,106 @@ export function ProductSearchApp({
     [categoryFacets],
   );
 
-  const activeExtraFilters = countActiveFilters(filters);
-  const hasCriteria =
-    query.trim() !== "" || store !== undefined || category !== undefined || activeExtraFilters > 0;
+  // ---------------------------------------------------------------------------
+  // Bandeja de comparación de productos
+  //
+  // Es la otra comparación: no "qué tiene cada tienda" sino "cuál de estos
+  // cuatro artículos me conviene". Vive en su propio store persistido para que
+  // la selección sobreviva a cambiar de filtro, de vista y de sesión.
+  // ---------------------------------------------------------------------------
 
-  /** Los parámetros que definen una consulta al servidor. */
+  const tray = useCompareTray();
+  const [isComparisonOpen, setIsComparisonOpen] = useState(false);
+
+  const compareToggleLabels: CompareToggleLabels = useMemo(
+    () => ({
+      add: t("compareAddLabel"),
+      remove: t("compareRemoveLabel"),
+      full: t("compareFullLabel"),
+    }),
+    [t],
+  );
+
+  // Vaciar la bandeja con el diálogo abierto lo deja sin nada que mostrar: se
+  // cierra, que es lo que esperaría cualquiera que acaba de vaciarla.
+  function clearTray() {
+    tray.clear();
+    setIsComparisonOpen(false);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Comparación por tienda
+  // ---------------------------------------------------------------------------
+
+  const compareColumnCount = clampCompareColumns(view.compareColumns);
+
+  /**
+   * Selección efectiva de tiendas.
+   *
+   * Sin elección previa se siembra con las tiendas más grandes del catálogo
+   * (las facetas ya llegan ordenadas por cantidad). Abrir la vista en blanco y
+   * exigir dos decisiones antes de mostrar nada la haría parecer rota; con
+   * tiendas puestas se ve la forma de entrada y cambiarlas es un gesto, no un
+   * requisito. Se deriva en vez de sembrarse desde un efecto: un efecto que
+   * escribe estado en el primer render sólo agrega un render de más.
+   */
+  const seededCompareStores = useMemo(
+    () => compareStores ?? Array.from({ length: MAX_COMPARE_COLUMNS }, (_, i) => stores[i]),
+    [compareStores, stores],
+  );
+
+  /**
+   * Orden dentro de cada columna.
+   *
+   * "Recién agregados" y "Destacados" no significan nada enfrentados entre
+   * tiendas —cada una publica a su ritmo—, así que en esta vista se traducen a
+   * precio ascendente, que es la pregunta que la comparación viene a
+   * responder. Cualquier otro criterio elegido a mano se respeta tal cual.
+   */
+  const compareSort: SortOption = sort === "newest" || sort === "relevance" ? "price-asc" : sort;
+
+  /**
+   * Filtros comunes a todas las columnas. Va sin `store` a propósito: esa es
+   * justamente la variable que cambia de una columna a otra.
+   */
+  const compareBaseQuery = useMemo(() => {
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    if (category) params.set("category", category);
+    if (filters.brand) params.set("brand", filters.brand);
+    if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
+    if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
+    if (filters.onlyDiscounted) params.set("onlyDiscounted", "1");
+    if (filters.onlyInStock) params.set("onlyInStock", "1");
+    params.set("sort", compareSort);
+    if (locale) params.set("locale", locale);
+    return params.toString();
+  }, [query, category, filters, compareSort, locale]);
+
+  const visibleCompareStores = useMemo(
+    () => seededCompareStores.slice(0, compareColumnCount),
+    [seededCompareStores, compareColumnCount],
+  );
+
+  const comparisonColumns = useStoreComparison({
+    enabled: isComparing,
+    stores: visibleCompareStores,
+    baseQuery: compareBaseQuery,
+    remoteSearch,
+    localProducts: initialProducts,
+  });
+
+  const activeExtraFilters = countActiveFilters(filters);
+
+  // ---------------------------------------------------------------------------
+  // El listado
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Los parámetros que definen una consulta al servidor. Sin `limit` ni
+   * `offset`: esos los pone la paginación, y meterlos acá haría que la clave de
+   * la consulta cambiara al pedir la página siguiente.
+   */
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     if (query.trim()) params.set("q", query.trim());
@@ -171,78 +278,45 @@ export function ProductSearchApp({
     if (filters.onlyInStock) params.set("onlyInStock", "1");
     params.set("sort", sort);
     if (locale) params.set("locale", locale);
-    params.set("limit", String(PAGE_SIZE));
     return params.toString();
   }, [query, store, category, filters, sort, locale]);
 
-  // Descarta respuestas de consultas ya superadas: sin esto, una petición lenta
-  // puede llegar después de otra más nueva y pisar resultados correctos.
-  const requestSeq = useRef(0);
+  /**
+   * Si esta consulta es la que el servidor ya resolvió al pintar la página.
+   *
+   * El orden cuenta como criterio, y esa es una corrección respecto de antes:
+   * elegir "Menor precio" sin ningún filtro reordenaba en el navegador los
+   * artículos ya cargados y mostraba el más barato DE ESE LOTE, con el rótulo
+   * "48 de 29 753 resultados" al lado. Ahora ordenar es una consulta nueva
+   * sobre el catálogo entero, que es lo que la etiqueta dice.
+   */
+  const isDefaultQuery =
+    query.trim() === "" &&
+    store === undefined &&
+    category === undefined &&
+    activeExtraFilters === 0 &&
+    sort === DEFAULT_SORT;
 
-  useEffect(() => {
-    if (!remoteSearch || !hasCriteria) return;
-
-    const seq = ++requestSeq.current;
-
-    const timer = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const response = await fetch(`/api/products/search?${queryString}`);
-        const payload = await response.json();
-        if (seq !== requestSeq.current) return;
-        setRemoteProducts(Array.isArray(payload.products) ? payload.products : []);
-        setRemoteTotal(typeof payload.total === "number" ? payload.total : null);
-        setPage(0);
-      } catch {
-        if (seq !== requestSeq.current) return;
-        setRemoteProducts([]);
-        setRemoteTotal(0);
-      } finally {
-        if (seq === requestSeq.current) setIsSearching(false);
-      }
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => clearTimeout(timer);
-  }, [remoteSearch, hasCriteria, queryString]);
-
-  /** Trae la página siguiente y la agrega a lo que ya se ve. */
-  async function loadMore() {
-    if (!remoteSearch || isLoadingMore) return;
-    const nextPage = page + 1;
-    setIsLoadingMore(true);
-
-    try {
-      const params = new URLSearchParams(queryString);
-      params.set("offset", String(nextPage * PAGE_SIZE));
-      const response = await fetch(`/api/products/search?${params}`);
-      const payload = await response.json();
-      const incoming: Product[] = Array.isArray(payload.products) ? payload.products : [];
-
-      setRemoteProducts((current) => [...(current ?? initialProducts), ...incoming]);
-      if (typeof payload.total === "number") setRemoteTotal(payload.total);
-      setPage(nextPage);
-    } catch {
-      // Un fallo al pedir más no debe borrar lo que ya se está viendo.
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }
+  const feed = useCatalogFeed({
+    enabled: remoteSearch,
+    queryString,
+    isDefaultQuery,
+    initialProducts,
+    initialTotal: totalResults ?? initialProducts.length,
+  });
 
   const visibleProducts = useMemo(() => {
-    // Con resultados del servidor el filtrado ya vino aplicado; solo se ordena
-    // en el cliente para que cambiar el orden se sienta instantáneo. Los
-    // resultados remotos solo cuentan mientras haya criterios: al limpiar se
-    // vuelve al lote inicial sin esperar a ningún efecto.
-    if (remoteSearch && hasCriteria && remoteProducts !== null) {
-      return sortProducts(remoteProducts, sort);
-    }
+    // Con catálogo real el servidor ya filtró Y ordenó sobre los miles de
+    // artículos: reordenar acá sólo reordenaría la parte cargada, que es
+    // justamente la mentira que se quería evitar. Sin API sí se filtra y ordena
+    // en memoria, que es todo lo que hay (fixture y pruebas).
+    if (remoteSearch) return feed.products;
     return sortProducts(filterProducts(initialProducts, { query, store, category }), sort);
-  }, [remoteSearch, hasCriteria, remoteProducts, initialProducts, query, store, category, sort]);
+  }, [remoteSearch, feed.products, initialProducts, query, store, category, sort]);
 
   const shownCount = visibleProducts.length;
-  const totalCount =
-    remoteSearch && hasCriteria && remoteTotal !== null ? remoteTotal : (totalResults ?? shownCount);
-  const canLoadMore = remoteSearch && shownCount < totalCount;
+  const totalCount = remoteSearch ? feed.total : shownCount;
+  const isSearching = feed.isSearching;
 
   const hasActiveFilters = store !== undefined || category !== undefined || activeExtraFilters > 0;
 
@@ -265,23 +339,36 @@ export function ProductSearchApp({
         className="enter sticky top-14 z-30 -mx-4 flex flex-col gap-2.5 bg-[var(--glass)] px-4 py-3 backdrop-blur-xl sm:mx-0 sm:rounded-2xl sm:border sm:border-[var(--border)] sm:px-3"
         style={{ "--enter-delay": "560ms" } as CSSProperties}
       >
-        <SearchBar onQueryChange={setQuery} />
+        {/* En teléfono la búsqueda ocupa su propia línea —es la acción
+            principal y necesita el ancho completo— y los selectores van debajo.
+            A partir de lg todo cabe en una línea: con el contenedor ancho, tres
+            selectores repartidos a lo largo de 1200px daban píldoras de 400px
+            para elegir entre "Todas" y un nombre de tienda. */}
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-3">
+          <div className="lg:min-w-0 lg:flex-1">
+            <SearchBar onQueryChange={setQuery} />
+          </div>
 
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-          <StoreFilter
-            stores={stores}
-            counts={storeCounts}
-            selectedStore={store}
-            onChange={setStore}
-          />
-          <CategoryFilter
-            categories={categories}
-            counts={categoryCounts}
-            selectedCategory={category}
-            onChange={setCategory}
-          />
-          <div className="col-span-2 sm:col-span-1">
-            <SortFilter selectedSort={sort} onChange={setSort} />
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:flex lg:shrink-0 lg:gap-3">
+            <div className="lg:w-[12.5rem]">
+              <StoreFilter
+                stores={stores}
+                counts={storeCounts}
+                selectedStore={store}
+                onChange={setStore}
+              />
+            </div>
+            <div className="lg:w-[12.5rem]">
+              <CategoryFilter
+                categories={categories}
+                counts={categoryCounts}
+                selectedCategory={category}
+                onChange={setCategory}
+              />
+            </div>
+            <div className="col-span-2 sm:col-span-1 lg:w-[14.5rem]">
+              <SortFilter selectedSort={sort} onChange={setSort} />
+            </div>
           </div>
         </div>
 
@@ -329,6 +416,7 @@ export function ProductSearchApp({
                 list: t("viewList"),
                 grid: t("viewGrid"),
                 gallery: t("viewGallery"),
+                compare: t("viewCompare"),
               },
               densities: {
                 compact: t("densityCompact"),
@@ -359,8 +447,23 @@ export function ProductSearchApp({
         />
       )}
 
+      {isComparing && (
+        <CompareBar
+          stores={stores}
+          columnCount={compareColumnCount}
+          onColumnCountChange={(count) => updateView({ compareColumns: count })}
+          selection={seededCompareStores}
+          onSelectionChange={(index, store) => {
+            const next = [...seededCompareStores];
+            next[index] = store;
+            setCompareStores(next);
+          }}
+        />
+      )}
+
       {/* Línea de estado: cuántos resultados hay y, sólo cuando hace falta, la
-          salida rápida de vuelta al catálogo completo. */}
+          salida rápida de vuelta al catálogo completo. En comparar no se pinta:
+          el total útil es el de cada columna, y va en su cabecera. */}
       <div className="flex min-h-8 items-center justify-between gap-4 px-1">
         <p
           aria-live="polite"
@@ -372,19 +475,22 @@ export function ProductSearchApp({
           <span
             aria-hidden="true"
             className={`h-1.5 w-1.5 rounded-full transition-opacity duration-[var(--dur-base)] ${
-              isSearching && hasCriteria ? "bg-[var(--accent)] opacity-100" : "opacity-0"
+              isSearching ? "bg-[var(--accent)] opacity-100" : "opacity-0"
             }`}
             style={
-              isSearching && hasCriteria
+              isSearching
                 ? { animation: "fyp-pulse 1.1s var(--ease-in-out-expo) infinite" }
                 : undefined
             }
           />
-          {/* Con paginación se dice cuántos se ven del total: "60 de 858" evita
-              creer que el catálogo se acabó al llegar al final de la página. */}
-          {canLoadMore
-            ? `${numberFormat.format(shownCount)} ${t("ofLabel")} ${numberFormat.format(totalCount)} ${resultsLabel}`
-            : `${numberFormat.format(totalCount)} ${resultsLabel}`}
+          {/* Con la lista creciendo sola, esta cifra es lo único que dice dónde
+              estás: "96 de 29 753" mientras queden por traer, y el total a secas
+              cuando ya no. */}
+          {isComparing
+            ? ""
+            : feed.hasMore
+              ? `${numberFormat.format(shownCount)} ${t("ofLabel")} ${numberFormat.format(totalCount)} ${resultsLabel}`
+              : `${numberFormat.format(totalCount)} ${resultsLabel}`}
         </p>
 
         {hasActiveFilters && (
@@ -410,28 +516,107 @@ export function ProductSearchApp({
         )}
       </div>
 
-      <ProductGrid
-        products={visibleProducts}
-        locale={priceLocale}
-        mode={view.mode}
-        density={view.density}
-        productHref={productHref}
-        emptyMessage={t("noResultsMessage")}
-        viewLargerImageLabel={t("viewLargerImageLabel")}
-        closeImageLabel={t("closeImageLabel")}
+      {isComparing ? (
+        <CompareGrid
+          columns={comparisonColumns}
+          locale={priceLocale}
+          productHref={productHref}
+          showEmptyState={visibleCompareStores.every((store) => !store)}
+          compareLabels={compareToggleLabels}
+        />
+      ) : (
+        <ProductGrid
+          products={visibleProducts}
+          locale={priceLocale}
+          mode={gridMode}
+          density={view.density}
+          productHref={productHref}
+          label={t("resultsListLabel")}
+          /* Una búsqueda que falló no es una búsqueda sin resultados: decir
+             "no hay productos" cuando lo que pasó es que se cayó la red manda a
+             la gente a cambiar los filtros para arreglar algo que no está roto
+             ahí. El pie de la lista ofrece el reintento. */
+          emptyMessage={
+            feed.hasError && shownCount === 0 ? t("searchErrorLabel") : t("noResultsMessage")
+          }
+          viewLargerImageLabel={t("viewLargerImageLabel")}
+          closeImageLabel={t("closeImageLabel")}
+          compareLabels={compareToggleLabels}
+        />
+      )}
+
+      {!isComparing && remoteSearch && (
+        <CatalogFeedFooter
+          sentinelRef={feed.sentinelRef}
+          hasMore={feed.hasMore}
+          isAutoPaused={feed.isAutoPaused}
+          isLoadingMore={feed.isLoadingMore}
+          hasError={feed.hasError}
+          hasProducts={shownCount > 0}
+          onLoadMore={feed.loadMore}
+          labels={{
+            loadingMore: t("loadingMoreLabel"),
+            loadMore: t("loadMoreLabel"),
+            error: t("feedErrorLabel"),
+            retry: t("retryLabel"),
+            allShown: t("allResultsShownLabel"),
+          }}
+        />
+      )}
+
+      {/* La barra tapa el final de la lista mientras hay algo apartado. Este
+          espacio de reserva evita que el último producto quede debajo de ella y
+          haya que adivinar que existe.
+
+          Toma el alto real que la barra publica en lugar de repetir un número
+          a mano: eran dos constantes distintas (6rem acá, 5.25rem allá) para
+          una sola medida, y ninguna de las dos coincidía con lo que la barra
+          mide de verdad en teléfono. El respaldo cubre el primer pintado,
+          antes de que la barra alcance a medirse. */}
+      {tray.count > 0 && (
+        <div aria-hidden="true" style={{ height: "var(--fyp-dock, 5.5rem)" }} />
+      )}
+
+      <CompareTrayDock
+        items={tray.items}
+        labels={{
+          title: t("compareTrayTitle"),
+          hint: t("compareTrayHint"),
+          open: t("compareOpenLabel"),
+          clear: t("compareClearLabel"),
+          remove: t("compareRemoveLabel"),
+        }}
+        onOpen={() => setIsComparisonOpen(true)}
+        onRemove={tray.remove}
+        onClear={clearTray}
       />
 
-      {canLoadMore && (
-        <div className="flex justify-center pt-2">
-          <button
-            type="button"
-            onClick={loadMore}
-            disabled={isLoadingMore}
-            className="rounded-full border border-[var(--border-strong)] px-6 py-2.5 text-[0.875rem] font-medium text-[var(--text)] outline-none transition-[background-color,transform] duration-[var(--dur-base)] ease-[var(--ease-spring)] hover:bg-[var(--bg-subtle)] active:scale-[0.98] disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
-          >
-            {isLoadingMore ? `${t("loadingLabel")}…` : t("loadMoreLabel")}
-          </button>
-        </div>
+      {isComparisonOpen && (
+        <ProductComparisonDialog
+          products={tray.items}
+          locale={priceLocale}
+          productHref={productHref}
+          onClose={() => setIsComparisonOpen(false)}
+          onRemove={tray.remove}
+          onClear={clearTray}
+          labels={{
+            title: t("compareTableTitle"),
+            close: t("closeImageLabel"),
+            remove: t("compareRemoveLabel"),
+            clear: t("compareClearLabel"),
+            price: t("compareAttrPrice"),
+            listPrice: t("compareAttrListPrice"),
+            discount: t("compareAttrDiscount"),
+            store: t("compareAttrStore"),
+            brand: t("compareAttrBrand"),
+            category: t("compareAttrCategory"),
+            availability: t("compareAttrAvailability"),
+            rating: t("compareAttrRating"),
+            bestPrice: t("compareBestPriceLabel"),
+            viewDetail: t("viewDetailLabel"),
+            empty: t("compareTableEmpty"),
+          }}
+        />
       )}
     </div>
   );

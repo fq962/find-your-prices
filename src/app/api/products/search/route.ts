@@ -17,6 +17,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const SORTS: CatalogSort[] = [
+  'newest',
   'relevance',
   'discount',
   'price-asc',
@@ -37,7 +38,9 @@ export async function GET(request: Request): Promise<Response> {
   const param = (name: string) => url.searchParams.get(name) ?? undefined;
 
   const rawSort = url.searchParams.get('sort');
-  const sort = SORTS.includes(rawSort as CatalogSort) ? (rawSort as CatalogSort) : 'relevance';
+  // El default coincide con DEFAULT_SORT del cliente: una petición sin `sort`
+  // tiene que devolver lo mismo que la primera carga de la página.
+  const sort = SORTS.includes(rawSort as CatalogSort) ? (rawSort as CatalogSort) : 'newest';
   const locale: CatalogLocale = url.searchParams.get('locale') === 'en' ? 'en' : 'es';
 
   const { products, total } = await searchCatalog({

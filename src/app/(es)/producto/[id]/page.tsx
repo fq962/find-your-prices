@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { SiteFooter } from "@/components/layout/SiteFooter";
-import { SiteNav } from "@/components/layout/SiteNav";
-import { LocaleProvider } from "@/features/i18n/LocaleContext";
+import { PageLayout } from "@/components/layout/PageLayout";
 import { ProductDetailView } from "@/features/products/components/ProductDetailView";
-import { ThemeProvider } from "@/features/theme/ThemeProvider";
-import { getProductDetail, getRelatedProducts } from "@/server/services/catalog";
+import {
+  getProductDetail,
+  getRelatedProducts,
+} from "@/server/services/catalog";
 
 /**
  * Ficha de producto en español.
@@ -21,7 +21,9 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { id } = await params;
   const product = await getProductDetail(id, "es");
 
@@ -55,16 +57,14 @@ export default async function ProductPage({ params }: PageProps) {
   const related = await getRelatedProducts(product, "es");
 
   return (
-    <ThemeProvider>
-      <LocaleProvider initialLocale="es">
-        <div className="flex flex-1 flex-col">
-          <SiteNav />
-          <main className="flex-1">
-            <ProductDetailView product={product} related={related} locale="es" />
-          </main>
-          <SiteFooter />
-        </div>
-      </LocaleProvider>
-    </ThemeProvider>
+    /* La misma ficha en el otro idioma comparte el id, así que su ruta se
+       arma acá: cambiar de idioma en un producto lleva a ese producto, no a
+       la portada. */
+    <PageLayout
+      locale="es"
+      localePaths={{ es: `/producto/${id}`, en: `/en/product/${id}` }}
+    >
+      <ProductDetailView product={product} related={related} locale="es" />
+    </PageLayout>
   );
 }

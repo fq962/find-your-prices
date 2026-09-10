@@ -55,6 +55,13 @@ const MODE_ICONS: Record<ViewMode, React.ReactNode> = {
       <rect x="3.5" y="13" width="17" height="7" rx="1.4" />
     </>
   ),
+  // Dos columnas altas enfrentadas: la forma literal de la vista de comparar.
+  compare: (
+    <>
+      <rect x="3.5" y="3.5" width="7" height="17" rx="1.4" />
+      <rect x="13.5" y="3.5" width="7" height="17" rx="1.4" />
+    </>
+  ),
 };
 
 export function CatalogControls({
@@ -106,9 +113,10 @@ export function CatalogControls({
         })}
       </div>
 
-      {/* En lista el tamaño no aplica: las filas tienen alto fijo. Ocultarlo es
-          más honesto que dejarlo deshabilitado sin explicación. */}
-      {mode !== "list" && (
+      {/* En lista y en comparar el tamaño no aplica: las filas tienen alto
+          fijo. Ocultarlo es más honesto que dejarlo deshabilitado sin
+          explicación. */}
+      {mode !== "list" && mode !== "compare" && (
         <div
           role="group"
           aria-label={labels.density}

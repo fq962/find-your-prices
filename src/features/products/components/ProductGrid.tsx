@@ -2,13 +2,13 @@ import type { CSSProperties } from "react";
 import type { Product } from "@/types";
 import {
   DEFAULT_DENSITY,
-  DEFAULT_VIEW_MODE,
   gridClassesFor,
   type Density,
   type ViewMode,
 } from "@/features/products/viewPreferences";
 import { ProductCard } from "./ProductCard";
 import { ProductTile } from "./ProductTile";
+import type { CompareToggleLabels } from "./CompareToggle";
 
 export interface ProductGridProps {
   products: Product[];
@@ -16,11 +16,24 @@ export interface ProductGridProps {
   emptyMessage?: string;
   viewLargerImageLabel?: string;
   closeImageLabel?: string;
-  /** Modo de presentación. Por defecto la lista, que es la vista de comparar. */
-  mode?: ViewMode;
+  /**
+   * Modo de presentación. Por defecto la lista. `compare` no entra acá: esa
+   * vista no es una retícula de productos sino una columna por tienda, y la
+   * resuelve `CompareGrid`.
+   */
+  mode?: Exclude<ViewMode, "compare">;
   density?: Density;
   /** Ruta de la ficha de cada producto. Sin esto no se enlaza al detalle. */
   productHref?: (product: Product) => string;
+  /** Textos del control que aparta un producto para compararlo. */
+  compareLabels?: CompareToggleLabels;
+  /**
+   * Nombre accesible de la lista. Desde que el pie de página tiene su propia
+   * lista de enlaces, "la lista" dejó de ser una sola en el documento: sin
+   * nombre, un lector de pantalla anuncia dos listas idénticas y no hay forma
+   * de saltar a los resultados.
+   */
+  label?: string;
 }
 
 /** Tope del escalonado: pasado el 8º elemento el retardo deja de crecer. */
@@ -39,9 +52,11 @@ export function ProductGrid({
   emptyMessage,
   viewLargerImageLabel,
   closeImageLabel,
-  mode = DEFAULT_VIEW_MODE,
+  mode = "list",
   density = DEFAULT_DENSITY,
   productHref,
+  compareLabels,
+  label,
 }: ProductGridProps) {
   const hasProducts = products.length > 0;
   const isList = mode === "list";
@@ -51,7 +66,10 @@ export function ProductGrid({
 
   return (
     <>
-      <ul className={hasProducts ? (isList ? listClasses : gridClassesFor(mode, density)) : ""}>
+      <ul
+        aria-label={label}
+        className={hasProducts ? (isList ? listClasses : gridClassesFor(mode, density)) : ""}
+      >
         {products.map((product, index) => (
           <li
             key={product.id}
@@ -69,6 +87,7 @@ export function ProductGrid({
                 href={productHref?.(product)}
                 viewLargerImageLabel={viewLargerImageLabel}
                 closeImageLabel={closeImageLabel}
+                compareLabels={compareLabels}
               />
             ) : (
               <ProductTile
@@ -77,6 +96,7 @@ export function ProductGrid({
                 mode={mode}
                 density={density}
                 locale={locale}
+                compareLabels={compareLabels}
               />
             )}
           </li>
