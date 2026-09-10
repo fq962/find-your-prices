@@ -67,10 +67,6 @@ export function HomeView({ locale, catalog: snapshot }: HomeViewProps) {
             storeFacets={storeFacets}
             categoryFacets={categoryFacets}
             brandFacets={snapshot.facets.brands}
-            priceBounds={{
-              min: snapshot.facets.minPrice,
-              max: snapshot.facets.maxPrice,
-            }}
             totalResults={usingRealCatalog ? snapshot.total : products.length}
             /* Con catálogo real la búsqueda, el orden y la paginación van al
                servidor: filtrar en el navegador sólo encontraría dentro del

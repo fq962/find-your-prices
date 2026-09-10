@@ -112,9 +112,15 @@ describe.each(ROUTES)("Home $name", ({ Page, dict }) => {
     const { container } = await renderPage(Page);
 
     const searchbox = screen.getByRole("searchbox");
-    const storeCombobox = screen.getByRole("combobox", { name: dict.storeFilterLabel });
-    const categoryCombobox = screen.getByRole("combobox", {
-      name: dict.categoryFilterLabel,
+    // Tienda y categoría dejaron de ser <select> en la barra superior: ahora
+    // son secciones del panel de facetas. Lo que se ancla es su encabezado,
+    // que es lo que está siempre en el documento —el contenido de una sección
+    // plegada se desmonta.
+    const storeSection = screen.getByRole("button", {
+      name: new RegExp(`^${dict.storeFilterLabel}`),
+    });
+    const categorySection = screen.getByRole("button", {
+      name: new RegExp(`^${dict.categoryFilterLabel}`),
     });
     // Por nombre y no a secas: el pie de página aporta su propia lista de
     // enlaces, así que "la lista" del documento ya no es única.
@@ -124,8 +130,8 @@ describe.each(ROUTES)("Home $name", ({ Page, dict }) => {
     const indexOf = (node: Element) => allNodes.indexOf(node);
 
     const searchIndex = indexOf(searchbox);
-    const storeIndex = indexOf(storeCombobox);
-    const categoryIndex = indexOf(categoryCombobox);
+    const storeIndex = indexOf(storeSection);
+    const categoryIndex = indexOf(categorySection);
     const listIndex = indexOf(list);
 
     expect(searchIndex).toBeGreaterThanOrEqual(0);
@@ -159,23 +165,33 @@ describe.each(ROUTES)("Home $name", ({ Page, dict }) => {
       expect(screen.getByRole("searchbox", { name: dict.searchPlaceholder })).toBeInTheDocument();
     });
 
-    test("expone tres comboboxes (tienda, categoría, orden) con nombres distintos", async () => {
-      // El contrato original de la Tarea 39 pedía dos; el criterio de orden
-      // se sumó después como tercer control de la barra.
+    test("expone el orden como combobox y las facetas como grupos de radios", async () => {
+      // El contrato original pedía tres comboboxes: tienda, categoría y orden.
+      // Con el panel de facetas quedó uno solo. Tienda y categoría pasaron a
+      // radios dentro de secciones plegables, porque el catálogo resuelve esos
+      // dos filtros con un `=` en Postgres y sólo admite un valor: una lista de
+      // opciones a la vista dice eso mejor que un desplegable que las esconde.
       await renderPage(Page);
 
-      // guarda: las tres etiquetas no son accidentalmente el mismo string, lo
-      // que haría vacua la aserción de "nombres distintos".
+      // guarda: las etiquetas no son accidentalmente el mismo string, lo que
+      // haría vacua la aserción de "nombres distintos".
       const labels = [dict.storeFilterLabel, dict.categoryFilterLabel, dict.sortLabel];
       expect(new Set(labels).size).toBe(labels.length);
 
-      const comboboxes = labels.map((name) => screen.getByRole("combobox", { name }));
+      // Las facetas siguen siendo alcanzables y anunciadas por su nombre.
+      for (const facet of [dict.storeFilterLabel, dict.categoryFilterLabel]) {
+        const section = screen.getByRole("button", { name: new RegExp(`^${facet}`) });
+        expect(section).toHaveAttribute("aria-expanded");
+        expect(section).toHaveAttribute("aria-controls");
+      }
+
+      const comboboxes = [screen.getByRole("combobox", { name: dict.sortLabel })];
 
       for (const combobox of comboboxes) {
         expect(combobox).toBeInTheDocument();
       }
-      expect(new Set(comboboxes).size).toBe(labels.length);
-      expect(screen.getAllByRole("combobox")).toHaveLength(labels.length);
+      // El orden es el único desplegable que queda en la página.
+      expect(screen.getAllByRole("combobox")).toHaveLength(1);
     });
 
     test("expone una lista con un item por producto del fixture", async () => {

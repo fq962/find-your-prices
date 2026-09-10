@@ -17,15 +17,20 @@ export const DENSITIES = ["compact", "cosy", "roomy"] as const;
 export type Density = (typeof DENSITIES)[number];
 
 /**
- * Galería de entrada.
+ * Lista de entrada.
  *
- * La lista es la vista para rastrear un precio concreto, pero quien llega no
- * está rastreando: está mirando. Una fila de texto no dice qué es el producto
- * y la cuadrícula apretada convierte el catálogo en una pared. La galería
- * enseña la foto lo bastante grande para reconocer la cosa de un vistazo, que
- * es lo primero que hace cualquiera que entra.
+ * Antes entraba en galería, con el argumento de que quien llega está mirando y
+ * no rastreando. El argumento tenía un agujero: esto es un comparador, y la
+ * pregunta que trae a la gente es "cuánto cuesta y dónde". La galería contesta
+ * "qué es" —que casi siempre ya se sabe— y gasta media pantalla por artículo en
+ * contestarlo. La lista pone precio, tienda y disponibilidad en la misma línea
+ * y deja ver seis o siete artículos de una vez, que es lo que hace posible
+ * comparar sin desplazarse.
+ *
+ * Quien prefiera fotos grandes tiene el selector de vista, y su elección queda
+ * guardada. Este valor sólo decide la primera visita.
  */
-export const DEFAULT_VIEW_MODE: ViewMode = "gallery";
+export const DEFAULT_VIEW_MODE: ViewMode = "list";
 export const DEFAULT_DENSITY: Density = "cosy";
 
 /**

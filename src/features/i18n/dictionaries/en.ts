@@ -51,6 +51,15 @@ export const en: Dictionary = {
   productsLabel: "products",
   activeFiltersLabel: "active filters",
 
+  // --- Panel de facetas (barra lateral / hoja de teléfono) ---
+  filterByLabel: "Filter by",
+  filtersLabel: "Filters",
+  seeResultsLabel: "See results",
+  filterSearchLabel: "Search",
+  filterNoMatchesLabel: "No matches",
+  anyPriceLabel: "Any price",
+  andUpLabel: "and up",
+
   // --- Store comparison ---
   sortNewest: "Recently added",
   viewCompare: "Compare",
