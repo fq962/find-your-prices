@@ -15,6 +15,8 @@ export interface StoreFilterProps {
   counts?: Record<string, number>;
   selectedStore?: string;
   onChange: (store: string | undefined) => void;
+  /** Ver `SelectProps.collapsed`: comprime la píldora a un icono circular. */
+  collapsed?: boolean;
 }
 
 /** Toldo de tienda: el glifo que identifica este filtro sin escribir "Tienda". */
@@ -33,7 +35,7 @@ const StoreIcon = (
   </svg>
 );
 
-export function StoreFilter({ stores, selectedStore, onChange, counts }: StoreFilterProps) {
+export function StoreFilter({ stores, selectedStore, onChange, counts, collapsed }: StoreFilterProps) {
   const { t } = useLocale();
 
   // Las facetas llegan de la base y pueden traer el mismo nombre dos veces
@@ -49,6 +51,7 @@ export function StoreFilter({ stores, selectedStore, onChange, counts }: StoreFi
     <Select
       aria-label={t("storeFilterLabel")}
       icon={StoreIcon}
+      collapsed={collapsed}
       value={selectedStore ?? ""}
       onChange={(event) => onChange(event.target.value === "" ? undefined : event.target.value)}
     >

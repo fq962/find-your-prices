@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -98,6 +99,43 @@ export function ProductSearchApp({
   const [sort, setSort] = useState<SortOption>(DEFAULT_SORT);
   const [filters, setFilters] = useState<CatalogFilterState>(EMPTY_FILTER_STATE);
   const [showFilters, setShowFilters] = useState(false);
+
+  /**
+   * Fila de tienda/categoría/orden comprimida a solo iconos, en teléfono.
+   *
+   * No alcanza con mirar el scroll: `collapsed` apaga la opacidad del valor
+   * elegido y de la flecha dentro de `<Select>` sin ningún chequeo de por
+   * medio, así que si esto pudiera valer `true` en escritorio, un select de
+   * 12.5rem se quedaría con el valor invisible aunque la píldora siguiera
+   * del mismo tamaño. Por eso también se comprueba `matchMedia`: por debajo
+   * de `lg` es donde vive el criterio de "mobile" de esta fila.
+   *
+   * El umbral de scroll es chico a propósito: la barra ya está pegada bajo
+   * la navegación desde el primer píxel de scroll (`sticky top-14`), así que
+   * comprimir los filtros en cuanto se empieza a bajar es lo que hace que se
+   * sienta como una sola pieza con la barra.
+   */
+  const [isFilterRowCompact, setIsFilterRowCompact] = useState(false);
+
+  useEffect(() => {
+    const COLLAPSE_AT = 24;
+    // 1023px y no 1024px: coincide con el punto donde Tailwind conmuta sus
+    // utilidades `lg:` (que aplican desde 1024px).
+    const mobileQuery = window.matchMedia("(max-width: 1023px)");
+
+    const evaluate = () => {
+      const next = mobileQuery.matches && window.scrollY > COLLAPSE_AT;
+      setIsFilterRowCompact((current) => (next === current ? current : next));
+    };
+
+    evaluate();
+    window.addEventListener("scroll", evaluate, { passive: true });
+    mobileQuery.addEventListener("change", evaluate);
+    return () => {
+      window.removeEventListener("scroll", evaluate);
+      mobileQuery.removeEventListener("change", evaluate);
+    };
+  }, []);
   /**
    * Tienda de cada columna de comparación, por posición. Se guardan las cuatro
    * aunque se vean menos: bajar de 4 a 2 columnas y volver a subir no debería
@@ -329,6 +367,26 @@ export function ProductSearchApp({
     setFilters(EMPTY_FILTER_STATE);
   }
 
+  // Se arma una vez y se reusa en las dos ramas de abajo (comprimida y
+  // expandida): `<CatalogControls>` vive en un sitio o en el otro según
+  // `isFilterRowCompact`, nunca en los dos a la vez, pero las etiquetas son
+  // las mismas.
+  const catalogControlsLabels = {
+    viewMode: t("viewModeLabel"),
+    density: t("densityLabel"),
+    modes: {
+      list: t("viewList"),
+      grid: t("viewGrid"),
+      gallery: t("viewGallery"),
+      compare: t("viewCompare"),
+    },
+    densities: {
+      compact: t("densityCompact"),
+      cosy: t("densityCosy"),
+      roomy: t("densityRoomy"),
+    },
+  };
+
   return (
     <div className="flex flex-col gap-5">
       {/* La barra se pega bajo la navegación y toma el fondo del contenido con
@@ -349,83 +407,159 @@ export function ProductSearchApp({
             <SearchBar onQueryChange={setQuery} />
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:flex lg:shrink-0 lg:gap-3">
-            <div className="lg:w-[12.5rem]">
-              <StoreFilter
-                stores={stores}
-                counts={storeCounts}
-                selectedStore={store}
-                onChange={setStore}
-              />
-            </div>
-            <div className="lg:w-[12.5rem]">
-              <CategoryFilter
-                categories={categories}
-                counts={categoryCounts}
-                selectedCategory={category}
-                onChange={setCategory}
-              />
-            </div>
-            <div className="col-span-2 sm:col-span-1 lg:w-[14.5rem]">
-              <SortFilter selectedSort={sort} onChange={setSort} />
-            </div>
+          {/* Fila de filtros. En reposo es exactamente la de siempre —
+              `grid-cols-2` con "orden" en su propia línea en teléfonos
+              angostos— y "Más filtros" + los controles de vista quedan donde
+              siempre estuvieron, en la segunda línea de abajo.
+
+              Al comprimirse (mobile + scrolleado, ver el hook de arriba) el
+              contenedor pasa a ser una fila de iconos, y esa fila SUBE
+              también "Más filtros" y los controles de vista: son las dos
+              ramas del mismo ternario, nunca las dos a la vez, así que no
+              hay ningún control duplicado en el documento. Los controles de
+              vista no necesitan tratamiento especial de icono —ya eran solo
+              iconos, sin texto—, solo cambian de fila. El resultado final
+              son 2 filas nada más: la búsqueda y esta. */}
+          <div
+            className={
+              isFilterRowCompact
+                ? "flex items-center gap-2"
+                : "grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:flex lg:shrink-0 lg:gap-3"
+            }
+          >
+            {isFilterRowCompact ? (
+              <>
+                <div className="w-12 shrink-0">
+                  <StoreFilter
+                    stores={stores}
+                    counts={storeCounts}
+                    selectedStore={store}
+                    onChange={setStore}
+                    collapsed
+                  />
+                </div>
+                <div className="w-12 shrink-0">
+                  <CategoryFilter
+                    categories={categories}
+                    counts={categoryCounts}
+                    selectedCategory={category}
+                    onChange={setCategory}
+                    collapsed
+                  />
+                </div>
+                <div className="w-12 shrink-0">
+                  <SortFilter selectedSort={sort} onChange={setSort} collapsed />
+                </div>
+
+                {/* "Más filtros" comprimido: mismo botón, mismo estado
+                    (`showFilters`), solo que sin la etiqueta de texto —no
+                    entra en un círculo de 3rem— y con el contador como
+                    insignia en vez de al lado del texto. */}
+                <button
+                  type="button"
+                  onClick={() => setShowFilters((value) => !value)}
+                  aria-expanded={showFilters}
+                  aria-label={t("moreFiltersLabel")}
+                  title={t("moreFiltersLabel")}
+                  className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] outline-none transition-colors duration-[var(--dur-fast)] ease-[var(--ease-out-quart)] hover:border-[var(--border-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                  >
+                    <path d="M4 6h16M7 12h10M10 18h4" />
+                  </svg>
+                  {activeExtraFilters > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--accent)] text-[0.625rem] font-semibold tabular-nums text-[var(--accent-contrast)]">
+                      {activeExtraFilters}
+                    </span>
+                  )}
+                </button>
+
+                <CatalogControls
+                  mode={view.mode}
+                  density={view.density}
+                  onModeChange={(mode) => updateView({ mode })}
+                  onDensityChange={(density) => updateView({ density })}
+                  labels={catalogControlsLabels}
+                />
+              </>
+            ) : (
+              <>
+                <div className="lg:w-[12.5rem]">
+                  <StoreFilter
+                    stores={stores}
+                    counts={storeCounts}
+                    selectedStore={store}
+                    onChange={setStore}
+                  />
+                </div>
+                <div className="lg:w-[12.5rem]">
+                  <CategoryFilter
+                    categories={categories}
+                    counts={categoryCounts}
+                    selectedCategory={category}
+                    onChange={setCategory}
+                  />
+                </div>
+                <div className="col-span-2 sm:col-span-1 lg:w-[14.5rem]">
+                  <SortFilter selectedSort={sort} onChange={setSort} />
+                </div>
+              </>
+            )}
           </div>
         </div>
 
         {/* Segunda línea: filtros extra a la izquierda, presentación a la
             derecha. Se separan porque responden a preguntas distintas —qué veo
-            contra cómo lo veo— y mezclarlas obliga a releer la barra entera. */}
-        <div className="flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => setShowFilters((value) => !value)}
-            aria-expanded={showFilters}
-            className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1.5 text-[0.8125rem] text-[var(--text-secondary)] outline-none transition-colors duration-[var(--dur-fast)] ease-[var(--ease-out-quart)] hover:border-[var(--border-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className="h-3.5 w-3.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              strokeLinecap="round"
+            contra cómo lo veo— y mezclarlas obliga a releer la barra entera.
+            Desaparece cuando la fila de arriba está comprimida: "Más
+            filtros" y los controles de vista subieron ahí, así que acá no
+            queda nada que mostrar. */}
+        {!isFilterRowCompact && (
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setShowFilters((value) => !value)}
+              aria-expanded={showFilters}
+              className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1.5 text-[0.8125rem] text-[var(--text-secondary)] outline-none transition-colors duration-[var(--dur-fast)] ease-[var(--ease-out-quart)] hover:border-[var(--border-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
-              <path d="M4 6h16M7 12h10M10 18h4" />
-            </svg>
-            {t("moreFiltersLabel")}
-            {/* El contador vive en el botón para que plegar el panel nunca
-                esconda estado: si una búsqueda devuelve poco, la causa se ve
-                sin abrir nada. */}
-            {activeExtraFilters > 0 && (
-              <span className="rounded-full bg-[var(--accent)] px-1.5 text-[0.6875rem] font-semibold tabular-nums text-[var(--accent-contrast)]">
-                {activeExtraFilters}
-              </span>
-            )}
-          </button>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="h-3.5 w-3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+              >
+                <path d="M4 6h16M7 12h10M10 18h4" />
+              </svg>
+              {t("moreFiltersLabel")}
+              {/* El contador vive en el botón para que plegar el panel nunca
+                  esconda estado: si una búsqueda devuelve poco, la causa se ve
+                  sin abrir nada. */}
+              {activeExtraFilters > 0 && (
+                <span className="rounded-full bg-[var(--accent)] px-1.5 text-[0.6875rem] font-semibold tabular-nums text-[var(--accent-contrast)]">
+                  {activeExtraFilters}
+                </span>
+              )}
+            </button>
 
-          <CatalogControls
-            mode={view.mode}
-            density={view.density}
-            onModeChange={(mode) => updateView({ mode })}
-            onDensityChange={(density) => updateView({ density })}
-            labels={{
-              viewMode: t("viewModeLabel"),
-              density: t("densityLabel"),
-              modes: {
-                list: t("viewList"),
-                grid: t("viewGrid"),
-                gallery: t("viewGallery"),
-                compare: t("viewCompare"),
-              },
-              densities: {
-                compact: t("densityCompact"),
-                cosy: t("densityCosy"),
-                roomy: t("densityRoomy"),
-              },
-            }}
-          />
-        </div>
+            <CatalogControls
+              mode={view.mode}
+              density={view.density}
+              onModeChange={(mode) => updateView({ mode })}
+              onDensityChange={(density) => updateView({ density })}
+              labels={catalogControlsLabels}
+            />
+          </div>
+        )}
       </div>
 
       {showFilters && (

@@ -8,6 +8,8 @@ import { isSortOption, SORT_OPTIONS, type SortOption } from "../sortProducts";
 export interface SortFilterProps {
   selectedSort: SortOption;
   onChange: (sort: SortOption) => void;
+  /** Ver `SelectProps.collapsed`: comprime la píldora a un icono circular. */
+  collapsed?: boolean;
 }
 
 /** Cada criterio de orden y la clave de diccionario que lo nombra. */
@@ -37,13 +39,14 @@ const SortIcon = (
   </svg>
 );
 
-export function SortFilter({ selectedSort, onChange }: SortFilterProps) {
+export function SortFilter({ selectedSort, onChange, collapsed }: SortFilterProps) {
   const { t } = useLocale();
 
   return (
     <Select
       aria-label={t("sortLabel")}
       icon={SortIcon}
+      collapsed={collapsed}
       value={selectedSort}
       onChange={(event) => {
         // El valor viene de un <select> nativo: se valida antes de propagarlo

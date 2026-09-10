@@ -23,6 +23,17 @@ export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement
    * no con un pulgar, y esa cabecera se usa sobre todo en teléfono.
    */
   size?: "sm" | "md";
+  /**
+   * Comprime la píldora a un botón circular con solo el icono: sin el valor
+   * elegido ni la flecha. Pensado para la fila de filtros en teléfono, que se
+   * aprieta al hacer scroll. El `<select>` nativo sigue ocupando el círculo
+   * entero y abre el mismo menú de siempre — cambia lo que se ve, no lo que
+   * responde al toque. El ancho del círculo lo decide quien use el control
+   * (una `<select>` no puede fijar su propio ancho sin pelearse con el layout
+   * del padre); acá solo se anima lo que sí es responsabilidad propia: el
+   * icono, la flecha y el valor.
+   */
+  collapsed?: boolean;
 }
 
 /**
@@ -54,6 +65,9 @@ const FIELD_PADDING = {
 
 const ICON_POSITION = { sm: "left-3", md: "left-4" } as const;
 
+/** Centrado del icono cuando la píldora es un círculo sin texto ni flecha. */
+const ICON_POSITION_COLLAPSED = "left-1/2 -translate-x-1/2";
+
 /**
  * Tamaño del valor. Sube a 16px con puntero grueso porque iOS hace zoom sobre
  * cualquier control de formulario con letra menor y deja la página desencuadrada
@@ -71,7 +85,14 @@ const FIELD_TEXT = {
  * filtros que muestran "Todas" se distinguen por su glifo, sin gastar ancho
  * repitiendo la palabra que el valor elegido ya va a decir.
  */
-export function Select({ className = "", icon, size = "md", children, ...props }: SelectProps) {
+export function Select({
+  className = "",
+  icon,
+  size = "md",
+  collapsed = false,
+  children,
+  ...props
+}: SelectProps) {
   const padding = FIELD_PADDING[size][icon ? "withIcon" : "withoutIcon"];
 
   return (
@@ -84,7 +105,7 @@ export function Select({ className = "", icon, size = "md", children, ...props }
       {icon && (
         <span
           aria-hidden="true"
-          className={`pointer-events-none absolute top-1/2 z-10 -translate-y-1/2 text-[var(--text-tertiary)] transition-colors duration-[var(--dur-base)] ease-[var(--ease-out-quart)] group-focus-within:text-[var(--accent)] ${ICON_POSITION[size]}`}
+          className={`pointer-events-none absolute top-1/2 z-10 -translate-y-1/2 text-[var(--text-tertiary)] transition-[left,transform,color] duration-[var(--dur-slow)] ease-[var(--ease-spring)] group-focus-within:text-[var(--accent)] ${collapsed ? ICON_POSITION_COLLAPSED : ICON_POSITION[size]}`}
         >
           {icon}
         </span>
@@ -93,8 +114,13 @@ export function Select({ className = "", icon, size = "md", children, ...props }
         {...props}
         /* `items-center`: con `appearance: none` Chromium trata al select como
            una caja inline-flex, y al ocupar ahora el alto entero de la píldora
-           su valor se alineaba arriba en vez de al centro. */
-        className={`flex h-full w-full cursor-pointer appearance-none items-center truncate rounded-full bg-transparent tracking-[-0.01em] text-[var(--text)] outline-none focus-visible:outline-none ${FIELD_TEXT[size]} ${padding} ${className}`}
+           su valor se alineaba arriba en vez de al centro.
+
+           Colapsado, el valor se desvanece en vez de desaparecer de golpe: el
+           círculo ya no tiene sitio para mostrarlo (el icono se centra encima),
+           pero el `<select>` sigue siendo el elemento entero — sigue
+           respondiendo al toque igual que antes, solo que invisible. */
+        className={`flex h-full w-full cursor-pointer appearance-none items-center truncate rounded-full bg-transparent tracking-[-0.01em] text-[var(--text)] outline-none transition-opacity duration-[var(--dur-fast)] ease-[var(--ease-out-quart)] focus-visible:outline-none ${FIELD_TEXT[size]} ${padding} ${collapsed ? "opacity-0" : "opacity-100"} ${className}`}
       >
         {children}
       </select>
@@ -106,7 +132,7 @@ export function Select({ className = "", icon, size = "md", children, ...props }
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="pointer-events-none absolute top-1/2 right-3.5 z-10 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)] transition-transform duration-[var(--dur-base)] ease-[var(--ease-spring)] group-hover:translate-y-[calc(-50%+1px)]"
+        className={`pointer-events-none absolute top-1/2 right-3.5 z-10 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)] transition-[transform,opacity] duration-[var(--dur-base)] ease-[var(--ease-spring)] group-hover:translate-y-[calc(-50%+1px)] ${collapsed ? "opacity-0" : "opacity-100"}`}
       >
         <path d="m6 9 6 6 6-6" />
       </svg>

@@ -15,6 +15,8 @@ export interface CategoryFilterProps {
   counts?: Record<string, number>;
   selectedCategory?: string;
   onChange: (category: string | undefined) => void;
+  /** Ver `SelectProps.collapsed`: comprime la píldora a un icono circular. */
+  collapsed?: boolean;
 }
 
 /** Cuadrícula: agrupación, el glifo de este filtro sin escribir "Categoría". */
@@ -35,7 +37,13 @@ const CategoryIcon = (
   </svg>
 );
 
-export function CategoryFilter({ categories, selectedCategory, onChange, counts }: CategoryFilterProps) {
+export function CategoryFilter({
+  categories,
+  selectedCategory,
+  onChange,
+  counts,
+  collapsed,
+}: CategoryFilterProps) {
   const { t } = useLocale();
 
   // Las facetas llegan de la base y pueden traer el mismo nombre dos veces
@@ -51,6 +59,7 @@ export function CategoryFilter({ categories, selectedCategory, onChange, counts 
     <Select
       aria-label={t("categoryFilterLabel")}
       icon={CategoryIcon}
+      collapsed={collapsed}
       value={selectedCategory ?? ""}
       onChange={(event) => onChange(event.target.value === "" ? undefined : event.target.value)}
     >
