@@ -1,35 +1,19 @@
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { PageLayout } from "@/components/layout/PageLayout";
-import { ProductDetailView } from "@/features/products/components/ProductDetailView";
-import {
-  breadcrumbJsonLd,
-  graph,
-  organizationJsonLd,
-  productJsonLd,
-  productPageJsonLd,
-  websiteJsonLd,
-} from "@/lib/seo/schema";
-import { JsonLd } from "@/lib/seo/JsonLd";
-import {
-  missingProductMetadata,
-  productBreadcrumbs,
-  productMetadata,
-  productPaths,
-} from "@/lib/seo/productSeo";
-import { ProductOgTags } from "@/lib/seo/ProductOgTags";
-import {
-  getProductDetail,
-  getRelatedProducts,
-} from "@/server/services/catalog";
+import { notFound, permanentRedirect } from "next/navigation";
+import { productPaths } from "@/lib/seo/productSeo";
+import { getProductSlug } from "@/server/services/catalog";
 
 /**
- * Product detail page in English.
+ * La dirección vieja de una ficha: `/en/product/<uuid>`.
  *
- * Se revalida cada 10 minutos: los datos de un artículo cambian menos que el
- * listado, y una ficha servida desde caché carga al instante. El precio lleva
- * su marca de "último chequeo" a la vista, así que un desfase de minutos es
- * honesto y visible, no un dato caducado disfrazado de actual.
+ * Ya no pinta nada, sólo redirige a `/en/p/<slug>`. No se borra, y ese es todo el
+ * punto: estas URLs están en el índice de Google, en los enlaces que la gente
+ * ya compartió y en los sitemaps que Search Console leyó la semana pasada.
+ * Quitarlas de golpe convertiría cada una de esas visitas en un 404 y tiraría
+ * la autoridad que la ficha hubiera acumulado.
+ *
+ * La redirección es 308 (permanente): es lo que le dice a Google que traslade
+ * el índice a la dirección nueva en vez de tratarla como un desvío temporal y
+ * seguir sirviendo la vieja.
  */
 export const revalidate = 600;
 
@@ -37,42 +21,14 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
+export default async function LegacyProductPage({ params }: PageProps) {
   const { id } = await params;
-  const product = await getProductDetail(id, "en");
+  const slug = await getProductSlug(id);
 
-  if (!product) return missingProductMetadata("en");
-  return productMetadata(product, "en", id);
-}
+  // Sin slug no hay a dónde mandar a nadie: el artículo se retiró, o el uuid
+  // nunca existió. Un 404 es la respuesta honesta; redirigir a la portada sería
+  // decirle a Google que esa ficha AHORA es la portada.
+  if (!slug) notFound();
 
-export default async function ProductPage({ params }: PageProps) {
-  const { id } = await params;
-  const product = await getProductDetail(id, "en");
-
-  // A real 404 instead of an empty page: the item may have been delisted.
-  if (!product) notFound();
-
-  const related = await getRelatedProducts(product, "en");
-  const path = productPaths(id).en;
-
-  return (
-    /* La misma ficha en el otro idioma comparte el id, así que su ruta se
-       arma acá: cambiar de idioma en un producto lleva a ese producto, no a
-       la portada. */
-    <PageLayout locale="en" localePaths={productPaths(id)}>
-      <JsonLd
-        data={graph([
-          organizationJsonLd("en"),
-          websiteJsonLd("en"),
-          productPageJsonLd({ product, locale: "en", path }),
-          productJsonLd({ product, locale: "en", path }),
-          breadcrumbJsonLd(productBreadcrumbs(product, "en", id)),
-        ])}
-      />
-      <ProductOgTags product={product} />
-      <ProductDetailView product={product} related={related} locale="en" />
-    </PageLayout>
-  );
+  permanentRedirect(productPaths(slug).en);
 }

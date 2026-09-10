@@ -16,10 +16,27 @@ import type { FacetOption } from "@/server/services/catalog";
  * El buscador aparece solo pasado cierto número de opciones. Con siete tiendas
  * es un campo de más; con 300 marcas, sin él la lista es inservible —hay que
  * desplazarse a ciegas buscando "Samsung" entre trescientas.
+ *
+ * La lista larga NO se mete en una caja con desplazamiento propio. Una caja de
+ * 14rem con su barra dentro de un panel que ya se desplaza con la página son
+ * dos superficies de scroll anidadas: la rueda actúa sobre una o sobre otra
+ * según dónde esté el puntero, y lo que queda debajo se esconde detrás de una
+ * barra de cuatro píxeles que casi nadie ve. En su lugar la lista se corta en
+ * las primeras opciones y crece hacia abajo cuando se pide.
  */
 
 /** A partir de acá una lista deja de recorrerse con la vista. */
 const SEARCH_THRESHOLD = 12;
+
+/**
+ * Cuántas opciones se pintan antes de tener que pedir el resto.
+ *
+ * Ocho más "Todas" son nueve filas: alto suficiente para que se vea que la
+ * lista sigue, y corto para que las cinco secciones del panel quepan juntas.
+ * Las facetas llegan ordenadas por cantidad, así que lo que queda arriba es lo
+ * que de verdad tiene artículos detrás.
+ */
+const COLLAPSED_LIMIT = 8;
 
 export interface FilterOptionListProps {
   /** Agrupa los radios. Debe ser único en la página. */
@@ -33,6 +50,9 @@ export interface FilterOptionListProps {
     search: string;
     /** Se muestra cuando el buscador no encuentra nada. */
     noMatches: string;
+    /** Despliega el resto de la lista. Lleva pegado cuántas faltan. */
+    showMore: string;
+    showLess: string;
   };
 }
 
@@ -45,6 +65,7 @@ export function FilterOptionList({
 }: FilterOptionListProps) {
   const searchId = useId();
   const [term, setTerm] = useState("");
+  const [expanded, setExpanded] = useState(false);
 
   const showSearch = options.length > SEARCH_THRESHOLD;
 
@@ -53,6 +74,14 @@ export function FilterOptionList({
     if (!needle) return options;
     return options.filter((option) => option.value.toLowerCase().includes(needle));
   }, [options, term]);
+
+  /**
+   * Cuántas quedan fuera del corte. Con el buscador escrito la lista ya viene
+   * acotada por el término, así que el corte se aplica igual sobre lo que haya
+   * quedado: es coherente y no hace falta un caso aparte.
+   */
+  const hidden = Math.max(visible.length - COLLAPSED_LIMIT, 0);
+  const shown = expanded || hidden === 0 ? visible : visible.slice(0, COLLAPSED_LIMIT);
 
   return (
     <div className="flex flex-col gap-2">
@@ -84,14 +113,7 @@ export function FilterOptionList({
         </div>
       )}
 
-      {/* La lista larga se desplaza dentro de su propia caja en vez de estirar
-          la barra lateral: con 300 marcas, la sección de abajo quedaría a tres
-          pantallas de distancia y el panel dejaría de leerse como una unidad. */}
-      <ul
-        className={`m-0 flex list-none flex-col p-0 ${
-          showSearch ? "max-h-56 overflow-y-auto overscroll-contain pr-1" : ""
-        }`}
-      >
+      <ul className="m-0 flex list-none flex-col p-0">
         <Option
           name={name}
           label={labels.all}
@@ -99,7 +121,7 @@ export function FilterOptionList({
           onSelect={() => onChange(undefined)}
         />
 
-        {visible.map((option) => (
+        {shown.map((option) => (
           <Option
             key={option.value}
             name={name}
@@ -116,6 +138,19 @@ export function FilterOptionList({
           </li>
         )}
       </ul>
+
+      {/* Dice cuántas quedan, no sólo "ver más": saber que detrás hay 1 579
+          categorías cambia la decisión —se teclea en el campo de arriba en vez
+          de desplegar una lista que no se puede recorrer con la vista. */}
+      {hidden > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+          className="self-start rounded-lg px-1 py-1.5 text-[0.8125rem] font-medium text-[var(--accent)] outline-none transition-opacity duration-[var(--dur-fast)] hover:opacity-70 focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        >
+          {expanded ? labels.showLess : `${labels.showMore} (${hidden})`}
+        </button>
+      )}
     </div>
   );
 }

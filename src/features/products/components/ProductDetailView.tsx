@@ -354,7 +354,7 @@ export function ProductDetailView({ product, related, locale }: ProductDetailVie
               <li key={item.id}>
                 <ProductTile
                   product={item}
-                  href={productPath(locale, item.id)}
+                  href={item.slug ? productPath(locale, item.slug) : (item.url ?? "#")}
                   mode="grid"
                   density="cosy"
                   locale={priceLocale}

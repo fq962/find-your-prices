@@ -24,7 +24,7 @@ export interface ProductGridProps {
   mode?: Exclude<ViewMode, "compare">;
   density?: Density;
   /** Ruta de la ficha de cada producto. Sin esto no se enlaza al detalle. */
-  productHref?: (product: Product) => string;
+  productHref?: (product: Product) => string | undefined;
   /** Textos del control que aparta un producto para compararlo. */
   compareLabels?: CompareToggleLabels;
   /**

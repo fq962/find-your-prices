@@ -61,6 +61,8 @@ export interface FilterSidebarProps {
     maxPrice: string;
     onlyDiscounted: string;
     includeUnavailable: string;
+    showMore: string;
+    showLess: string;
   };
 }
 
@@ -111,7 +113,13 @@ export function FilterSidebar({
     .filter(Boolean)
     .join(" · ");
 
-  const listLabels = { all: labels.all, search: labels.search, noMatches: labels.noMatches };
+  const listLabels = {
+    all: labels.all,
+    search: labels.search,
+    noMatches: labels.noMatches,
+    showMore: labels.showMore,
+    showLess: labels.showLess,
+  };
 
   return (
     <div className="flex flex-col">

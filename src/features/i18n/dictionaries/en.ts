@@ -57,6 +57,8 @@ export const en: Dictionary = {
   seeResultsLabel: "See results",
   filterSearchLabel: "Search",
   filterNoMatchesLabel: "No matches",
+  filterShowMoreLabel: "Show more",
+  filterShowLessLabel: "Show less",
   anyPriceLabel: "Any price",
   andUpLabel: "and up",
 

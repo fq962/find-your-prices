@@ -43,6 +43,13 @@ import {
   EMPTY_FILTER_STATE,
   type CatalogFilterState,
 } from "@/features/products/catalogFilters";
+import {
+  getCatalogUrlServerSnapshot,
+  getCatalogUrlSnapshot,
+  subscribeToCatalogUrl,
+  writeCatalogUrl,
+  type CatalogUrlState,
+} from "@/features/products/catalogUrlState";
 
 export interface ProductSearchAppProps {
   initialProducts: Product[];
@@ -89,11 +96,6 @@ export function ProductSearchApp({
 }: ProductSearchAppProps) {
   const { t } = useLocale();
 
-  const [query, setQuery] = useState("");
-  const [store, setStore] = useState<string | undefined>(undefined);
-  const [category, setCategory] = useState<string | undefined>(undefined);
-  const [sort, setSort] = useState<SortOption>(DEFAULT_SORT);
-  const [filters, setFilters] = useState<CatalogFilterState>(EMPTY_FILTER_STATE);
   const [showFilters, setShowFilters] = useState(false);
   /**
    * Tienda de cada columna de comparación, por posición. Se guardan las cuatro
@@ -106,6 +108,64 @@ export function ProductSearchApp({
    * deja alguna columna en blanco a propósito.
    */
   const [compareStores, setCompareStores] = useState<(string | undefined)[] | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // La búsqueda, las facetas y el orden viven en la URL
+  //
+  // Antes vivían en `useState`, y eso hacía que "iphone ordenado por menor
+  // precio" y la portada fueran la misma dirección. Tres cosas se rompían con
+  // eso, y ninguna es cosmética: el enlace de una búsqueda no se puede
+  // compartir, el marcador no guarda nada, y recargar borra lo que se llevaba
+  // puesto.
+  //
+  // La dirección es ahora la única copia de ese estado. Tenerlo en dos sitios
+  // —React y la URL, sincronizados a mano— era la forma segura de que acabaran
+  // diciendo cosas distintas.
+  // ---------------------------------------------------------------------------
+
+  const catalogUrl = useSyncExternalStore(
+    subscribeToCatalogUrl,
+    getCatalogUrlSnapshot,
+    getCatalogUrlServerSnapshot,
+  );
+
+  const { query, store, category, sort, filters } = catalogUrl;
+
+  /**
+   * Cambia parte del estado del catálogo.
+   *
+   * Lee el estado vigente del propio store en vez de cerrarse sobre
+   * `catalogUrl`, y por eso puede ser estable: sin dependencias, la función no
+   * cambia entre renders y los componentes que la reciben —la caja de búsqueda,
+   * entre otros— no se vuelven a montar en cada tecla.
+   */
+  const updateCatalog = useCallback((patch: Partial<CatalogUrlState>) => {
+    writeCatalogUrl({ ...getCatalogUrlSnapshot(), ...patch });
+  }, []);
+
+  const setQuery = useCallback(
+    (value: string) => updateCatalog({ query: value }),
+    [updateCatalog],
+  );
+  const setStore = useCallback(
+    (value: string | undefined) => updateCatalog({ store: value }),
+    [updateCatalog],
+  );
+  const setCategory = useCallback(
+    (value: string | undefined) => updateCatalog({ category: value }),
+    [updateCatalog],
+  );
+  const setSort = useCallback(
+    (value: SortOption) => updateCatalog({ sort: value }),
+    [updateCatalog],
+  );
+
+  /** Un cambio parcial de los filtros del panel, sobre los que ya hubiera. */
+  const patchFilters = useCallback(
+    (patch: Partial<CatalogFilterState>) =>
+      updateCatalog({ filters: { ...getCatalogUrlSnapshot().filters, ...patch } }),
+    [updateCatalog],
+  );
 
   // Las preferencias viven en localStorage, que es estado externo y mutable:
   // useSyncExternalStore es la herramienta para eso. En el servidor devuelve
@@ -134,12 +194,15 @@ export function ProductSearchApp({
 
   // La ruta de la ficha se arma acá y no la pasa el servidor: React no deja
   // cruzar funciones de un Server Component a uno cliente. Con el fixture no
-  // hay ficha que enlazar —esos ids no existen en la base—, así que se deja sin
-  // enlace y el nombre sigue llevando a la tienda.
+  // hay ficha que enlazar —esos artículos no existen en la base y no traen
+  // slug—, así que se deja sin enlace y el nombre sigue llevando a la tienda.
   const productHref = useMemo(
     () =>
       remoteSearch && locale
-        ? (product: Product) => productPath(locale === "en" ? "en" : "es", product.id)
+        ? (product: Product) =>
+            product.slug
+              ? productPath(locale === "en" ? "en" : "es", product.slug)
+              : undefined
         : undefined,
     [remoteSearch, locale],
   );
@@ -327,10 +390,13 @@ export function ProductSearchApp({
   const resultsLabel = totalCount === 1 ? t("resultsCountOne") : t("resultsCountMany");
   const numberFormat = useMemo(() => new Intl.NumberFormat(priceLocale ?? "es-HN"), [priceLocale]);
 
+  /**
+   * Limpiar es un solo gesto y tiene que ser una sola escritura: tres llamadas
+   * seguidas dejarían tres direcciones intermedias en la barra —una con tienda
+   * puesta, otra sin ella— y cada una dispararía su propia consulta.
+   */
   function clearFilters() {
-    setStore(undefined);
-    setCategory(undefined);
-    setFilters(EMPTY_FILTER_STATE);
+    updateCatalog({ store: undefined, category: undefined, filters: EMPTY_FILTER_STATE });
   }
 
   /**
@@ -365,16 +431,10 @@ export function ProductSearchApp({
       includeUnavailable={filters.includeUnavailable}
       onCategoryChange={setCategory}
       onStoreChange={setStore}
-      onBrandChange={(brand) => setFilters((current) => ({ ...current, brand }))}
-      onPriceChange={(range) =>
-        setFilters((current) => ({ ...current, minPrice: range.min, maxPrice: range.max }))
-      }
-      onOnlyDiscountedChange={(onlyDiscounted) =>
-        setFilters((current) => ({ ...current, onlyDiscounted }))
-      }
-      onIncludeUnavailableChange={(includeUnavailable) =>
-        setFilters((current) => ({ ...current, includeUnavailable }))
-      }
+      onBrandChange={(brand) => patchFilters({ brand })}
+      onPriceChange={(range) => patchFilters({ minPrice: range.min, maxPrice: range.max })}
+      onOnlyDiscountedChange={(onlyDiscounted) => patchFilters({ onlyDiscounted })}
+      onIncludeUnavailableChange={(includeUnavailable) => patchFilters({ includeUnavailable })}
       currencySymbol={locale === "en" ? "HNL" : "L"}
       formatAmount={(amount) => numberFormat.format(amount)}
       labels={{
@@ -392,6 +452,8 @@ export function ProductSearchApp({
         maxPrice: t("maxPriceLabel"),
         onlyDiscounted: t("onlyDiscountedLabel"),
         includeUnavailable: t("includeUnavailableLabel"),
+        showMore: t("filterShowMoreLabel"),
+        showLess: t("filterShowLessLabel"),
       }}
     />
   );
@@ -406,7 +468,7 @@ export function ProductSearchApp({
         className="enter sticky top-14 z-30 -mx-4 bg-[var(--glass)] px-4 py-3 backdrop-blur-xl sm:mx-0 sm:rounded-2xl sm:border sm:border-[var(--border)] sm:px-3"
         style={{ "--enter-delay": "560ms" } as CSSProperties}
       >
-        <SearchBar onQueryChange={setQuery} />
+        <SearchBar value={query} onQueryChange={setQuery} />
       </div>
 
       {isComparing && (
@@ -440,12 +502,20 @@ export function ProductSearchApp({
       >
         {!isComparing && (
           <aside className="hidden lg:block">
-            {/* Se queda a la vista al desplazar: con una lista infinita, unos
-                filtros que se van hacia arriba obligan a subir tres pantallas
-                cada vez que se quiere afinar la búsqueda. El alto máximo y el
-                desplazamiento propio son para que el panel no se coma la
-                pantalla cuando todas las secciones están abiertas. */}
-            <div className="sticky top-32 max-h-[calc(100vh-9rem)] overflow-y-auto overscroll-contain rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] px-4 pb-2">
+            {/* El panel crece hasta donde le haga falta y se desplaza con la
+                página, sin caja propia.
+
+                Antes tenía alto máximo y `overflow-y-auto`, y eso creaba tres
+                superficies de desplazamiento anidadas —la página, el panel y
+                cada lista de facetas—. La rueda actuaba sobre una o sobre otra
+                según dónde estuviera el puntero, y las secciones de abajo
+                quedaban escondidas detrás de una barra de cuatro píxeles. Se
+                pierde que los filtros queden fijos al desplazar; a cambio, todo
+                lo que hay se ve, que es la condición previa a poder usarlo.
+
+                `lg:items-start` en la retícula es lo que evita que la columna
+                se estire al alto de los resultados. */}
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] px-4 pb-2">
               <h2 className="pt-4 pb-1 text-[0.6875rem] font-medium tracking-[0.14em] text-[var(--text-tertiary)] uppercase">
                 {t("filterByLabel")}
               </h2>

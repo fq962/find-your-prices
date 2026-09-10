@@ -51,8 +51,13 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
   if (products.length === 0) return new Response("Not found", { status: 404 });
 
   const urls: SitemapUrl[] = products.map((product) => {
-    const es = `/producto/${product.id}`;
-    const en = `/en/product/${product.id}`;
+    // Con slug se lista la dirección legible; sin él —catálogo anterior a la
+    // migración 0021— la vieja, que sigue siendo la buena hasta que exista la
+    // otra. Nunca las dos: listar una URL que redirige a otra que también está
+    // en el archivo le pide a Google que rastree el catálogo dos veces y no
+    // indexa ninguna de las dos versiones con claridad.
+    const es = product.slug ? `/p/${product.slug}` : `/producto/${product.id}`;
+    const en = product.slug ? `/en/p/${product.slug}` : `/en/product/${product.id}`;
 
     return {
       loc: absoluteUrl(es),

@@ -17,9 +17,9 @@ import { buildPageMetadata } from "./metadata";
  * rutas de idioma.
  */
 
-/** Las dos rutas de una misma ficha. El id es el mismo en ambos idiomas. */
-export function productPaths(id: string): Record<Locale, string> {
-  return { es: `/producto/${id}`, en: `/en/product/${id}` };
+/** Las dos rutas de una misma ficha. El slug es el mismo en ambos idiomas. */
+export function productPaths(slug: string): Record<Locale, string> {
+  return { es: `/p/${slug}`, en: `/en/p/${slug}` };
 }
 
 const INTL_LOCALE: Record<Locale, string> = { es: "es-HN", en: "en-HN" };
@@ -93,13 +93,13 @@ function productImages(product: ProductDetail) {
 export function productMetadata(
   product: ProductDetail,
   locale: Locale,
-  id: string,
+  slug: string,
 ): Metadata {
   return buildPageMetadata({
     locale,
     title: productTitle(product, locale),
     description: productDescription(product, locale),
-    paths: productPaths(id),
+    paths: productPaths(slug),
     keywords: productKeywords(
       {
         name: product.name,
@@ -144,12 +144,12 @@ export function missingProductMetadata(locale: Locale): Metadata {
 export function productBreadcrumbs(
   product: ProductDetail,
   locale: Locale,
-  id: string,
+  slug: string,
 ): BreadcrumbItem[] {
   const home = locale === "es" ? "/" : "/en";
   return [
     { name: locale === "es" ? "Inicio" : "Home", path: home },
     { name: product.category, path: home },
-    { name: product.name, path: productPaths(id)[locale] },
+    { name: product.name, path: productPaths(slug)[locale] },
   ];
 }

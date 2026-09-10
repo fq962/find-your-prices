@@ -18,6 +18,7 @@ import type { Product } from '@/types';
 /** Fila cruda de la vista de listado. */
 interface CatalogRow {
   id: string;
+  public_slug: string | null;
   store_slug: string;
   store_name: string;
   name: string;
@@ -64,10 +65,32 @@ function applyAvailabilityFloor(request: any): any {
     .gt('price', 0)
     .not('availability', 'in', `("${UNAVAILABLE_STATES.join('","')}")`);
 }
-const COLUMNS =
+const BASE_COLUMNS =
   'id, store_slug, store_name, name, url, primary_image_url, brand, category_raw, ' +
   'store_category_name, currency, price, list_price, discount_percent, availability, ' +
   'in_stock, rating_average, rating_count';
+
+/**
+ * El slug de la URL pública, que agrega la migración 0021.
+ *
+ * Se pide aparte porque el catálogo tiene que seguir en pie si el código se
+ * despliega antes de correr la migración. Sin esta separación, pedir una
+ * columna que la vista todavía no publica hace fallar la consulta ENTERA —no
+ * devuelve la fila sin ese campo, devuelve error 42703— y la portada, que es
+ * casi todo el sitio, saldría vacía. Es el mismo cuidado que ya se tenía con
+ * `first_seen_at`.
+ */
+const SLUG_COLUMN = 'public_slug';
+
+/**
+ * Si la vista ya publica el slug.
+ *
+ * Vive en el módulo y no en cada llamada a propósito: una vez comprobado que
+ * la columna falta, el resto de las consultas del proceso ya no la piden y no
+ * se paga un viaje fallido por visita. Vuelve a intentarlo en el siguiente
+ * arranque, que es cuando puede haber cambiado.
+ */
+let slugColumnPublished = true;
 
 /**
  * Columna con la fecha en que el artículo apareció por primera vez.
@@ -105,6 +128,7 @@ export type CatalogLocale = 'es' | 'en';
 function toProduct(row: CatalogRow, locale: CatalogLocale): Product {
   return {
     id: row.id,
+    slug: row.public_slug ?? undefined,
     name: row.name,
     price: row.price ?? 0,
     currency: row.currency,
@@ -351,20 +375,29 @@ export interface SearchCatalogResult {
  * resto no existe.
  */
 export async function searchCatalog(params: SearchCatalogParams): Promise<SearchCatalogResult> {
-  const result = await runCatalogQuery(params, NEWEST_COLUMN);
+  // Hasta tres pasadas: la buena, y una por cada columna que la vista pueda no
+  // tener todavía. Cada reintento apaga exactamente lo que faltó, así que el
+  // catálogo degrada por partes —sin orden por novedad, o sin enlace a la
+  // ficha— en vez de caerse entero.
+  let newestColumn = NEWEST_COLUMN;
 
-  // Sin la migración 0017 la vista no tiene `first_seen_at` y la consulta falla
-  // entera. Se reintenta una vez con la columna que sí existe en vez de
-  // devolver un catálogo vacío que parecería una base sin datos.
-  if (result === null) {
-    return (await runCatalogQuery(params, 'last_seen_at')) ?? { products: [], total: 0 };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const result = await runCatalogQuery(params, newestColumn);
+    if (result !== null) return result;
+
+    // `null` significa "falta una columna". Cuál, lo dice la bandera que la
+    // propia consulta acaba de bajar.
+    if (!slugColumnPublished && newestColumn === NEWEST_COLUMN) continue;
+    newestColumn = 'last_seen_at';
   }
-  return result;
+
+  return { products: [], total: 0 };
 }
 
 /**
- * Una pasada de la consulta. Devuelve `null` —y solo `null`— cuando la columna
- * de novedad no existe, que es la única condición que vale la pena reintentar.
+ * Una pasada de la consulta. Devuelve `null` —y solo `null`— cuando falta una
+ * columna que la vista no publica todavía, que es la única condición que vale
+ * la pena reintentar.
  */
 async function runCatalogQuery(
   params: SearchCatalogParams,
@@ -380,10 +413,12 @@ async function runCatalogQuery(
     // .eq()/.gte() reescribe el tipo del resultado. Se afloja el tipo del
     // builder a propósito; la forma real de las filas se fija abajo, al
     // mapearlas a CatalogRow.
+    const columns = slugColumnPublished ? `${BASE_COLUMNS}, ${SLUG_COLUMN}` : BASE_COLUMNS;
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let request: any = getSupabaseAdmin()
       .from(VIEW)
-      .select(COLUMNS, { count: 'exact' })
+      .select(columns, { count: 'exact' })
       .not('price', 'is', null);
 
     const query = params.query?.trim();
@@ -432,10 +467,20 @@ async function runCatalogQuery(
     const { data, error, count } = await request.range(offset, offset + limit - 1);
     if (error) {
       // 42703 = undefined_column en Postgres. Es lo que responde PostgREST
-      // cuando se ordena por una columna que la vista todavía no publica.
-      const missingColumn =
-        error.code === '42703' || String(error.message).includes(newestColumn);
-      if (missingColumn && params.sort === 'newest') return null;
+      // cuando se pide o se ordena por una columna que la vista no publica.
+      const message = String(error.message);
+      const undefinedColumn = error.code === '42703';
+
+      // El mensaje de PostgREST nombra la columna que falta
+      // ("column ... public_slug does not exist"), que es lo que permite saber
+      // cuál de las dos apagar.
+      if (slugColumnPublished && message.includes(SLUG_COLUMN)) {
+        slugColumnPublished = false;
+        return null;
+      }
+
+      const missingNewest = undefinedColumn || message.includes(newestColumn);
+      if (missingNewest && params.sort === 'newest') return null;
       throw new Error(error.message);
     }
 
@@ -522,6 +567,8 @@ export interface PricePointRow {
 
 export interface ProductDetail extends Product {
   externalId: string;
+  /** Siempre presente acá: la ficha se encontró por él o lo trae la fila. */
+  slug: string;
   /**
    * Estado de disponibilidad sin traducir.
    *
@@ -566,11 +613,24 @@ export interface ProductDetail extends Product {
 }
 
 /**
+ * Forma de un uuid. Es lo que separa una URL vieja de una nueva sin tener que
+ * pasar una bandera desde la ruta.
+ */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
  * Ficha completa. Devuelve `null` si el artículo no existe o dejó de estar
  * activo, para que la ruta responda 404 en vez de una página vacía.
+ *
+ * Acepta el slug público o el uuid. Los dos porque hay dos llamadores con
+ * necesidades distintas: la ficha nueva llega por `/p/<slug>` y la ruta vieja
+ * —`/producto/<uuid>`, la que sigue en el índice de Google y en los enlaces ya
+ * compartidos— necesita resolver el uuid para poder redirigir. Distinguirlos
+ * por la forma del texto evita un parámetro que habría que acertar en cada
+ * llamada.
  */
 export async function getProductDetail(
-  id: string,
+  key: string,
   locale: CatalogLocale = 'es',
 ): Promise<ProductDetail | null> {
   try {
@@ -585,7 +645,7 @@ export async function getProductDetail(
          store_product_images(url, position, is_primary, alt_text),
          store_product_variants(external_id, name, color, size, price, list_price, in_stock)`,
       )
-      .eq('id', id)
+      .eq(UUID_PATTERN.test(key) ? 'id' : 'public_slug', key)
       .eq('is_active', true)
       .maybeSingle();
 
@@ -600,7 +660,7 @@ export async function getProductDetail(
     const { data: history } = await db
       .from('price_history')
       .select('scraped_at, price, list_price, previous_price, price_delta, in_stock')
-      .eq('store_product_id', id)
+      .eq('store_product_id', String(row.id))
       .order('scraped_at', { ascending: true })
       .limit(200);
 
@@ -655,6 +715,11 @@ export async function getProductDetail(
 
     return {
       id: String(row.id),
+      /**
+       * Respaldo por si la fila es anterior a la migración 0021 y todavía no
+       * tiene slug: la ficha sigue abriendo por uuid en vez de romperse.
+       */
+      slug: str(row.public_slug) ?? String(row.id),
       externalId: String(row.external_id),
       name: String(row.name),
       price: Number(row.price ?? 0),
@@ -703,6 +768,33 @@ export async function getProductDetail(
       lowestPrice: observedPrices.length ? Math.min(...observedPrices) : undefined,
       highestPrice: observedPrices.length ? Math.max(...observedPrices) : undefined,
     };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * El slug público de una ficha, a partir de su uuid.
+ *
+ * Existe aparte de `getProductDetail` porque la ruta vieja sólo necesita saber
+ * a dónde redirigir: traerse la ficha entera —con imágenes, variantes y
+ * doscientos puntos de histórico— para leer un campo y descartar el resto
+ * convierte cada visita desde Google en una consulta de las caras.
+ */
+export async function getProductSlug(id: string): Promise<string | null> {
+  if (!UUID_PATTERN.test(id)) return null;
+
+  try {
+    const { data, error } = await getSupabaseAdmin()
+      .from('store_products')
+      .select('public_slug')
+      .eq('id', id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    const slug = (data as { public_slug: string | null }).public_slug;
+    return slug && slug !== '' ? slug : null;
   } catch {
     return null;
   }

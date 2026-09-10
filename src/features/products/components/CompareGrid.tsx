@@ -25,7 +25,7 @@ import { CompareToggle, type CompareToggleLabels } from "./CompareToggle";
 export interface CompareGridProps {
   columns: ComparisonColumn[];
   locale?: string;
-  productHref?: (product: Product) => string;
+  productHref?: (product: Product) => string | undefined;
   /** Se muestra en lugar de las columnas mientras no haya nada que comparar. */
   showEmptyState: boolean;
   /** Textos del control que aparta un producto para la tabla comparativa. */
@@ -115,7 +115,7 @@ export function CompareGrid({
 interface CompareColumnProps {
   column: ComparisonColumn;
   locale?: string;
-  productHref?: (product: Product) => string;
+  productHref?: (product: Product) => string | undefined;
   isCheapestColumn: boolean;
   bestPrice: number | null;
   compareLabels?: CompareToggleLabels;

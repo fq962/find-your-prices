@@ -5,20 +5,42 @@ import { useLocale } from "@/features/i18n/LocaleContext";
 import { useDebounce } from "@/hooks/useDebounce";
 
 export interface SearchBarProps {
+  /**
+   * Término que viene de fuera: el `?q=` de la URL al cargar, o un borrado
+   * desde otro control. Es opcional a propósito —quien monta la barra sin él
+   * sigue teniendo un campo que se gestiona solo— y NO la convierte en un
+   * input controlado: lo que se teclea manda mientras se teclea, y esto sólo
+   * entra cuando el valor de fuera cambia por su cuenta.
+   */
+  value?: string;
   onQueryChange: (query: string) => void;
 }
 
-export function SearchBar({ onQueryChange }: SearchBarProps) {
+export function SearchBar({ value = "", onQueryChange }: SearchBarProps) {
   const { t } = useLocale();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(value);
   const debouncedQuery = useDebounce(query);
-  const isFirstRun = useRef(true);
+
+  /**
+   * El último término que este componente y su entorno dan por acordado.
+   *
+   * Hace de árbitro entre las dos direcciones. Hacia afuera evita avisar de un
+   * cambio que no hubo —incluido el del montaje, con la cadena vacía—; hacia
+   * adentro distingue "la URL trae algo nuevo" de "es el eco de lo que acabo
+   * de teclear", que es el bucle en el que cae cualquier campo que se sincroniza
+   * con la barra de direcciones.
+   */
+  const settled = useRef(value);
 
   useEffect(() => {
-    if (isFirstRun.current) {
-      isFirstRun.current = false;
-      return;
-    }
+    if (value === settled.current) return;
+    settled.current = value;
+    setQuery(value);
+  }, [value]);
+
+  useEffect(() => {
+    if (debouncedQuery === settled.current) return;
+    settled.current = debouncedQuery;
     onQueryChange(debouncedQuery);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery]);

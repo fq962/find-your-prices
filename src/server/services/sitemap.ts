@@ -68,9 +68,20 @@ const FETCH_PAGE = 1_000;
 
 export interface SitemapProduct {
   id: string;
+  /**
+   * Segmento de la URL pública: `/p/<slug>`.
+   *
+   * `null` mientras la migración 0021 no haya corrido. En ese caso la ficha
+   * todavía vive en su dirección vieja y el sitemap lista esa, que es la
+   * correcta hasta que exista la otra.
+   */
+  slug: string | null;
   /** Último chequeo del scraper. Es el `lastmod` honesto de la ficha. */
   lastModified: string;
 }
+
+/** Igual que en `catalog.ts`: una sola comprobación por proceso. */
+let slugColumnPublished = true;
 
 /**
  * Cuántos artículos entran al sitemap. De acá sale el número de archivos que
@@ -129,20 +140,41 @@ export async function getSitemapProducts(chunk: number): Promise<SitemapProduct[
        * exacta (10 lotes de 1 000) y nunca sobraba nada.
        */
       const size = Math.min(FETCH_PAGE, SITEMAP_CHUNK_SIZE - offset);
-      const { data, error } = await db
-        .from(VIEW)
-        .select('id, last_seen_at')
-        .gt('price', 0)
-        .order('id', { ascending: true })
-        .range(from, from + size - 1);
+
+      /**
+       * El slug se pide sólo si la vista lo publica. Sin esta comprobación, un
+       * despliegue anterior a la migración 0021 haría fallar la consulta entera
+       * (error 42703) y todos los archivos de producto responderían 404 —que
+       * es exactamente lo que Search Console reporta como "no se ha podido
+       * obtener" y lo que hace que Google deje de rastrear el catálogo.
+       */
+      const select = () =>
+        db
+          .from(VIEW)
+          .select(slugColumnPublished ? 'id, public_slug, last_seen_at' : 'id, last_seen_at')
+          .gt('price', 0)
+          .order('id', { ascending: true })
+          .range(from, from + size - 1);
+
+      let { data, error } = await select();
+
+      if (error && slugColumnPublished && String(error.message).includes('public_slug')) {
+        slugColumnPublished = false;
+        ({ data, error } = await select());
+      }
 
       if (error) break;
-      const rows = (data ?? []) as Array<{ id: string; last_seen_at: string | null }>;
+      const rows = (data ?? []) as unknown as Array<{
+        id: string;
+        public_slug?: string | null;
+        last_seen_at: string | null;
+      }>;
       if (rows.length === 0) break;
 
       for (const row of rows) {
         results.push({
           id: String(row.id),
+          slug: row.public_slug ?? null,
           lastModified: row.last_seen_at ?? new Date().toISOString(),
         });
       }

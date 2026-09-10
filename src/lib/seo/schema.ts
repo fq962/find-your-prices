@@ -320,7 +320,7 @@ export function itemListJsonLd(
   locale: Locale,
   limit = 30,
 ): JsonLdNode {
-  const productPath = locale === "es" ? "/producto" : "/en/product";
+  const productPath = locale === "es" ? "/p" : "/en/p";
   return {
     "@type": "ItemList",
     name:
@@ -328,12 +328,18 @@ export function itemListJsonLd(
         ? "Productos con precio actualizado"
         : "Products with up-to-date prices",
     numberOfItems: Math.min(products.length, limit),
-    itemListElement: products.slice(0, limit).map((product, index) => ({
-      "@type": "ListItem",
-      position: index + 1,
-      name: product.name,
-      url: absoluteUrl(`${productPath}/${product.id}`),
-    })),
+    // Sin slug no hay ficha a la que apuntar (el fixture no los trae): se
+    // omite la entrada en vez de emitir una URL que responde 404, que es una
+    // señal peor que una lista más corta.
+    itemListElement: products
+      .slice(0, limit)
+      .filter((product) => Boolean(product.slug))
+      .map((product, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: product.name,
+        url: absoluteUrl(`${productPath}/${product.slug}`),
+      })),
   };
 }
 

@@ -58,6 +58,8 @@ export const es: Dictionary = {
   seeResultsLabel: "Ver resultados",
   filterSearchLabel: "Buscar",
   filterNoMatchesLabel: "Sin coincidencias",
+  filterShowMoreLabel: "Ver más",
+  filterShowLessLabel: "Ver menos",
   anyPriceLabel: "Cualquier precio",
   andUpLabel: "y más",
 

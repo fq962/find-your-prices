@@ -22,6 +22,13 @@ export interface Product {
   brand?: string;
   /** Slug de la tienda, para enlaces y logos. */
   storeSlug?: string;
+  /**
+   * Segmento de URL legible de la ficha (/p/<slug>).
+   *
+   * Opcional porque el fixture no lo trae: sin él, la lista simplemente no
+   * enlaza a la ficha, que es el comportamiento que ya tenía sin catálogo real.
+   */
+  slug?: string;
   /** Precio tachado. Solo llega cuando hay descuento real. */
   listPrice?: number;
   /** Porcentaje de descuento respecto a listPrice. */

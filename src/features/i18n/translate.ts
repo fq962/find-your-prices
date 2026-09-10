@@ -63,6 +63,8 @@ export type DictionaryKey =
   | "seeResultsLabel"
   | "filterSearchLabel"
   | "filterNoMatchesLabel"
+  | "filterShowMoreLabel"
+  | "filterShowLessLabel"
   | "anyPriceLabel"
   | "andUpLabel"
   | "sortNewest"

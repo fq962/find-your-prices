@@ -43,7 +43,7 @@ export interface ProductComparisonDialogProps {
   onClose: () => void;
   onRemove: (productId: string) => void;
   onClear: () => void;
-  productHref?: (product: Product) => string;
+  productHref?: (product: Product) => string | undefined;
 }
 
 export function ProductComparisonDialog({
