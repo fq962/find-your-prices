@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { NO_INDEX_ROBOTS } from '@/lib/seo/metadata';
 import { getSupabaseAdmin } from '@/server/db/supabase';
 import { listStrategies } from '@/server/scraping/registry';
 import { ScrapingDashboard } from '@/features/admin-scraping/ScrapingDashboard';
@@ -15,9 +16,15 @@ import type { RunSummary, StoreOption, TargetHealth } from '@/features/admin-scr
  * este segmento y definir ADMIN_API_SECRET para cerrar tambien la API.
  */
 
+/**
+ * Fuera del indice, por partida doble: `noindex` aqui y `Disallow: /admin` en
+ * robots.ts. No es redundante — robots.txt impide rastrear pero no indexar, y
+ * una URL bloqueada alli igual aparece en resultados si alguien la enlaza. La
+ * unica etiqueta que la saca del indice es esta.
+ */
 export const metadata: Metadata = {
   title: 'Panel de scraping',
-  robots: { index: false, follow: false },
+  robots: NO_INDEX_ROBOTS,
 };
 
 // Siempre datos frescos: es un tablero operativo.

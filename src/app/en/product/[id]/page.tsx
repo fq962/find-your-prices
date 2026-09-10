@@ -3,6 +3,22 @@ import { notFound } from "next/navigation";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { ProductDetailView } from "@/features/products/components/ProductDetailView";
 import {
+  breadcrumbJsonLd,
+  graph,
+  organizationJsonLd,
+  productJsonLd,
+  productPageJsonLd,
+  websiteJsonLd,
+} from "@/lib/seo/schema";
+import { JsonLd } from "@/lib/seo/JsonLd";
+import {
+  missingProductMetadata,
+  productBreadcrumbs,
+  productMetadata,
+  productPaths,
+} from "@/lib/seo/productSeo";
+import { ProductOgTags } from "@/lib/seo/ProductOgTags";
+import {
   getProductDetail,
   getRelatedProducts,
 } from "@/server/services/catalog";
@@ -27,24 +43,8 @@ export async function generateMetadata({
   const { id } = await params;
   const product = await getProductDetail(id, "en");
 
-  if (!product) return { title: "Product not found" };
-
-  const price = new Intl.NumberFormat("en-HN", {
-    style: "currency",
-    currency: product.currency,
-  }).format(product.price);
-
-  return {
-    title: `${product.name} — ${price} en ${product.store}`,
-    description:
-      product.description ??
-      `Price of ${product.name} at ${product.store}. Compare prices in Honduras with Find Your Prices.`,
-    openGraph: {
-      title: `${product.name} — ${price}`,
-      description: `Available at ${product.store}.`,
-      images: product.imageUrl ? [{ url: product.imageUrl }] : undefined,
-    },
-  };
+  if (!product) return missingProductMetadata("en");
+  return productMetadata(product, "en", id);
 }
 
 export default async function ProductPage({ params }: PageProps) {
@@ -55,15 +55,23 @@ export default async function ProductPage({ params }: PageProps) {
   if (!product) notFound();
 
   const related = await getRelatedProducts(product, "en");
+  const path = productPaths(id).en;
 
   return (
     /* La misma ficha en el otro idioma comparte el id, así que su ruta se
        arma acá: cambiar de idioma en un producto lleva a ese producto, no a
        la portada. */
-    <PageLayout
-      locale="en"
-      localePaths={{ es: `/producto/${id}`, en: `/en/product/${id}` }}
-    >
+    <PageLayout locale="en" localePaths={productPaths(id)}>
+      <JsonLd
+        data={graph([
+          organizationJsonLd("en"),
+          websiteJsonLd("en"),
+          productPageJsonLd({ product, locale: "en", path }),
+          productJsonLd({ product, locale: "en", path }),
+          breadcrumbJsonLd(productBreadcrumbs(product, "en", id)),
+        ])}
+      />
+      <ProductOgTags product={product} />
       <ProductDetailView product={product} related={related} locale="en" />
     </PageLayout>
   );

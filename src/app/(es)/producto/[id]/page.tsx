@@ -3,6 +3,22 @@ import { notFound } from "next/navigation";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { ProductDetailView } from "@/features/products/components/ProductDetailView";
 import {
+  breadcrumbJsonLd,
+  graph,
+  organizationJsonLd,
+  productJsonLd,
+  productPageJsonLd,
+  websiteJsonLd,
+} from "@/lib/seo/schema";
+import { JsonLd } from "@/lib/seo/JsonLd";
+import {
+  missingProductMetadata,
+  productBreadcrumbs,
+  productMetadata,
+  productPaths,
+} from "@/lib/seo/productSeo";
+import { ProductOgTags } from "@/lib/seo/ProductOgTags";
+import {
   getProductDetail,
   getRelatedProducts,
 } from "@/server/services/catalog";
@@ -14,6 +30,11 @@ import {
  * listado, y una ficha servida desde caché carga al instante. El precio lleva
  * su marca de "último chequeo" a la vista, así que un desfase de minutos es
  * honesto y visible, no un dato caducado disfrazado de actual.
+ *
+ * Esa misma revalidación es la que mantiene el precio del `<title>` y del
+ * JSON-LD alineado con el que ve el visitante. Un precio en los datos
+ * estructurados que no coincide con el de la página es motivo de sanción
+ * manual de Google, no un detalle cosmético.
  */
 export const revalidate = 600;
 
@@ -27,24 +48,8 @@ export async function generateMetadata({
   const { id } = await params;
   const product = await getProductDetail(id, "es");
 
-  if (!product) return { title: "Producto no encontrado" };
-
-  const price = new Intl.NumberFormat("es-HN", {
-    style: "currency",
-    currency: product.currency,
-  }).format(product.price);
-
-  return {
-    title: `${product.name} — ${price} en ${product.store}`,
-    description:
-      product.description ??
-      `Precio de ${product.name} en ${product.store}. Compará precios en Honduras con Find Your Prices.`,
-    openGraph: {
-      title: `${product.name} — ${price}`,
-      description: `Disponible en ${product.store}.`,
-      images: product.imageUrl ? [{ url: product.imageUrl }] : undefined,
-    },
-  };
+  if (!product) return missingProductMetadata("es");
+  return productMetadata(product, "es", id);
 }
 
 export default async function ProductPage({ params }: PageProps) {
@@ -55,15 +60,26 @@ export default async function ProductPage({ params }: PageProps) {
   if (!product) notFound();
 
   const related = await getRelatedProducts(product, "es");
+  const path = productPaths(id).es;
 
   return (
     /* La misma ficha en el otro idioma comparte el id, así que su ruta se
        arma acá: cambiar de idioma en un producto lleva a ese producto, no a
        la portada. */
-    <PageLayout
-      locale="es"
-      localePaths={{ es: `/producto/${id}`, en: `/en/product/${id}` }}
-    >
+    <PageLayout locale="es" localePaths={productPaths(id)}>
+      {/* Producto, oferta, página y migas en un solo grafo: es lo que hace que
+          el resultado salga con precio, disponibilidad y estrellas en vez de
+          con dos líneas de texto. */}
+      <JsonLd
+        data={graph([
+          organizationJsonLd("es"),
+          websiteJsonLd("es"),
+          productPageJsonLd({ product, locale: "es", path }),
+          productJsonLd({ product, locale: "es", path }),
+          breadcrumbJsonLd(productBreadcrumbs(product, "es", id)),
+        ])}
+      />
+      <ProductOgTags product={product} />
       <ProductDetailView product={product} related={related} locale="es" />
     </PageLayout>
   );

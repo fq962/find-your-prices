@@ -1,7 +1,14 @@
 import { HomeView } from "@/components/layout/HomeView";
 import { CATALOG_PAGE_SIZE } from "@/features/products/catalogPaging";
+import {
+  collectionPageJsonLd,
+  graph,
+  itemListJsonLd,
+  organizationJsonLd,
+  websiteJsonLd,
+} from "@/lib/seo/schema";
+import { JsonLd } from "@/lib/seo/JsonLd";
 import { getCatalogSnapshot } from "@/server/services/catalog";
-
 
 /**
  * El catálogo cambia cuando corre el scraper, no en cada visita. Con
@@ -15,5 +22,18 @@ export const revalidate = 300;
 /** Inglés bajo /en. */
 export default async function EnglishHome() {
   const catalog = await getCatalogSnapshot({ locale: "en", limit: CATALOG_PAGE_SIZE });
-  return <HomeView locale="en" catalog={catalog} />;
+
+  return (
+    <>
+      <JsonLd
+        data={graph([
+          organizationJsonLd("en"),
+          websiteJsonLd("en"),
+          collectionPageJsonLd("en", "/en"),
+          itemListJsonLd(catalog.products, "en"),
+        ])}
+      />
+      <HomeView locale="en" catalog={catalog} />
+    </>
+  );
 }
