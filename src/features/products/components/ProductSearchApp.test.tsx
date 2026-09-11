@@ -138,7 +138,7 @@ function openFacetSection(title: string): HTMLElement {
  * sin decir cuál quería.
  */
 function getFacetOption(section: string, option: string) {
-  return within(openFacetSection(section)).getByRole("radio", { name: option });
+  return within(openFacetSection(section)).getByRole("checkbox", { name: option });
 }
 
 function typeQuery(value: string) {
@@ -182,6 +182,10 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  // El estado del catálogo vive en la URL, que jsdom conserva entre pruebas:
+  // sin limpiarla, la tienda marcada en una prueba sigue marcada en la
+  // siguiente —y con casillas, volver a hacer clic la DESMARCA.
+  window.history.replaceState(null, "", window.location.pathname);
 });
 
 describe("ProductSearchApp", () => {
@@ -248,6 +252,27 @@ describe("ProductSearchApp", () => {
     // sold at Amazon but doesn't match the query
     expect(screen.queryByText("Garden Hose Delta")).not.toBeInTheDocument();
     expect(getListItems()).toHaveLength(2);
+  });
+
+  test("two stores checked at once combine with OR, and 'all' unchecks both", () => {
+    renderApp();
+
+    selectStore("Amazon");
+    expect(getListItems()).toHaveLength(3);
+
+    selectStore("Target");
+    expect(getFacetOption(t("storeFilterLabel"), "Amazon")).toBeChecked();
+    expect(getFacetOption(t("storeFilterLabel"), "Target")).toBeChecked();
+    expect(getFacetOption(t("storeFilterLabel"), t("filterAllOption"))).not.toBeChecked();
+    expect(getListItems()).toHaveLength(5);
+
+    // unchecking one leaves only the other
+    selectStore("Amazon");
+    expect(getListItems()).toHaveLength(2);
+
+    selectStore(t("filterAllOption"));
+    expect(getFacetOption(t("storeFilterLabel"), "Target")).not.toBeChecked();
+    expect(getListItems()).toHaveLength(5);
   });
 
   // Task 30

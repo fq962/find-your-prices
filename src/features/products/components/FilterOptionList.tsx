@@ -6,12 +6,9 @@ import type { FacetOption } from "@/server/services/catalog";
 /**
  * Lista de opciones de una faceta, con buscador cuando hace falta.
  *
- * Son radios y no casillas, y conviene decir por qué: el catálogo resuelve
- * tienda y categoría con un `=` en Postgres, así que hoy sólo se puede elegir
- * una. Pintar casillas —que prometen "marcá varias"— sobre un backend que
- * ignora la segunda sería mentirle a la persona con la forma del control. El
- * día que la consulta use `in (...)`, esto pasa a casillas y el resto del panel
- * no se entera.
+ * Son casillas: se pueden marcar varias opciones de la misma faceta y el
+ * catálogo las resuelve con `in (...)` en Postgres. "Todas" es la casilla que
+ * queda marcada cuando no hay ninguna elegida, y marcarla vacía la selección.
  *
  * El buscador aparece solo pasado cierto número de opciones. Con siete tiendas
  * es un campo de más; con 300 marcas, sin él la lista es inservible —hay que
@@ -39,12 +36,12 @@ const SEARCH_THRESHOLD = 12;
 const COLLAPSED_LIMIT = 8;
 
 export interface FilterOptionListProps {
-  /** Agrupa los radios. Debe ser único en la página. */
+  /** Agrupa las casillas. Debe ser único en la página. */
   name: string;
   options: FacetOption[];
-  /** `undefined` es "todas". */
-  value?: string;
-  onChange: (value: string | undefined) => void;
+  /** Opciones marcadas. Vacío es "todas". */
+  value: string[];
+  onChange: (value: string[]) => void;
   labels: {
     all: string;
     search: string;
@@ -83,6 +80,12 @@ export function FilterOptionList({
   const hidden = Math.max(visible.length - COLLAPSED_LIMIT, 0);
   const shown = expanded || hidden === 0 ? visible : visible.slice(0, COLLAPSED_LIMIT);
 
+  /** Marca o desmarca una opción sin tocar las demás. */
+  const toggleOption = (option: string) =>
+    onChange(
+      value.includes(option) ? value.filter((item) => item !== option) : [...value, option],
+    );
+
   return (
     <div className="flex flex-col gap-2">
       {showSearch && (
@@ -117,8 +120,8 @@ export function FilterOptionList({
         <Option
           name={name}
           label={labels.all}
-          checked={value === undefined}
-          onSelect={() => onChange(undefined)}
+          checked={value.length === 0}
+          onSelect={() => onChange([])}
         />
 
         {shown.map((option) => (
@@ -127,8 +130,8 @@ export function FilterOptionList({
             name={name}
             label={option.value}
             count={option.count}
-            checked={value === option.value}
-            onSelect={() => onChange(option.value)}
+            checked={value.includes(option.value)}
+            onSelect={() => toggleOption(option.value)}
           />
         ))}
 
@@ -158,10 +161,10 @@ export function FilterOptionList({
 /**
  * Una opción.
  *
- * El radio real se queda en el DOM (`sr-only`, no `display:none`) para
- * conservar navegación por flechas dentro del grupo, semántica y lectura por
- * lector de pantalla; lo que se ve es el círculo, que sigue a `peer-checked`.
- * Es el mismo criterio que el interruptor del panel viejo.
+ * La casilla real se queda en el DOM (`sr-only`, no `display:none`) para
+ * conservar foco por teclado, semántica y lectura por lector de pantalla; lo
+ * que se ve es el cuadro con la marca, que sigue a `peer-checked`. Es el mismo
+ * criterio que el interruptor del panel viejo.
  *
  * La fila entera es el blanco de clic y mide 36px de alto, que con puntero
  * grueso sube a 44 para cumplir el mínimo táctil.
@@ -183,14 +186,25 @@ function Option({
     <li>
       <label className="flex cursor-pointer items-center gap-2.5 rounded-lg py-2 pr-1 pl-1 transition-colors duration-[var(--dur-fast)] hover:bg-[var(--bg-subtle)] [@media(pointer:coarse)]:py-2.5">
         <input
-          type="radio"
+          type="checkbox"
           name={name}
           checked={checked}
           onChange={onSelect}
           className="peer sr-only"
         />
-        <span className="relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[var(--border-strong)] transition-colors duration-[var(--dur-fast)] peer-checked:border-[var(--accent)] peer-checked:[&>span]:scale-100 peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--accent)] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[var(--bg-elevated)]">
-          <span className="h-2 w-2 scale-0 rounded-full bg-[var(--accent)] transition-transform duration-[var(--dur-base)] ease-[var(--ease-out-expo)]" />
+        <span className="relative flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border border-[var(--border-strong)] transition-colors duration-[var(--dur-fast)] peer-checked:border-[var(--accent)] peer-checked:bg-[var(--accent)] peer-checked:[&>svg]:scale-100 peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--accent)] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[var(--bg-elevated)]">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 12 12"
+            className="h-3 w-3 scale-0 text-[var(--accent-contrast)] transition-transform duration-[var(--dur-base)] ease-[var(--ease-out-expo)]"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m2.5 6.5 2.5 2.5 4.5-5" />
+          </svg>
         </span>
 
         <span className="min-w-0 flex-1 truncate text-[0.8125rem] text-[var(--text-secondary)] peer-checked:text-[var(--text)]">

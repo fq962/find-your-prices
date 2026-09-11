@@ -132,6 +132,19 @@ describe("filterProducts", () => {
     expect(result.map((p: { id: string }) => p.id)).toEqual(["1"]);
   });
 
+  it("several `store` values combine with OR; an empty list means no filter", () => {
+    const products = [
+      makeProduct({ id: "1", store: "Amazon" }),
+      makeProduct({ id: "2", store: "Target" }),
+      makeProduct({ id: "3", store: "eBay" }),
+    ];
+
+    expect(
+      filterProducts(products, { store: ["Amazon", "eBay"] }).map((p: { id: string }) => p.id),
+    ).toEqual(["1", "3"]);
+    expect(filterProducts(products, { store: [], category: [] })).toHaveLength(3);
+  });
+
   it("TAREA 7: combining query + store + category applies AND logic", () => {
     const products = [
       makeProduct({

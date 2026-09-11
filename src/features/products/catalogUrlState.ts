@@ -19,8 +19,15 @@ import { DEFAULT_SORT, isSortOption, type SortOption } from "./sortProducts";
 
 export interface CatalogUrlState {
   query: string;
-  store?: string;
-  category?: string;
+  /**
+   * Tiendas y categorías elegidas. Vacío es "todas"; varias se combinan con
+   * OR dentro de la faceta y con AND entre facetas. En la URL viajan como
+   * parámetro repetido (`store=A&store=B`), que es lo que `URLSearchParams`
+   * entiende de nacimiento y lo que hace que un enlace viejo con un solo valor
+   * siga abriendo igual.
+   */
+  store: string[];
+  category: string[];
   sort: SortOption;
   filters: CatalogFilterState;
 }
@@ -28,16 +35,22 @@ export interface CatalogUrlState {
 /** Portada limpia: ni búsqueda, ni facetas, ni orden elegido a mano. */
 export const EMPTY_CATALOG_URL_STATE: CatalogUrlState = {
   query: "",
-  store: undefined,
-  category: undefined,
+  store: [],
+  category: [],
   sort: DEFAULT_SORT,
   filters: EMPTY_FILTER_STATE,
 };
 
-/** Un parámetro vacío es lo mismo que no traerlo. */
-function text(params: URLSearchParams, name: string): string | undefined {
-  const raw = params.get(name)?.trim();
-  return raw ? raw : undefined;
+/**
+ * Todos los valores de un parámetro repetido, sin vacíos ni duplicados. Un
+ * parámetro vacío es lo mismo que no traerlo.
+ */
+function list(params: URLSearchParams, name: string): string[] {
+  const values = params
+    .getAll(name)
+    .map((raw) => raw.trim())
+    .filter((raw) => raw.length > 0);
+  return Array.from(new Set(values));
 }
 
 /**
@@ -64,13 +77,13 @@ export function parseCatalogUrl(search: string): CatalogUrlState {
 
   return {
     query: params.get("q") ?? "",
-    store: text(params, "store"),
-    category: text(params, "category"),
+    store: list(params, "store"),
+    category: list(params, "category"),
     sort: rawSort && isSortOption(rawSort) ? rawSort : DEFAULT_SORT,
     filters: {
       minPrice: amount(params, "minPrice"),
       maxPrice: amount(params, "maxPrice"),
-      brand: text(params, "brand"),
+      brand: list(params, "brand"),
       onlyDiscounted: params.get("onlyDiscounted") === "1",
       includeUnavailable: params.get("includeUnavailable") === "1",
     },
@@ -93,9 +106,9 @@ export function catalogUrlSearch(state: CatalogUrlState): string {
   // Recortarla acá haría que el campo perdiera el espacio final mientras se
   // escribe, porque lo que se ve sale de vuelta de la URL.
   if (state.query.trim()) params.set("q", state.query);
-  if (state.store) params.set("store", state.store);
-  if (state.category) params.set("category", state.category);
-  if (state.filters.brand) params.set("brand", state.filters.brand);
+  for (const store of state.store) params.append("store", store);
+  for (const category of state.category) params.append("category", category);
+  for (const brand of state.filters.brand) params.append("brand", brand);
   if (state.filters.minPrice !== undefined) params.set("minPrice", String(state.filters.minPrice));
   if (state.filters.maxPrice !== undefined) params.set("maxPrice", String(state.filters.maxPrice));
   if (state.filters.onlyDiscounted) params.set("onlyDiscounted", "1");

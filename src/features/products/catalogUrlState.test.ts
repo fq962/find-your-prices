@@ -61,7 +61,14 @@ describe("parseCatalogUrl — nada de lo que llegue puede romper el catálogo", 
   });
 
   it("un parámetro presente pero vacío es lo mismo que no traerlo", () => {
-    expect(parseCatalogUrl("?store=&category=").store).toBeUndefined();
+    expect(parseCatalogUrl("?store=&category=").store).toEqual([]);
+  });
+
+  it("un parámetro repetido se lee como varias opciones, sin duplicados", () => {
+    expect(parseCatalogUrl("?store=Diunsa&store=Walmart&store=Diunsa").store).toEqual([
+      "Diunsa",
+      "Walmart",
+    ]);
   });
 
   it("los interruptores sólo se encienden con '1'", () => {
@@ -74,13 +81,13 @@ describe("ida y vuelta", () => {
   it("un catálogo con todo puesto sobrevive el viaje entero", () => {
     const state: CatalogUrlState = {
       query: "audífonos inalámbricos",
-      store: "Walmart Honduras",
-      category: "Audio y Video",
+      store: ["Walmart Honduras", "Diunsa"],
+      category: ["Audio y Video"],
       sort: "price-asc",
       filters: {
         minPrice: 500,
         maxPrice: 2_000,
-        brand: "Sony",
+        brand: ["Sony", "Samsung"],
         onlyDiscounted: true,
         includeUnavailable: true,
       },

@@ -333,9 +333,14 @@ export type CatalogSort =
 
 export interface SearchCatalogParams {
   query?: string;
-  store?: string;
-  category?: string;
-  brand?: string;
+  /**
+   * Un valor o varios. Varios se resuelven con `in (...)`, así que las
+   * casillas del panel pueden prometer "marcá varias" sin mentir. Vacío o
+   * `undefined` es "sin filtro".
+   */
+  store?: string | string[];
+  category?: string | string[];
+  brand?: string | string[];
   minPrice?: number;
   maxPrice?: number;
   onlyDiscounted?: boolean;
@@ -395,6 +400,18 @@ export async function searchCatalog(params: SearchCatalogParams): Promise<Search
 }
 
 /**
+ * Filtra una columna por uno o varios valores. Con uno usa `eq`, con varios
+ * `in`; sin ninguno deja la consulta como estaba.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyFacet(request: any, column: string, value: string | string[] | undefined): any {
+  const values = (Array.isArray(value) ? value : value ? [value] : []).filter(Boolean);
+  if (values.length === 0) return request;
+  if (values.length === 1) return request.eq(column, values[0]);
+  return request.in(column, values);
+}
+
+/**
  * Una pasada de la consulta. Devuelve `null` —y solo `null`— cuando falta una
  * columna que la vista no publica todavía, que es la única condición que vale
  * la pena reintentar.
@@ -429,9 +446,9 @@ async function runCatalogQuery(
       const safe = query.replace(/[%_\\]/g, (char) => `\\${char}`);
       request = request.ilike('name', `%${safe}%`);
     }
-    if (params.store) request = request.eq('store_name', params.store);
-    if (params.category) request = request.eq('store_category_name', params.category);
-    if (params.brand) request = request.eq('brand', params.brand);
+    request = applyFacet(request, 'store_name', params.store);
+    request = applyFacet(request, 'store_category_name', params.category);
+    request = applyFacet(request, 'brand', params.brand);
     if (params.minPrice !== undefined) request = request.gte('price', params.minPrice);
     if (params.maxPrice !== undefined) request = request.lte('price', params.maxPrice);
     if (params.onlyDiscounted) request = request.not('list_price', 'is', null);

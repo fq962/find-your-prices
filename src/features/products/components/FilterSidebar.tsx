@@ -16,9 +16,10 @@ import { Toggle } from "./Toggle";
  * —y que nadie lo notara hasta que alguien reportara que en el móvil "no está
  * el filtro de marca".
  *
- * Qué sección arranca abierta no es arbitrario: tienda y precio son las dos
- * preguntas con las que la gente llega ("dónde comprar" y "cuánto puedo
- * gastar"). Categoría y marca son refinamientos, y van plegadas.
+ * El orden es categoría, tienda, marca, precio y ajustes: primero qué se
+ * busca, después dónde, después de quién, y al final cuánto. Categoría y
+ * tienda arrancan abiertas porque son las dos primeras preguntas; lo demás va
+ * plegado.
  */
 
 export type FilterSectionKey = "category" | "price" | "store" | "brand" | "more";
@@ -28,17 +29,18 @@ export interface FilterSidebarProps {
   stores: FacetOption[];
   brands: FacetOption[];
 
-  category?: string;
-  store?: string;
-  brand?: string;
+  /** Opciones marcadas por faceta. Vacío es "todas". */
+  category: string[];
+  store: string[];
+  brand: string[];
   minPrice?: number;
   maxPrice?: number;
   onlyDiscounted: boolean;
   includeUnavailable: boolean;
 
-  onCategoryChange: (value: string | undefined) => void;
-  onStoreChange: (value: string | undefined) => void;
-  onBrandChange: (value: string | undefined) => void;
+  onCategoryChange: (value: string[]) => void;
+  onStoreChange: (value: string[]) => void;
+  onBrandChange: (value: string[]) => void;
   onPriceChange: (range: PriceRange) => void;
   onOnlyDiscountedChange: (value: boolean) => void;
   onIncludeUnavailableChange: (value: boolean) => void;
@@ -47,7 +49,7 @@ export interface FilterSidebarProps {
   formatAmount: (amount: number) => string;
 
   /**
-   * Qué secciones arrancan abiertas. Por defecto tienda y precio (ver
+   * Qué secciones arrancan abiertas. Por defecto categoría y tienda (ver
    * `INITIALLY_OPEN`); la hoja de teléfono pasa `[]` porque ahí el panel entra
    * a pantalla completa y todo abierto de una vez es más para desplazar que
    * para leer.
@@ -74,7 +76,14 @@ export interface FilterSidebarProps {
   };
 }
 
-const INITIALLY_OPEN: FilterSectionKey[] = ["store", "price"];
+const INITIALLY_OPEN: FilterSectionKey[] = ["category", "store"];
+
+/** Resumen de una faceta plegada: la única elegida, o cuántas hay. */
+function facetSummary(values: string[]): string | undefined {
+  if (values.length === 0) return undefined;
+  if (values.length === 1) return values[0];
+  return `${values[0]} +${values.length - 1}`;
+}
 
 export function FilterSidebar({
   categories,
@@ -133,16 +142,46 @@ export function FilterSidebar({
   return (
     <div className="flex flex-col">
       <FilterSection
+        title={labels.category}
+        open={open.has("category")}
+        onToggle={() => toggle("category")}
+        summary={facetSummary(category)}
+      >
+        <FilterOptionList
+          name="fyp-facet-category"
+          options={categories}
+          value={category}
+          onChange={onCategoryChange}
+          labels={listLabels}
+        />
+      </FilterSection>
+
+      <FilterSection
         title={labels.store}
         open={open.has("store")}
         onToggle={() => toggle("store")}
-        summary={store}
+        summary={facetSummary(store)}
       >
         <FilterOptionList
           name="fyp-facet-store"
           options={stores}
           value={store}
           onChange={onStoreChange}
+          labels={listLabels}
+        />
+      </FilterSection>
+
+      <FilterSection
+        title={labels.brand}
+        open={open.has("brand")}
+        onToggle={() => toggle("brand")}
+        summary={facetSummary(brand)}
+      >
+        <FilterOptionList
+          name="fyp-facet-brand"
+          options={brands}
+          value={brand}
+          onChange={onBrandChange}
           labels={listLabels}
         />
       </FilterSection>
@@ -165,36 +204,6 @@ export function FilterSidebar({
             andUp: labels.andUp,
             any: labels.anyPrice,
           }}
-        />
-      </FilterSection>
-
-      <FilterSection
-        title={labels.category}
-        open={open.has("category")}
-        onToggle={() => toggle("category")}
-        summary={category}
-      >
-        <FilterOptionList
-          name="fyp-facet-category"
-          options={categories}
-          value={category}
-          onChange={onCategoryChange}
-          labels={listLabels}
-        />
-      </FilterSection>
-
-      <FilterSection
-        title={labels.brand}
-        open={open.has("brand")}
-        onToggle={() => toggle("brand")}
-        summary={brand}
-      >
-        <FilterOptionList
-          name="fyp-facet-brand"
-          options={brands}
-          value={brand}
-          onChange={onBrandChange}
-          labels={listLabels}
         />
       </FilterSection>
 

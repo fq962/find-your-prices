@@ -11,7 +11,8 @@
 export interface CatalogFilterState {
   minPrice?: number;
   maxPrice?: number;
-  brand?: string;
+  /** Marcas elegidas. Vacío es "todas"; varias se combinan con OR. */
+  brand: string[];
   onlyDiscounted: boolean;
   /**
    * Mostrar también lo que no se puede comprar hoy: agotados, descontinuados
@@ -28,7 +29,7 @@ export interface CatalogFilterState {
 export const EMPTY_FILTER_STATE: CatalogFilterState = {
   minPrice: undefined,
   maxPrice: undefined,
-  brand: undefined,
+  brand: [],
   onlyDiscounted: false,
   includeUnavailable: false,
 };
@@ -47,7 +48,8 @@ export const EMPTY_FILTER_STATE: CatalogFilterState = {
 export function countActiveFilters(state: CatalogFilterState): number {
   let count = 0;
   if (state.minPrice !== undefined || state.maxPrice !== undefined) count += 1;
-  if (state.brand) count += 1;
+  // Varias marcas son UNA decisión ("Sony o Samsung"), igual que el precio.
+  if (state.brand.length > 0) count += 1;
   if (state.onlyDiscounted) count += 1;
   // Cuenta porque se aparta del default, no porque agregue una restricción.
   if (state.includeUnavailable) count += 1;

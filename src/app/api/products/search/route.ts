@@ -4,7 +4,8 @@ import { searchCatalog, type CatalogLocale, type CatalogSort } from '@/server/se
  * GET /api/products/search
  *
  * Parámetros: q, store, category, brand, minPrice, maxPrice, onlyDiscounted,
- * includeUnavailable, sort, limit, offset, locale.
+ * includeUnavailable, sort, limit, offset, locale. `store`, `category` y
+ * `brand` se pueden repetir (`store=A&store=B`) y se combinan con OR.
  *
  * Búsqueda y filtrado sobre el catálogo completo. La página sirve un primer
  * lote curado; en cuanto el visitante escribe o filtra, la consulta se resuelve
@@ -36,6 +37,8 @@ function numericParam(raw: string | null): number | undefined {
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const param = (name: string) => url.searchParams.get(name) ?? undefined;
+  const listParam = (name: string) =>
+    url.searchParams.getAll(name).map((raw) => raw.trim()).filter(Boolean);
 
   const rawSort = url.searchParams.get('sort');
   // El default coincide con DEFAULT_SORT del cliente: una petición sin `sort`
@@ -45,9 +48,9 @@ export async function GET(request: Request): Promise<Response> {
 
   const { products, total } = await searchCatalog({
     query: param('q'),
-    store: param('store'),
-    category: param('category'),
-    brand: param('brand'),
+    store: listParam('store'),
+    category: listParam('category'),
+    brand: listParam('brand'),
     minPrice: numericParam(url.searchParams.get('minPrice')),
     maxPrice: numericParam(url.searchParams.get('maxPrice')),
     onlyDiscounted: url.searchParams.get('onlyDiscounted') === '1',

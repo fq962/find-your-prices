@@ -148,11 +148,11 @@ export function ProductSearchApp({
     [updateCatalog],
   );
   const setStore = useCallback(
-    (value: string | undefined) => updateCatalog({ store: value }),
+    (value: string[]) => updateCatalog({ store: value }),
     [updateCatalog],
   );
   const setCategory = useCallback(
-    (value: string | undefined) => updateCatalog({ category: value }),
+    (value: string[]) => updateCatalog({ category: value }),
     [updateCatalog],
   );
   const setSort = useCallback(
@@ -298,8 +298,8 @@ export function ProductSearchApp({
   const compareBaseQuery = useMemo(() => {
     const params = new URLSearchParams();
     if (query.trim()) params.set("q", query.trim());
-    if (category) params.set("category", category);
-    if (filters.brand) params.set("brand", filters.brand);
+    for (const value of category) params.append("category", value);
+    for (const value of filters.brand) params.append("brand", value);
     if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
     if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
     if (filters.onlyDiscounted) params.set("onlyDiscounted", "1");
@@ -336,9 +336,9 @@ export function ProductSearchApp({
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     if (query.trim()) params.set("q", query.trim());
-    if (store) params.set("store", store);
-    if (category) params.set("category", category);
-    if (filters.brand) params.set("brand", filters.brand);
+    for (const value of store) params.append("store", value);
+    for (const value of category) params.append("category", value);
+    for (const value of filters.brand) params.append("brand", value);
     if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
     if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
     if (filters.onlyDiscounted) params.set("onlyDiscounted", "1");
@@ -359,8 +359,8 @@ export function ProductSearchApp({
    */
   const isDefaultQuery =
     query.trim() === "" &&
-    store === undefined &&
-    category === undefined &&
+    store.length === 0 &&
+    category.length === 0 &&
     activeExtraFilters === 0 &&
     sort === DEFAULT_SORT;
 
@@ -385,7 +385,7 @@ export function ProductSearchApp({
   const totalCount = remoteSearch ? feed.total : shownCount;
   const isSearching = feed.isSearching;
 
-  const hasActiveFilters = store !== undefined || category !== undefined || activeExtraFilters > 0;
+  const hasActiveFilters = store.length > 0 || category.length > 0 || activeExtraFilters > 0;
 
   const resultsLabel = totalCount === 1 ? t("resultsCountOne") : t("resultsCountMany");
   const numberFormat = useMemo(() => new Intl.NumberFormat(priceLocale ?? "es-HN"), [priceLocale]);
@@ -396,7 +396,7 @@ export function ProductSearchApp({
    * puesta, otra sin ella— y cada una dispararía su propia consulta.
    */
   function clearFilters() {
-    updateCatalog({ store: undefined, category: undefined, filters: EMPTY_FILTER_STATE });
+    updateCatalog({ store: [], category: [], filters: EMPTY_FILTER_STATE });
   }
 
   /**
@@ -409,13 +409,13 @@ export function ProductSearchApp({
    * ese número es lo único que dice que hay filtros puestos.
    */
   const activeSidebarFilters =
-    activeExtraFilters + (store ? 1 : 0) + (category ? 1 : 0);
+    activeExtraFilters + (store.length > 0 ? 1 : 0) + (category.length > 0 ? 1 : 0);
 
   /**
    * Las props del panel de facetas, compartidas por los dos sitios donde
    * aparece: la barra lateral de escritorio y la hoja de teléfono. Sólo uno de
    * los dos está en pantalla a la vez —la hoja es `lg:hidden` y el aside es
-   * `hidden lg:block`—, así que no hay radios con el mismo `name` compitiendo.
+   * `hidden lg:block`—, así que no hay casillas con el mismo `name` compitiendo.
    *
    * Cada sitio monta su propia instancia (`sidebar` / `mobileSidebar`) en
    * lugar de reutilizar un mismo elemento porque cada una necesita su propio
@@ -437,7 +437,7 @@ export function ProductSearchApp({
     includeUnavailable: filters.includeUnavailable,
     onCategoryChange: setCategory,
     onStoreChange: setStore,
-    onBrandChange: (brand: string | undefined) => patchFilters({ brand }),
+    onBrandChange: (brand: string[]) => patchFilters({ brand }),
     onPriceChange: (range: { min?: number; max?: number }) =>
       patchFilters({ minPrice: range.min, maxPrice: range.max }),
     onOnlyDiscountedChange: (onlyDiscounted: boolean) => patchFilters({ onlyDiscounted }),

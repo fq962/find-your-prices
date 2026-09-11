@@ -5,8 +5,15 @@ import type { Product } from "@/types";
 
 export interface ProductFilterCriteria {
   query?: string;
-  store?: string;
-  category?: string;
+  /** One value or several; several combine with OR. Empty means "all". */
+  store?: string | string[];
+  category?: string | string[];
+}
+
+/** Normalizes a criterion to a list; `undefined` and `[]` both mean "no filter". */
+function toList(value: string | string[] | undefined): string[] {
+  if (value === undefined) return [];
+  return Array.isArray(value) ? value : [value];
 }
 
 export function filterProducts(
@@ -14,17 +21,17 @@ export function filterProducts(
   criteria?: ProductFilterCriteria
 ): Product[] {
   const query = criteria?.query?.trim().toLowerCase();
-  const store = criteria?.store;
-  const category = criteria?.category;
+  const stores = toList(criteria?.store);
+  const categories = toList(criteria?.category);
 
   return products.filter((product) => {
     if (query && !product.name.toLowerCase().includes(query)) {
       return false;
     }
-    if (store !== undefined && product.store !== store) {
+    if (stores.length > 0 && !stores.includes(product.store)) {
       return false;
     }
-    if (category !== undefined && product.category !== category) {
+    if (categories.length > 0 && !categories.includes(product.category)) {
       return false;
     }
     return true;
