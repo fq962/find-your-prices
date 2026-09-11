@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { FacetOption } from "@/server/services/catalog";
+import {
+  categoryLabel,
+  UNCATEGORIZED_VALUE,
+  type FacetOption,
+} from "@/features/products/categoryFacets";
 import { FilterOptionList } from "./FilterOptionList";
 import { FilterSection } from "./FilterSection";
 import { PriceFilter, type PriceRange } from "./PriceFilter";
@@ -73,16 +77,29 @@ export interface FilterSidebarProps {
     includeUnavailable: string;
     showMore: string;
     showLess: string;
+    /** Opción "Sin categorizar aún" del árbol de categorías. */
+    uncategorized: string;
+    /** Chevrón que abre y cierra las subcategorías. */
+    expand: string;
+    collapse: string;
   };
 }
 
 const INITIALLY_OPEN: FilterSectionKey[] = ["category", "store"];
 
-/** Resumen de una faceta plegada: la única elegida, o cuántas hay. */
-function facetSummary(values: string[]): string | undefined {
+/**
+ * Resumen de una faceta plegada: la única elegida, o cuántas hay.
+ *
+ * `label` traduce el valor a texto: las categorías viajan como slug y el
+ * resumen tiene que decir "Juguetería y Juegos", no "jugueteria-y-juegos".
+ */
+function facetSummary(
+  values: string[],
+  label: (value: string) => string = (value) => value,
+): string | undefined {
   if (values.length === 0) return undefined;
-  if (values.length === 1) return values[0];
-  return `${values[0]} +${values.length - 1}`;
+  if (values.length === 1) return label(values[0]);
+  return `${label(values[0])} +${values.length - 1}`;
 }
 
 export function FilterSidebar({
@@ -139,20 +156,30 @@ export function FilterSidebar({
     showLess: labels.showLess,
   };
 
+  const categoryListLabels = {
+    ...listLabels,
+    uncategorized: labels.uncategorized,
+    expand: labels.expand,
+    collapse: labels.collapse,
+  };
+
+  const categoryName = (value: string) =>
+    value === UNCATEGORIZED_VALUE ? labels.uncategorized : categoryLabel(categories, value);
+
   return (
     <div className="flex flex-col">
       <FilterSection
         title={labels.category}
         open={open.has("category")}
         onToggle={() => toggle("category")}
-        summary={facetSummary(category)}
+        summary={facetSummary(category, categoryName)}
       >
         <FilterOptionList
           name="fyp-facet-category"
           options={categories}
           value={category}
           onChange={onCategoryChange}
-          labels={listLabels}
+          labels={categoryListLabels}
         />
       </FilterSection>
 

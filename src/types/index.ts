@@ -39,6 +39,11 @@ export interface Product {
   ratingAverage?: number;
   /** Cantidad de votos que sostienen esa calificación. */
   ratingCount?: number;
+  /**
+   * Slug del nodo canónico de `categories`, si el mapeo existe. Es el valor
+   * que usa el filtro; `category` es solo el texto que se muestra.
+   */
+  categorySlug?: string;
 }
 
 export interface PricePoint {

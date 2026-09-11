@@ -59,6 +59,9 @@ export const en: Dictionary = {
   filterNoMatchesLabel: "No matches",
   filterShowMoreLabel: "Show more",
   filterShowLessLabel: "Show less",
+  filterUncategorizedLabel: "Not categorized yet",
+  filterExpandLabel: "Show subcategories of",
+  filterCollapseLabel: "Hide subcategories of",
   anyPriceLabel: "Any price",
   andUpLabel: "and up",
 

@@ -60,6 +60,9 @@ export const es: Dictionary = {
   filterNoMatchesLabel: "Sin coincidencias",
   filterShowMoreLabel: "Ver más",
   filterShowLessLabel: "Ver menos",
+  filterUncategorizedLabel: "Sin categorizar aún",
+  filterExpandLabel: "Ver subcategorías de",
+  filterCollapseLabel: "Ocultar subcategorías de",
   anyPriceLabel: "Cualquier precio",
   andUpLabel: "y más",
 

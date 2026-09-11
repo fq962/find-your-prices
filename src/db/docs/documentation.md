@@ -26,6 +26,7 @@ SQL Editor de Supabase. Son idempotentes: volver a correrlos no rompe nada.
 | 0011 | `0011_seed_diunsa.sql` | Alta de Diunsa y sus dos targets iniciales. |
 | 0012 | `0012_rls_hardening.sql` | **RLS en todas las tablas**, `security_invoker` en las vistas y `search_path` fijo en las funciones. Deja un reporte al final. |
 | 0013 | `0013_catalog_facets.sql` | Vistas de facetas: las opciones de filtro que de verdad devuelven resultados, con su conteo. |
+| 0024 | `0024_canonical_category_facets.sql` | El filtro de categorías pasa al árbol canónico (`categories` vía `store_categories.category_id`). Publica `category_name` y la raíz en `v_store_products_current`, crea `v_catalog_canonical_category_facets` y hace que `v_catalog_summary.total_categories` cuente nodos canónicos. Lo sin mapear cae en "Sin categorizar aún". |
 
 > **Paso obligatorio después de 0010:** en Supabase, `Settings → API → Exposed
 > schemas`, agregar `find_your_prices` junto a `public`. Sin eso PostgREST
@@ -262,7 +263,8 @@ usarse en columnas generadas e índices.
 | `v_recent_price_drops` | Bajadas de precio, más reciente primero. Portada y alertas. |
 | `v_product_price_comparison` | El mismo producto canónico en varias tiendas, con `price_rank`. |
 | `v_scrape_target_health` | Estado y último resultado de cada target. Consulta principal del panel. |
-| `v_catalog_category_facets` | Categorías **con al menos un artículo**, con conteo y rango de precio. |
+| `v_catalog_category_facets` | Categorías **de tienda** con al menos un artículo, con conteo y rango de precio. Ya no alimenta el filtro; queda para diagnóstico. |
+| `v_catalog_canonical_category_facets` | Categorías **canónicas** (`categories`) con al menos un artículo comprable, conteo directo por nodo, con su padre. La fila con `category_id` null es "sin categorizar aún". **Fuente del filtro de categorías.** |
 | `v_catalog_store_facets` | Tiendas con oferta viva. |
 | `v_catalog_brand_facets` | Marcas con dos o más artículos. |
 | `v_catalog_summary` | Totales y rango de precio del catálogo. |

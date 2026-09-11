@@ -2,6 +2,12 @@ import 'server-only';
 import { getSupabaseAdmin } from '@/server/db/supabase';
 import type { AvailabilityStatus } from '@/server/scraping/types';
 import type { Product } from '@/types';
+import {
+  buildCategoryTree,
+  UNCATEGORIZED_VALUE,
+  type CanonicalCategoryFacetRow,
+  type FacetOption,
+} from '@/features/products/categoryFacets';
 
 /**
  * Lectura del catálogo público.
@@ -27,6 +33,9 @@ interface CatalogRow {
   brand: string | null;
   category_raw: string | null;
   store_category_name: string | null;
+  /** Nodo canónico de `categories`, si el mapeo ya existe (migración 0024). */
+  category_slug?: string | null;
+  category_name?: string | null;
   currency: string;
   price: number | null;
   list_price: number | null;
@@ -93,6 +102,16 @@ const SLUG_COLUMN = 'public_slug';
 let slugColumnPublished = true;
 
 /**
+ * Nombre de la categoría canónica, que agrega la migración 0024.
+ *
+ * Mismo cuidado que con `public_slug`: si la vista aún no la publica, se deja
+ * de pedir y el catálogo sigue mostrando la categoría de la tienda.
+ */
+const CATEGORY_COLUMNS = 'category_slug, category_name';
+const CATEGORY_NAME_COLUMN = 'category_name';
+let categoryColumnsPublished = true;
+
+/**
  * Columna con la fecha en que el artículo apareció por primera vez.
  *
  * La agrega la migración 0017 a `v_store_products_current`. Antes de aplicarla
@@ -134,8 +153,12 @@ function toProduct(row: CatalogRow, locale: CatalogLocale): Product {
     currency: row.currency,
     store: row.store_name,
     storeSlug: row.store_slug,
-    // La categoría de la tienda es más específica que la cruda; se prefiere.
-    category: row.store_category_name ?? row.category_raw ?? 'Sin categoría',
+    // Primero la canónica (árbol propio de `categories`): es lo que el filtro
+    // ofrece, así que la tarjeta tiene que decir lo mismo. Sin mapeo aún, la
+    // de la tienda, que es más específica que la cruda.
+    category:
+      row.category_name ?? row.store_category_name ?? row.category_raw ?? 'Sin categoría',
+    categorySlug: row.category_slug ?? undefined,
     imageUrl: row.primary_image_url ?? undefined,
     availability: AVAILABILITY_LABELS[locale][row.availability],
     // La marca es el subtítulo natural: los nombres de Diunsa vienen truncados
@@ -155,12 +178,13 @@ function toProduct(row: CatalogRow, locale: CatalogLocale): Product {
 // Facetas
 // -----------------------------------------------------------------------------
 
-export interface FacetOption {
-  value: string;
-  count: number;
-}
+export type { FacetOption };
 
 export interface CatalogFacets {
+  /**
+   * Árbol de categorías canónicas: raíces con sus hijas, y al final la opción
+   * `UNCATEGORIZED_VALUE` si hay artículos sin mapeo. Ver `categoryFacets.ts`.
+   */
   categories: FacetOption[];
   stores: FacetOption[];
   brands: FacetOption[];
@@ -187,11 +211,14 @@ const EMPTY_FACETS: CatalogFacets = {
 /**
  * Opciones de filtro que de verdad devuelven algo.
  *
- * Se derivan de los productos existentes, NO del árbol de categorías que
- * publica la tienda. La diferencia no es cosmética: en Diunsa el árbol tiene
- * 266 nodos y solo 62 tienen artículos, porque los padres y los nodos de
- * campaña ("Todos", "Tecnología", "Lego") nunca reciben productos. Armar el
- * selector con el árbol ofrecía 204 categorías que devolvían cero resultados.
+ * Se derivan de los productos existentes, NO de la tabla de categorías
+ * entera. La diferencia no es cosmética: un árbol tiene nodos que nunca
+ * reciben productos, y armar el selector con todos ofrecía decenas de
+ * categorías que devolvían cero resultados.
+ *
+ * Las categorías son las canónicas (`categories`, el árbol propio del sitio),
+ * no las de cada tienda: "Juguetes", "Juguetería" y "Juguetes para jugar" son
+ * una sola opción. Lo que aún no tiene mapeo cae en "Sin categorizar aún".
  */
 export async function getCatalogFacets(): Promise<CatalogFacets> {
   try {
@@ -199,9 +226,8 @@ export async function getCatalogFacets(): Promise<CatalogFacets> {
 
     const [categories, stores, brands, summary] = await Promise.all([
       db
-        .from('v_catalog_category_facets')
-        .select('category_name, product_count')
-        .order('product_count', { ascending: false }),
+        .from('v_catalog_canonical_category_facets')
+        .select('slug, name, parent_slug, parent_name, product_count'),
       db.from('v_catalog_store_facets').select('store_name, product_count'),
       db
         .from('v_catalog_brand_facets')
@@ -227,7 +253,7 @@ export async function getCatalogFacets(): Promise<CatalogFacets> {
     const totals = summary.data as Record<string, number>;
 
     return {
-      categories: toOptions(categories.data ?? [], 'category_name'),
+      categories: buildCategoryTree(toCategoryRows(categories.data ?? [])),
       stores: toOptions(stores.data ?? [], 'store_name'),
       brands: brands.error ? [] : toOptions(brands.data ?? [], 'brand_name'),
       minPrice: Number(totals.min_price ?? 0),
@@ -255,7 +281,7 @@ async function computeFacetsByScan(): Promise<CatalogFacets> {
   const PAGE = 1000;
   const MAX_PAGES = 40; // tope de seguridad: 40 000 artículos
 
-  const categoryCounts = new Map<string, number>();
+  const categoryCounts = new Map<string, CanonicalCategoryFacetRow>();
   const storeCounts = new Map<string, number>();
   const brandCounts = new Map<string, number>();
   let min = Number.POSITIVE_INFINITY;
@@ -270,7 +296,9 @@ async function computeFacetsByScan(): Promise<CatalogFacets> {
     const { data, error } = await applyAvailabilityFloor(
       db
         .from(VIEW)
-        .select('store_category_name, store_name, brand, price, list_price')
+        .select(
+          'category_slug, category_name, category_root_slug, category_root_name, store_name, brand, price, list_price',
+        )
         .not('price', 'is', null),
     ).range(page * PAGE, page * PAGE + PAGE - 1);
 
@@ -291,7 +319,7 @@ async function computeFacetsByScan(): Promise<CatalogFacets> {
         const key = typeof value === 'string' ? value.trim() : '';
         if (key) map.set(key, (map.get(key) ?? 0) + 1);
       };
-      bump(categoryCounts, row.store_category_name);
+      bumpCategory(categoryCounts, row);
       bump(storeCounts, row.store_name);
       bump(brandCounts, row.brand);
     }
@@ -305,17 +333,55 @@ async function computeFacetsByScan(): Promise<CatalogFacets> {
       .map(([value, count]) => ({ value, count }))
       .sort((a, b) => b.count - a.count);
 
+  const categories = buildCategoryTree([...categoryCounts.values()]);
   return {
-    categories: toOptions(categoryCounts),
+    categories,
     stores: toOptions(storeCounts),
     brands: toOptions(brandCounts, 2).slice(0, 300),
     minPrice: Number.isFinite(min) ? min : 0,
     maxPrice: max,
     totalProducts: total,
     totalStores: storeCounts.size,
-    totalCategories: categoryCounts.size,
+    totalCategories: categories.filter((option) => option.value !== UNCATEGORIZED_VALUE).length,
     discountedProducts: discounted,
   };
+}
+
+/** Filas de `v_catalog_canonical_category_facets` con tipos ya fijados. */
+function toCategoryRows(rows: unknown[]): CanonicalCategoryFacetRow[] {
+  return (rows as Record<string, unknown>[]).map((row) => ({
+    slug: (row.slug as string | null) ?? null,
+    name: (row.name as string | null) ?? null,
+    parentSlug: (row.parent_slug as string | null) ?? null,
+    parentName: (row.parent_name as string | null) ?? null,
+    count: Number(row.product_count ?? 0),
+  }));
+}
+
+/**
+ * Acumula un artículo en su nodo canónico, para el camino sin vistas.
+ *
+ * La vista trae la raíz ya resuelta (`category_root_*`); acá se traduce a la
+ * forma padre/hija que espera `buildCategoryTree`: si la raíz es el mismo
+ * nodo, no hay padre.
+ */
+function bumpCategory(map: Map<string, CanonicalCategoryFacetRow>, row: Record<string, unknown>) {
+  const slug = typeof row.category_slug === 'string' ? row.category_slug : null;
+  const rootSlug = typeof row.category_root_slug === 'string' ? row.category_root_slug : null;
+  const key = slug ?? '';
+  const current = map.get(key);
+  if (current) {
+    current.count += 1;
+    return;
+  }
+  const isChild = slug !== null && rootSlug !== null && rootSlug !== slug;
+  map.set(key, {
+    slug,
+    name: typeof row.category_name === 'string' ? row.category_name : null,
+    parentSlug: isChild ? rootSlug : null,
+    parentName: isChild && typeof row.category_root_name === 'string' ? row.category_root_name : null,
+    count: 1,
+  });
 }
 
 // -----------------------------------------------------------------------------
@@ -339,7 +405,13 @@ export interface SearchCatalogParams {
    * `undefined` es "sin filtro".
    */
   store?: string | string[];
+  /**
+   * Slugs de `categories`. Una raíz abarca a sus hijas. `UNCATEGORIZED_VALUE`
+   * pide lo que aún no tiene mapeo canónico.
+   */
   category?: string | string[];
+  /** Nombre de la categoría de la tienda, tal cual. Lo usan los relacionados. */
+  storeCategory?: string | string[];
   brand?: string | string[];
   minPrice?: number;
   maxPrice?: number;
@@ -380,19 +452,20 @@ export interface SearchCatalogResult {
  * resto no existe.
  */
 export async function searchCatalog(params: SearchCatalogParams): Promise<SearchCatalogResult> {
-  // Hasta tres pasadas: la buena, y una por cada columna que la vista pueda no
-  // tener todavía. Cada reintento apaga exactamente lo que faltó, así que el
-  // catálogo degrada por partes —sin orden por novedad, o sin enlace a la
-  // ficha— en vez de caerse entero.
+  // Hasta cuatro pasadas: la buena, y una por cada columna que la vista pueda
+  // no tener todavía. Cada reintento apaga exactamente lo que faltó, así que
+  // el catálogo degrada por partes —sin orden por novedad, sin enlace a la
+  // ficha, o sin categoría canónica— en vez de caerse entero.
   let newestColumn = NEWEST_COLUMN;
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const published = `${slugColumnPublished}${categoryColumnsPublished}`;
     const result = await runCatalogQuery(params, newestColumn);
     if (result !== null) return result;
 
     // `null` significa "falta una columna". Cuál, lo dice la bandera que la
-    // propia consulta acaba de bajar.
-    if (!slugColumnPublished && newestColumn === NEWEST_COLUMN) continue;
+    // propia consulta acaba de bajar; si ninguna bajó, fue la de novedad.
+    if (published !== `${slugColumnPublished}${categoryColumnsPublished}`) continue;
     newestColumn = 'last_seen_at';
   }
 
@@ -409,6 +482,33 @@ function applyFacet(request: any, column: string, value: string | string[] | und
   if (values.length === 0) return request;
   if (values.length === 1) return request.eq(column, values[0]);
   return request.in(column, values);
+}
+
+/**
+ * Filtro por categoría canónica.
+ *
+ * Un slug entra por dos columnas: `category_slug` (el nodo exacto) y
+ * `category_root_slug` (todo lo que cuelga de una raíz). Así marcar
+ * "Juguetería y Juegos" trae también "Muñecas, Figuras y Vehículos" sin que
+ * el cliente tenga que conocer el árbol. `UNCATEGORIZED_VALUE` es
+ * `category_slug is null`: lo que aún no se mapeó.
+ *
+ * Se arma como una sola cláusula `or` de PostgREST; los slugs van entre
+ * comillas por si alguno trajera coma.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyCategoryFacet(request: any, value: string | string[] | undefined): any {
+  const values = (Array.isArray(value) ? value : value ? [value] : []).filter(Boolean);
+  if (values.length === 0) return request;
+
+  const slugs = values.filter((item) => item !== UNCATEGORIZED_VALUE);
+  const clauses: string[] = [];
+  if (slugs.length > 0) {
+    const list = `(${slugs.map((slug) => `"${slug.replace(/"/g, '')}"`).join(',')})`;
+    clauses.push(`category_slug.in.${list}`, `category_root_slug.in.${list}`);
+  }
+  if (slugs.length < values.length) clauses.push('category_slug.is.null');
+  return request.or(clauses.join(','));
 }
 
 /**
@@ -430,7 +530,13 @@ async function runCatalogQuery(
     // .eq()/.gte() reescribe el tipo del resultado. Se afloja el tipo del
     // builder a propósito; la forma real de las filas se fija abajo, al
     // mapearlas a CatalogRow.
-    const columns = slugColumnPublished ? `${BASE_COLUMNS}, ${SLUG_COLUMN}` : BASE_COLUMNS;
+    const columns = [
+      BASE_COLUMNS,
+      slugColumnPublished ? SLUG_COLUMN : null,
+      categoryColumnsPublished ? CATEGORY_COLUMNS : null,
+    ]
+      .filter(Boolean)
+      .join(', ');
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let request: any = getSupabaseAdmin()
@@ -447,7 +553,8 @@ async function runCatalogQuery(
       request = request.ilike('name', `%${safe}%`);
     }
     request = applyFacet(request, 'store_name', params.store);
-    request = applyFacet(request, 'store_category_name', params.category);
+    request = applyCategoryFacet(request, params.category);
+    request = applyFacet(request, 'store_category_name', params.storeCategory);
     request = applyFacet(request, 'brand', params.brand);
     if (params.minPrice !== undefined) request = request.gte('price', params.minPrice);
     if (params.maxPrice !== undefined) request = request.lte('price', params.maxPrice);
@@ -493,6 +600,10 @@ async function runCatalogQuery(
       // cuál de las dos apagar.
       if (slugColumnPublished && message.includes(SLUG_COLUMN)) {
         slugColumnPublished = false;
+        return null;
+      }
+      if (categoryColumnsPublished && message.includes(CATEGORY_NAME_COLUMN)) {
+        categoryColumnsPublished = false;
         return null;
       }
 
@@ -604,6 +715,10 @@ export interface ProductDetail extends Product {
   size?: string;
   condition?: string;
   categoryPath: string[];
+  /** Slug del nodo canónico, si el mapeo existe. Lo usan los relacionados. */
+  categorySlug?: string;
+  /** Categoría tal cual la nombra la tienda. */
+  storeCategory?: string;
   unitMeasureName?: string;
   taxRate?: number;
   taxIncluded?: boolean;
@@ -658,7 +773,7 @@ export async function getProductDetail(
       .select(
         `*,
          stores!inner(name, slug, logo_url, is_active),
-         store_categories(name),
+         store_categories(name, categories(slug, name)),
          store_product_images(url, position, is_primary, alt_text),
          store_product_variants(external_id, name, color, size, price, list_price, in_stock)`,
       )
@@ -727,7 +842,11 @@ export async function getProductDetail(
     const str = (value: unknown): string | undefined =>
       value === null || value === undefined || value === '' ? undefined : String(value);
 
-    const storeCategory = row.store_categories as { name: string } | null;
+    const storeCategory = row.store_categories as {
+      name: string;
+      categories: { slug: string; name: string } | null;
+    } | null;
+    const canonical = storeCategory?.categories ?? null;
     const availability = row.availability as AvailabilityStatus;
 
     return {
@@ -743,8 +862,11 @@ export async function getProductDetail(
       currency: String(row.currency ?? 'HNL'),
       store: store.name,
       storeSlug: store.slug,
-      category: storeCategory?.name ?? str(row.category_raw) ?? 'Sin categoría',
+      category:
+        canonical?.name ?? storeCategory?.name ?? str(row.category_raw) ?? 'Sin categoría',
       categoryPath: (row.category_path as string[] | null) ?? [],
+      categorySlug: canonical?.slug,
+      storeCategory: storeCategory?.name,
       imageUrl: str(row.primary_image_url),
       availability: AVAILABILITY_LABELS[locale][availability],
       availabilityStatus: availability,
@@ -817,14 +939,22 @@ export async function getProductSlug(id: string): Promise<string | null> {
   }
 }
 
-/** Artículos parecidos: misma categoría, distinto id, ordenados por descuento. */
+/**
+ * Artículos parecidos: misma categoría, distinto id, ordenados por descuento.
+ *
+ * Con mapeo canónico se busca por el nodo (que puede abarcar varias tiendas,
+ * que es justamente lo interesante). Sin mapeo, por la categoría de la tienda
+ * tal cual: es lo único que hay para agrupar.
+ */
 export async function getRelatedProducts(
-  product: Pick<ProductDetail, 'id' | 'category'>,
+  product: Pick<ProductDetail, 'id' | 'category' | 'categorySlug' | 'storeCategory'>,
   locale: CatalogLocale = 'es',
   limit = 8,
 ): Promise<Product[]> {
   const { products } = await searchCatalog({
-    category: product.category,
+    ...(product.categorySlug
+      ? { category: product.categorySlug }
+      : { storeCategory: product.storeCategory ?? product.category }),
     sort: 'discount',
     limit: limit + 1,
     locale,

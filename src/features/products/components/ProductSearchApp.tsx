@@ -8,7 +8,7 @@ import {
   type CSSProperties,
 } from "react";
 import type { Product } from "@/types";
-import type { FacetOption } from "@/server/services/catalog";
+import type { FacetOption } from "@/features/products/categoryFacets";
 import { useLocale } from "@/features/i18n/LocaleContext";
 import { filterProducts, getFacets } from "@/features/products/filterProducts";
 import { productPath } from "@/features/products/productPath";
@@ -462,6 +462,9 @@ export function ProductSearchApp({
       includeUnavailable: t("includeUnavailableLabel"),
       showMore: t("filterShowMoreLabel"),
       showLess: t("filterShowLessLabel"),
+      uncategorized: t("filterUncategorizedLabel"),
+      expand: t("filterExpandLabel"),
+      collapse: t("filterCollapseLabel"),
     },
   };
 
