@@ -16,9 +16,9 @@ import { Toggle } from "./Toggle";
  * —y que nadie lo notara hasta que alguien reportara que en el móvil "no está
  * el filtro de marca".
  *
- * Qué sección arranca abierta no es arbitrario: categoría y precio son las dos
- * preguntas con las que la gente llega ("qué tipo de cosa" y "cuánto puedo
- * gastar"). Tienda y marca son refinamientos, y van plegadas.
+ * Qué sección arranca abierta no es arbitrario: tienda y precio son las dos
+ * preguntas con las que la gente llega ("dónde comprar" y "cuánto puedo
+ * gastar"). Categoría y marca son refinamientos, y van plegadas.
  */
 
 export type FilterSectionKey = "category" | "price" | "store" | "brand" | "more";
@@ -46,6 +46,14 @@ export interface FilterSidebarProps {
   currencySymbol: string;
   formatAmount: (amount: number) => string;
 
+  /**
+   * Qué secciones arrancan abiertas. Por defecto tienda y precio (ver
+   * `INITIALLY_OPEN`); la hoja de teléfono pasa `[]` porque ahí el panel entra
+   * a pantalla completa y todo abierto de una vez es más para desplazar que
+   * para leer.
+   */
+  initiallyOpen?: FilterSectionKey[];
+
   labels: {
     category: string;
     price: string;
@@ -66,7 +74,7 @@ export interface FilterSidebarProps {
   };
 }
 
-const INITIALLY_OPEN: FilterSectionKey[] = ["category", "price"];
+const INITIALLY_OPEN: FilterSectionKey[] = ["store", "price"];
 
 export function FilterSidebar({
   categories,
@@ -87,9 +95,10 @@ export function FilterSidebar({
   onIncludeUnavailableChange,
   currencySymbol,
   formatAmount,
+  initiallyOpen = INITIALLY_OPEN,
   labels,
 }: FilterSidebarProps) {
-  const [open, setOpen] = useState<Set<FilterSectionKey>>(new Set(INITIALLY_OPEN));
+  const [open, setOpen] = useState<Set<FilterSectionKey>>(new Set(initiallyOpen));
 
   const toggle = (key: FilterSectionKey) =>
     setOpen((current) => {
@@ -124,16 +133,16 @@ export function FilterSidebar({
   return (
     <div className="flex flex-col">
       <FilterSection
-        title={labels.category}
-        open={open.has("category")}
-        onToggle={() => toggle("category")}
-        summary={category}
+        title={labels.store}
+        open={open.has("store")}
+        onToggle={() => toggle("store")}
+        summary={store}
       >
         <FilterOptionList
-          name="fyp-facet-category"
-          options={categories}
-          value={category}
-          onChange={onCategoryChange}
+          name="fyp-facet-store"
+          options={stores}
+          value={store}
+          onChange={onStoreChange}
           labels={listLabels}
         />
       </FilterSection>
@@ -160,16 +169,16 @@ export function FilterSidebar({
       </FilterSection>
 
       <FilterSection
-        title={labels.store}
-        open={open.has("store")}
-        onToggle={() => toggle("store")}
-        summary={store}
+        title={labels.category}
+        open={open.has("category")}
+        onToggle={() => toggle("category")}
+        summary={category}
       >
         <FilterOptionList
-          name="fyp-facet-store"
-          options={stores}
-          value={store}
-          onChange={onStoreChange}
+          name="fyp-facet-category"
+          options={categories}
+          value={category}
+          onChange={onCategoryChange}
           labels={listLabels}
         />
       </FilterSection>

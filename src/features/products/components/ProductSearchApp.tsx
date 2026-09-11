@@ -412,51 +412,61 @@ export function ProductSearchApp({
     activeExtraFilters + (store ? 1 : 0) + (category ? 1 : 0);
 
   /**
-   * El panel de facetas, montado una sola vez y colocado en dos sitios: la
-   * barra lateral de escritorio y la hoja de teléfono. Sólo uno de los dos está
-   * en pantalla a la vez —la hoja es `lg:hidden` y el aside es `hidden lg:block`—,
-   * así que no hay estado duplicado ni radios con el mismo `name` compitiendo.
+   * Las props del panel de facetas, compartidas por los dos sitios donde
+   * aparece: la barra lateral de escritorio y la hoja de teléfono. Sólo uno de
+   * los dos está en pantalla a la vez —la hoja es `lg:hidden` y el aside es
+   * `hidden lg:block`—, así que no hay radios con el mismo `name` compitiendo.
+   *
+   * Cada sitio monta su propia instancia (`sidebar` / `mobileSidebar`) en
+   * lugar de reutilizar un mismo elemento porque cada una necesita su propio
+   * estado de qué secciones arrancan abiertas: en escritorio tienda y precio,
+   * en teléfono todo cerrado —la hoja ya ocupa toda la pantalla, y abrir las
+   * cuatro secciones de una vez sólo cambia cuánto hay que desplazar antes de
+   * ver el botón de aplicar.
    */
-  const sidebar = (
-    <FilterSidebar
-      categories={categoryOptions}
-      stores={storeOptions}
-      brands={brandFacets ?? []}
-      category={category}
-      store={store}
-      brand={filters.brand}
-      minPrice={filters.minPrice}
-      maxPrice={filters.maxPrice}
-      onlyDiscounted={filters.onlyDiscounted}
-      includeUnavailable={filters.includeUnavailable}
-      onCategoryChange={setCategory}
-      onStoreChange={setStore}
-      onBrandChange={(brand) => patchFilters({ brand })}
-      onPriceChange={(range) => patchFilters({ minPrice: range.min, maxPrice: range.max })}
-      onOnlyDiscountedChange={(onlyDiscounted) => patchFilters({ onlyDiscounted })}
-      onIncludeUnavailableChange={(includeUnavailable) => patchFilters({ includeUnavailable })}
-      currencySymbol={locale === "en" ? "HNL" : "L"}
-      formatAmount={(amount) => numberFormat.format(amount)}
-      labels={{
-        category: t("categoryFilterLabel"),
-        price: t("priceRangeLabel"),
-        store: t("storeFilterLabel"),
-        brand: t("brandFilterLabel"),
-        more: t("moreFiltersLabel"),
-        all: t("filterAllOption"),
-        search: t("filterSearchLabel"),
-        noMatches: t("filterNoMatchesLabel"),
-        anyPrice: t("anyPriceLabel"),
-        andUp: t("andUpLabel"),
-        minPrice: t("minPriceLabel"),
-        maxPrice: t("maxPriceLabel"),
-        onlyDiscounted: t("onlyDiscountedLabel"),
-        includeUnavailable: t("includeUnavailableLabel"),
-        showMore: t("filterShowMoreLabel"),
-        showLess: t("filterShowLessLabel"),
-      }}
-    />
-  );
+  const sidebarProps = {
+    categories: categoryOptions,
+    stores: storeOptions,
+    brands: brandFacets ?? [],
+    category,
+    store,
+    brand: filters.brand,
+    minPrice: filters.minPrice,
+    maxPrice: filters.maxPrice,
+    onlyDiscounted: filters.onlyDiscounted,
+    includeUnavailable: filters.includeUnavailable,
+    onCategoryChange: setCategory,
+    onStoreChange: setStore,
+    onBrandChange: (brand: string | undefined) => patchFilters({ brand }),
+    onPriceChange: (range: { min?: number; max?: number }) =>
+      patchFilters({ minPrice: range.min, maxPrice: range.max }),
+    onOnlyDiscountedChange: (onlyDiscounted: boolean) => patchFilters({ onlyDiscounted }),
+    onIncludeUnavailableChange: (includeUnavailable: boolean) =>
+      patchFilters({ includeUnavailable }),
+    currencySymbol: locale === "en" ? "HNL" : "L",
+    formatAmount: (amount: number) => numberFormat.format(amount),
+    labels: {
+      category: t("categoryFilterLabel"),
+      price: t("priceRangeLabel"),
+      store: t("storeFilterLabel"),
+      brand: t("brandFilterLabel"),
+      more: t("moreFiltersLabel"),
+      all: t("filterAllOption"),
+      search: t("filterSearchLabel"),
+      noMatches: t("filterNoMatchesLabel"),
+      anyPrice: t("anyPriceLabel"),
+      andUp: t("andUpLabel"),
+      minPrice: t("minPriceLabel"),
+      maxPrice: t("maxPriceLabel"),
+      onlyDiscounted: t("onlyDiscountedLabel"),
+      includeUnavailable: t("includeUnavailableLabel"),
+      showMore: t("filterShowMoreLabel"),
+      showLess: t("filterShowLessLabel"),
+    },
+  };
+
+  const sidebar = <FilterSidebar {...sidebarProps} />;
+  const mobileSidebar = <FilterSidebar {...sidebarProps} initiallyOpen={[]} />;
 
   return (
     <div className="flex flex-col gap-5">
@@ -707,7 +717,7 @@ export function ProductSearchApp({
           seeResults: t("seeResultsLabel"),
         }}
       >
-        {sidebar}
+        {mobileSidebar}
       </FilterSheet>
 
       {/* La barra tapa el final de la lista mientras hay algo apartado. Este
