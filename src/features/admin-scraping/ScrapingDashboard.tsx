@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from 'react';
 import {
@@ -328,7 +329,10 @@ export function ScrapingDashboard({
             className="enter-fade text-[0.6875rem] font-medium tracking-[0.24em] text-[var(--text-tertiary)] uppercase"
             style={{ '--enter-delay': '80ms' } as CSSProperties}
           >
-            Find Your Prices · Panel operativo
+            Find Your Prices · Panel operativo ·{' '}
+            <Link href="/admin/categorias" className="text-[var(--accent)] hover:opacity-70">
+              Categorías
+            </Link>
           </p>
 
           <div className="mt-8 flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
