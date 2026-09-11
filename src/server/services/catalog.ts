@@ -175,6 +175,47 @@ function toProduct(row: CatalogRow, locale: CatalogLocale): Product {
 }
 
 // -----------------------------------------------------------------------------
+// Fallos transitorios
+// -----------------------------------------------------------------------------
+
+/**
+ * Si hay base configurada. Sin las variables (pruebas, un clon recién bajado)
+ * el catálogo trabaja con el fixture a propósito; con ellas, un fallo es un
+ * fallo y se propaga.
+ */
+export function hasDatabase(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
+}
+
+/**
+ * Reintenta una lectura que falló por algo pasajero: red caída un instante,
+ * un 5xx de PostgREST, el arranque en frío del pooler. Tres intentos con
+ * espera creciente cubren casi todo eso sin sumar más de un segundo.
+ *
+ * POR QUÉ EXISTE. Estas lecturas alimentan páginas con `revalidate`. Si la
+ * regeneración de fondo devolvía "vacío" en vez de fallar, Next cacheaba la
+ * portada con el fixture de muestra y la servía cinco minutos a todo el
+ * mundo, hasta la siguiente regeneración. Nadie veía el error: veían
+ * artículos de mentira. Ahora se reintenta, y si aun así falla, se lanza:
+ * Next conserva la última versión buena en vez de reemplazarla por una mala.
+ */
+async function withRetry<T>(label: string, action: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await action();
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** attempt));
+      }
+    }
+  }
+  const message = lastError instanceof Error ? lastError.message : String(lastError);
+  throw new Error(`${label}: ${message}`);
+}
+
+// -----------------------------------------------------------------------------
 // Facetas
 // -----------------------------------------------------------------------------
 
@@ -221,7 +262,8 @@ const EMPTY_FACETS: CatalogFacets = {
  * una sola opción. Lo que aún no tiene mapeo cae en "Sin categorizar aún".
  */
 export async function getCatalogFacets(): Promise<CatalogFacets> {
-  try {
+  if (!hasDatabase()) return EMPTY_FACETS;
+  return withRetry('facetas del catálogo', async () => {
     const db = getSupabaseAdmin();
 
     const [categories, stores, brands, summary] = await Promise.all([
@@ -263,9 +305,7 @@ export async function getCatalogFacets(): Promise<CatalogFacets> {
       totalCategories: Number(totals.total_categories ?? 0),
       discountedProducts: Number(totals.discounted_products ?? 0),
     };
-  } catch {
-    return EMPTY_FACETS;
-  }
+  });
 }
 
 /**
@@ -302,7 +342,7 @@ async function computeFacetsByScan(): Promise<CatalogFacets> {
         .not('price', 'is', null),
     ).range(page * PAGE, page * PAGE + PAGE - 1);
 
-    if (error) break;
+    if (error) throw new Error(error.message);
     const rows = (data ?? []) as Array<Record<string, unknown>>;
     if (rows.length === 0) break;
 
@@ -452,6 +492,11 @@ export interface SearchCatalogResult {
  * resto no existe.
  */
 export async function searchCatalog(params: SearchCatalogParams): Promise<SearchCatalogResult> {
+  if (!hasDatabase()) return { products: [], total: 0 };
+  return withRetry('búsqueda en el catálogo', () => searchCatalogOnce(params));
+}
+
+async function searchCatalogOnce(params: SearchCatalogParams): Promise<SearchCatalogResult> {
   // Hasta cuatro pasadas: la buena, y una por cada columna que la vista pueda
   // no tener todavía. Cada reintento apaga exactamente lo que faltó, así que
   // el catálogo degrada por partes —sin orden por novedad, sin enlace a la
@@ -469,7 +514,7 @@ export async function searchCatalog(params: SearchCatalogParams): Promise<Search
     newestColumn = 'last_seen_at';
   }
 
-  return { products: [], total: 0 };
+  throw new Error('La vista del catálogo no publica las columnas que la consulta necesita');
 }
 
 /**
@@ -616,8 +661,10 @@ async function runCatalogQuery(
       products: ((data ?? []) as unknown as CatalogRow[]).map((row) => toProduct(row, locale)),
       total: count ?? 0,
     };
-  } catch {
-    return { products: [], total: 0 };
+  } catch (error) {
+    // Antes esto devolvía un catálogo vacío. Ver `withRetry` para por qué
+    // eso era peor que fallar.
+    throw error instanceof Error ? error : new Error(String(error));
   }
 }
 
@@ -645,22 +692,21 @@ export async function getCatalogSnapshot(options?: {
   limit?: number;
   locale?: CatalogLocale;
 }): Promise<CatalogSnapshot> {
-  try {
-    const [listing, facets] = await Promise.all([
-      searchCatalog({
-        sort: 'newest',
-        limit: options?.limit ?? 90,
-        locale: options?.locale ?? 'es',
-      }),
-      getCatalogFacets(),
-    ]);
+  // Sin base configurada la portada muestra el fixture: es el modo de las
+  // pruebas y de un clon sin .env.local. Con base, un fallo se propaga —ver
+  // `withRetry`— y la página conserva su última versión buena.
+  if (!hasDatabase()) return EMPTY_SNAPSHOT;
 
-    return { products: listing.products, facets, total: listing.total };
-  } catch {
-    // Sin base (migraciones sin correr, red caída) la home no debe romperse:
-    // la vista decide qué mostrar con un catálogo vacío.
-    return EMPTY_SNAPSHOT;
-  }
+  const [listing, facets] = await Promise.all([
+    searchCatalog({
+      sort: 'newest',
+      limit: options?.limit ?? 90,
+      locale: options?.locale ?? 'es',
+    }),
+    getCatalogFacets(),
+  ]);
+
+  return { products: listing.products, facets, total: listing.total };
 }
 
 // -----------------------------------------------------------------------------
@@ -765,7 +811,10 @@ export async function getProductDetail(
   key: string,
   locale: CatalogLocale = 'es',
 ): Promise<ProductDetail | null> {
-  try {
+  // `null` significa "no existe" y la ruta responde 404, que con
+  // `revalidate` queda cacheado diez minutos. Un fallo de red NO es un 404:
+  // se propaga para que la ficha conserve su última versión buena.
+  return withRetry('ficha de producto', async () => {
     const db = getSupabaseAdmin();
 
     const { data, error } = await db
@@ -781,7 +830,8 @@ export async function getProductDetail(
       .eq('is_active', true)
       .maybeSingle();
 
-    if (error || !data) return null;
+    if (error) throw new Error(error.message);
+    if (!data) return null;
 
     const row = data as Record<string, never> & Record<string, unknown>;
     const store = row.stores as { name: string; slug: string } | null;
@@ -789,12 +839,13 @@ export async function getProductDetail(
 
     // El histórico se pide aparte: es una serie que puede ser larga y no tiene
     // sentido arrastrarla en el mismo join.
-    const { data: history } = await db
+    const { data: history, error: historyError } = await db
       .from('price_history')
       .select('scraped_at, price, list_price, previous_price, price_delta, in_stock')
       .eq('store_product_id', String(row.id))
       .order('scraped_at', { ascending: true })
       .limit(200);
+    if (historyError) throw new Error(historyError.message);
 
     const priceHistory: PricePointRow[] = ((history ?? []) as Record<string, unknown>[]).map(
       (point) => ({
@@ -907,9 +958,7 @@ export async function getProductDetail(
       lowestPrice: observedPrices.length ? Math.min(...observedPrices) : undefined,
       highestPrice: observedPrices.length ? Math.max(...observedPrices) : undefined,
     };
-  } catch {
-    return null;
-  }
+  });
 }
 
 /**
@@ -923,7 +972,7 @@ export async function getProductDetail(
 export async function getProductSlug(id: string): Promise<string | null> {
   if (!UUID_PATTERN.test(id)) return null;
 
-  try {
+  return withRetry('slug de producto', async () => {
     const { data, error } = await getSupabaseAdmin()
       .from('store_products')
       .select('public_slug')
@@ -931,12 +980,11 @@ export async function getProductSlug(id: string): Promise<string | null> {
       .eq('is_active', true)
       .maybeSingle();
 
-    if (error || !data) return null;
+    if (error) throw new Error(error.message);
+    if (!data) return null;
     const slug = (data as { public_slug: string | null }).public_slug;
     return slug && slug !== '' ? slug : null;
-  } catch {
-    return null;
-  }
+  });
 }
 
 /**
