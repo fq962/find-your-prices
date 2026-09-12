@@ -1,19 +1,8 @@
--- =============================================================================
--- 0008_ingest_function.sql
--- Motor de ingesta. El scraper de Node envia un lote de productos ya
--- normalizados y esta funcion resuelve todo del lado de la base en una sola
--- llamada: alta, actualizacion, deteccion de cambios, historico de precios,
--- imagenes y variantes.
---
--- Por que en SQL y no en la app: un catalogo completo son ~8000 articulos.
--- Hacerlo fila por fila desde Node serian miles de round-trips por corrida.
--- =============================================================================
+-- Las imagenes pasaron de unique (store_product_id, url) a un indice sobre
+-- md5(url) para ahorrar espacio. La funcion de ingesta tiene que usar la misma
+-- expresion en su on conflict o falla con "no unique or exclusion constraint".
+-- Este archivo redefine ingest_store_products con ese unico cambio.
 
--- -----------------------------------------------------------------------------
--- to_gtin14: normaliza cualquier codigo de barras (UPC-12, EAN-13, GTIN-8) a
--- GTIN-14 rellenando con ceros. Asi 'X' en una tienda y '0X' en otra emparejan.
--- Devuelve null si el codigo no es plausible.
--- -----------------------------------------------------------------------------
 create or replace function find_your_prices.to_gtin14(input text)
 returns text
 language sql

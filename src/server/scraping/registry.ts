@@ -1,6 +1,7 @@
 import type { ScrapeStrategy } from './types';
 import { diunsaStrategy } from './strategies/diunsa';
 import { ladyleeStrategy } from './strategies/ladylee';
+import { gamestationStrategy } from './strategies/gamestation';
 import { jetstereoStrategy } from './strategies/jetstereo';
 import { radioshackStrategy } from './strategies/radioshack';
 import { acosaStrategy } from './strategies/acosa';
@@ -23,6 +24,7 @@ import { comisariatoStrategy } from './strategies/comisariato';
 const STRATEGIES: ScrapeStrategy[] = [
   diunsaStrategy,
   ladyleeStrategy,
+  gamestationStrategy,
   jetstereoStrategy,
   radioshackStrategy,
   acosaStrategy,
