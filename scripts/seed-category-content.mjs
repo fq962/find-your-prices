@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const seedsDir = join(root, 'src', 'db', 'seeds', 'category-content');
+// Solo los .json: el PROMPT-gemini.md y cualquier nota conviven en la carpeta.
 
 const args = new Set(process.argv.slice(2));
 const dryRun = args.has('--dry-run');
