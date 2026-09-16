@@ -11,6 +11,12 @@ import type {
 /**
  * Estrategia de scraping para Walmart Honduras (https://www.walmart.com.hn).
  *
+ * Tambien es la **fabrica** que usa Paiz (`paiz.ts`): las dos tiendas son la
+ * misma cuenta VTEX de Walmart Centroamerica (las imagenes de Paiz salen de
+ * `walmarthn.vteximg.com.br`), con la misma Catalog API, los mismos topes y
+ * el mismo esquema. Lo unico que cambia es el dominio y si se guarda `raw`.
+ * Ver `createVtexCatalogStrategy` al final.
+ *
  * ---------------------------------------------------------------------------
  * Por que no se parsea el html
  * ---------------------------------------------------------------------------
@@ -163,7 +169,7 @@ interface VtexItem {
   sellers?: VtexSeller[];
 }
 
-interface VtexProduct {
+export interface VtexProduct {
   productId?: string;
   productName?: string;
   productTitle?: string | null;
@@ -244,6 +250,12 @@ export function round2(value: number | null | undefined): number | null {
  *
  * 'https://www.walmart.com.hn/abarrotes' -> 'abarrotes'
  * 'https://www.walmart.com.hn/articulos-para-el-hogar/ferreteria/' -> 'articulos-para-el-hogar/ferreteria'
+ * 'https://www.paiz.com.hn/l%C3%A1cteos' -> 'lacteos'
+ *
+ * Se quitan las tildes a proposito: el menu de Paiz enlaza a `/l%C3%A1cteos`,
+ * y aunque la API acepta esa forma codificada (y rechaza `lácteos` crudo con
+ * 400), el sitemap publica la ruta como `lacteos`. Sin normalizar, el reparto
+ * por subcategorias no encontraria hijas para una ruta con tilde.
  */
 export function categoryPathFromUrl(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -253,7 +265,12 @@ export function categoryPathFromUrl(url: string | null | undefined): string | nu
   } catch {
     path = url;
   }
-  const clean = path.replace(/^\/+/, '').replace(/\/+$/, '').trim();
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    // Un porcentaje suelto no es un escape valido: se deja tal cual.
+  }
+  const clean = path.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/^\/+/, '').replace(/\/+$/, '').trim();
   return clean.length > 0 ? clean : null;
 }
 
@@ -288,8 +305,7 @@ export function extractSpecifications(product: VtexProduct): Record<string, stri
 
 /** Primer valor de una especificacion, buscada sin depender de tildes ni mayusculas. */
 export function specValue(specs: Record<string, string[]>, candidates: string[]): string | null {
-  const normalize = (input: string) =>
-    input.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  const normalize = (input: string) => input.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
   const wanted = candidates.map(normalize);
   for (const [key, values] of Object.entries(specs)) {
     if (wanted.includes(normalize(key))) return values[0] ?? null;
@@ -310,7 +326,9 @@ function toAvailability(offer: VtexCommertialOffer | undefined): AvailabilitySta
 
 function mapImages(item: VtexItem | undefined, productName: string): NormalizedImage[] {
   return (item?.images ?? [])
-    .filter((img): img is VtexImage & { imageUrl: string } => typeof img.imageUrl === 'string' && img.imageUrl.length > 0)
+    .filter(
+      (img): img is VtexImage & { imageUrl: string } => typeof img.imageUrl === 'string' && img.imageUrl.length > 0,
+    )
     .map((img, index) => ({
       url: img.imageUrl,
       external_id: img.imageId ?? null,
@@ -337,8 +355,26 @@ function trimOffer(offer: VtexCommertialOffer | undefined): Record<string, unkno
   return rest;
 }
 
+export interface MapVtexOptions {
+  /**
+   * Si se guarda el payload recortado en `raw`. Walmart lo guarda; Paiz no,
+   * por espacio en la base: sin `raw` la ingesta deja `{}` (la columna es
+   * `not null default '{}'`).
+   */
+  keepRaw: boolean;
+}
+
 /** Traduce un producto de la Catalog System API al contrato comun del sistema. */
 export function mapWalmartHnProduct(product: VtexProduct, currency: string): NormalizedProduct | null {
+  return mapVtexProduct(product, currency, { keepRaw: true });
+}
+
+/** Mapeador compartido por todas las tiendas de la cuenta VTEX de Walmart CAM. */
+export function mapVtexProduct(
+  product: VtexProduct,
+  currency: string,
+  options: MapVtexOptions,
+): NormalizedProduct | null {
   const externalId = product?.productId;
   const name = product?.productName?.trim();
   const url = product?.link;
@@ -365,6 +401,35 @@ export function mapWalmartHnProduct(product: VtexProduct, currency: string): Nor
   if (availability === 'out_of_stock') badges.push('agotado');
 
   const barcode = (mainItem?.ean ?? '').trim() || stripGtinPrefix(product.productReference);
+
+  const raw: NormalizedProduct['raw'] = options.keepRaw
+    ? {
+        productId: externalId,
+        productName: name,
+        brand: product.brand,
+        linkText: product.linkText,
+        link: product.link,
+        productReference: product.productReference,
+        categoryId: product.categoryId,
+        categories: product.categories,
+        categoriesIds: product.categoriesIds,
+        productClusters: product.productClusters ?? {},
+        description: product.description,
+        specifications: specs,
+        items: items.map((item) => ({
+          itemId: item.itemId,
+          nameComplete: item.nameComplete,
+          ean: item.ean,
+          measurementUnit: item.measurementUnit,
+          unitMultiplier: item.unitMultiplier,
+          images: (item.images ?? []).map((img) => ({
+            imageId: img.imageId,
+            imageUrl: img.imageUrl,
+          })),
+          offer: trimOffer(defaultSeller(item)?.commertialOffer),
+        })),
+      }
+    : undefined;
 
   return {
     // Identidad
@@ -461,29 +526,7 @@ export function mapWalmartHnProduct(product: VtexProduct, currency: string): Nor
     meta_title: product.productTitle?.trim() || null,
     meta_description: product.metaTagDescription?.trim() || null,
 
-    raw: {
-      productId: externalId,
-      productName: name,
-      brand: product.brand,
-      linkText: product.linkText,
-      link: product.link,
-      productReference: product.productReference,
-      categoryId: product.categoryId,
-      categories: product.categories,
-      categoriesIds: product.categoriesIds,
-      productClusters: product.productClusters ?? {},
-      description: product.description,
-      specifications: specs,
-      items: items.map((item) => ({
-        itemId: item.itemId,
-        nameComplete: item.nameComplete,
-        ean: item.ean,
-        measurementUnit: item.measurementUnit,
-        unitMultiplier: item.unitMultiplier,
-        images: (item.images ?? []).map((img) => ({ imageId: img.imageId, imageUrl: img.imageUrl })),
-        offer: trimOffer(defaultSeller(item)?.commertialOffer),
-      })),
-    },
+    ...(raw !== undefined ? { raw } : {}),
   };
 }
 
@@ -543,7 +586,11 @@ export function directChildren(allPaths: string[], parent: string): string[] {
 // Lectura de configuracion
 // -----------------------------------------------------------------------------
 
-function readConfig(raw: Record<string, unknown>, targetUrl: string | null): WalmartHnConfig {
+function readConfig(
+  raw: Record<string, unknown>,
+  targetUrl: string | null,
+  defaults: { apiBaseUrl: string; webBaseUrl: string },
+): WalmartHnConfig {
   const str = (key: string, fallback: string) => {
     const value = raw[key];
     return typeof value === 'string' && value.trim().length > 0 ? value.trim() : fallback;
@@ -552,10 +599,9 @@ function readConfig(raw: Record<string, unknown>, targetUrl: string | null): Wal
   const configuredPath = typeof raw.categoryPath === 'string' ? categoryPathFromUrl(raw.categoryPath) : null;
 
   return {
-    apiBaseUrl: str('apiBaseUrl', DEFAULTS.apiBaseUrl).replace(/\/+$/, ''),
-    webBaseUrl: str('webBaseUrl', DEFAULTS.webBaseUrl).replace(/\/+$/, ''),
-    pageSize:
-      Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, MAX_PAGE_SIZE) : DEFAULTS.pageSize,
+    apiBaseUrl: str('apiBaseUrl', defaults.apiBaseUrl).replace(/\/+$/, ''),
+    webBaseUrl: str('webBaseUrl', defaults.webBaseUrl).replace(/\/+$/, ''),
+    pageSize: Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, MAX_PAGE_SIZE) : DEFAULTS.pageSize,
     orderBy: str('orderBy', DEFAULTS.orderBy),
     categoryPath: configuredPath ?? categoryPathFromUrl(targetUrl),
     syncCategories: raw.syncCategories !== false,
@@ -567,238 +613,272 @@ function readConfig(raw: Record<string, unknown>, targetUrl: string | null): Wal
 // Estrategia
 // -----------------------------------------------------------------------------
 
-export const walmarthnStrategy: ScrapeStrategy = {
-  key: 'walmarthn',
-  label: 'Walmart Honduras (VTEX Catalog API)',
-  supports: ['full_catalog', 'category'],
-  configSchema: [
-    {
-      key: 'categoryPath',
-      label: 'Ruta de categoria',
-      example: 'abarrotes',
-      description:
-        'Ruta del sitio sin barras ("abarrotes", "articulos-para-el-hogar/ferreteria"). Si se omite, se toma de la url del target.',
-    },
-    {
-      key: 'pageSize',
-      label: 'Articulos por peticion',
-      example: '50',
-      description: 'Maximo aceptado por la API: 50 (el ancho de la ventana _from/_to).',
-    },
-    {
-      key: 'orderBy',
-      label: 'Orden',
-      example: 'OrderByNameASC',
-      description:
-        'Orden explicito para que la paginacion sea estable. Sin el, VTEX ordena por relevancia y un articulo puede colarse entre dos paginas.',
-    },
-    {
-      key: 'partitionOversized',
-      label: 'Repartir categorias grandes',
-      example: 'true',
-      description:
-        'Cuando una categoria supera los 2550 articulos que entrega la API, baja a sus subcategorias (tomadas del sitemap) para cubrirla completa.',
-    },
-    {
-      key: 'syncCategories',
-      label: 'Sincronizar categorias',
-      example: 'true',
-      description: 'Arma el arbol de categorias con lo que trae cada producto, sin peticion extra.',
-    },
-  ],
+export interface VtexCatalogStrategyOptions {
+  key: string;
+  label: string;
+  apiBaseUrl: string;
+  webBaseUrl: string;
+  /** Ver `MapVtexOptions.keepRaw`. */
+  keepRaw: boolean;
+}
 
-  async run(ctx: ScrapeContext): Promise<ScrapeResult> {
-    const config = readConfig(ctx.config, ctx.target.url);
-    const currency = ctx.store.default_currency || 'HNL';
-    const errors: NonNullable<ScrapeResult['errors']> = [];
+/**
+ * Fabrica de estrategias para las tiendas de la cuenta VTEX de Walmart
+ * Centroamerica. Walmart HN y Paiz comparten API, topes, esquema y sitemap;
+ * solo cambian el dominio y si se conserva `raw`.
+ */
+export function createVtexCatalogStrategy(options: VtexCatalogStrategyOptions): ScrapeStrategy {
+  const defaults = {
+    apiBaseUrl: options.apiBaseUrl,
+    webBaseUrl: options.webBaseUrl,
+  };
+  const mapOptions: MapVtexOptions = { keepRaw: options.keepRaw };
 
-    const products: NormalizedProduct[] = [];
-    const categoryMap = new Map<string, NormalizedCategory>();
-    const seen = new Set<string>();
-    const maxPages = Math.min(ctx.target.max_pages ?? MAX_PAGES_HARD_LIMIT, MAX_PAGES_HARD_LIMIT);
+  return {
+    key: options.key,
+    label: options.label,
+    supports: ['full_catalog', 'category'],
+    configSchema: [
+      {
+        key: 'categoryPath',
+        label: 'Ruta de categoria',
+        example: 'abarrotes',
+        description:
+          'Ruta del sitio sin barras ("abarrotes", "articulos-para-el-hogar/ferreteria"). Si se omite, se toma de la url del target.',
+      },
+      {
+        key: 'pageSize',
+        label: 'Articulos por peticion',
+        example: '50',
+        description: 'Maximo aceptado por la API: 50 (el ancho de la ventana _from/_to).',
+      },
+      {
+        key: 'orderBy',
+        label: 'Orden',
+        example: 'OrderByNameASC',
+        description:
+          'Orden explicito para que la paginacion sea estable. Sin el, VTEX ordena por relevancia y un articulo puede colarse entre dos paginas.',
+      },
+      {
+        key: 'partitionOversized',
+        label: 'Repartir categorias grandes',
+        example: 'true',
+        description:
+          'Cuando una categoria supera los 2550 articulos que entrega la API, baja a sus subcategorias (tomadas del sitemap) para cubrirla completa.',
+      },
+      {
+        key: 'syncCategories',
+        label: 'Sincronizar categorias',
+        example: 'true',
+        description: 'Arma el arbol de categorias con lo que trae cada producto, sin peticion extra.',
+      },
+    ],
 
-    let pagesFetched = 0;
-    let sitemapPaths: string[] | null = null;
+    async run(ctx: ScrapeContext): Promise<ScrapeResult> {
+      const config = readConfig(ctx.config, ctx.target.url, defaults);
+      const currency = ctx.store.default_currency || 'HNL';
+      const errors: NonNullable<ScrapeResult['errors']> = [];
 
-    /** El sitemap se descarga una sola vez por corrida, y solo si hace falta. */
-    async function loadSitemapPaths(): Promise<string[]> {
-      if (sitemapPaths) return sitemapPaths;
-      const xml = await ctx.http.getText(`${config.webBaseUrl}/sitemap/category-0.xml`);
-      sitemapPaths = parseCategorySitemap(xml, config.webBaseUrl);
-      return sitemapPaths;
-    }
+      const products: NormalizedProduct[] = [];
+      const categoryMap = new Map<string, NormalizedCategory>();
+      const seen = new Set<string>();
+      const maxPages = Math.min(ctx.target.max_pages ?? MAX_PAGES_HARD_LIMIT, MAX_PAGES_HARD_LIMIT);
 
-    /** Rutas raiz del sitio, para el target de catalogo completo. */
-    async function rootPaths(): Promise<string[]> {
-      const paths = await loadSitemapPaths();
-      return paths.filter((path) => !path.includes('/'));
-    }
+      let pagesFetched = 0;
+      let sitemapPaths: string[] | null = null;
 
-    /**
-     * Barre una ruta de categoria hasta agotarla o hasta topar con el limite de
-     * la API. Devuelve si quedo truncada, para decidir si hay que repartirla.
-     */
-    async function sweep(path: string): Promise<{ truncated: boolean; found: number }> {
-      let from = 0;
-      let found = 0;
-      let consecutiveFailures = 0;
-      let hadFailures = false;
+      /** El sitemap se descarga una sola vez por corrida, y solo si hace falta. */
+      async function loadSitemapPaths(): Promise<string[]> {
+        if (sitemapPaths) return sitemapPaths;
+        const xml = await ctx.http.getText(`${config.webBaseUrl}/sitemap/category-0.xml`);
+        sitemapPaths = parseCategorySitemap(xml, config.webBaseUrl);
+        return sitemapPaths;
+      }
 
-      while (from <= MAX_OFFSET && pagesFetched < maxPages) {
-        if (ctx.signal.aborted) {
-          errors.push({ stage: 'paginate', message: 'Corrida abortada por limite de tiempo', meta: { path, from } });
-          return { truncated: true, found };
-        }
+      /** Rutas raiz del sitio, para el target de catalogo completo. */
+      async function rootPaths(): Promise<string[]> {
+        const paths = await loadSitemapPaths();
+        return paths.filter((path) => !path.includes('/'));
+      }
 
-        const to = Math.min(from + config.pageSize - 1, MAX_OFFSET + MAX_PAGE_SIZE - 1);
-        const url =
-          `${config.apiBaseUrl}/products/search/${path}` +
-          `?_from=${from}&_to=${to}&O=${encodeURIComponent(config.orderBy)}`;
+      /**
+       * Barre una ruta de categoria hasta agotarla o hasta topar con el limite de
+       * la API. Devuelve si quedo truncada, para decidir si hay que repartirla.
+       */
+      async function sweep(path: string): Promise<{ truncated: boolean; found: number }> {
+        let from = 0;
+        let found = 0;
+        let consecutiveFailures = 0;
+        let hadFailures = false;
 
-        let batch: VtexProduct[];
-        try {
-          batch = await ctx.http.getJson<VtexProduct[]>(url);
-          consecutiveFailures = 0;
-        } catch (error) {
-          // La tienda devuelve algun 500 suelto cuando se la rastrea sostenido
-          // (verificado: la misma ventana responde 206 al reintentarla a mano
-          // un minuto despues). Perder una ventana no justifica abandonar la
-          // rama entera, asi que se salta y se sigue; solo se corta si fallan
-          // varias seguidas, que ya no parece un tropiezo. En cualquiera de los
-          // dos casos el barrido queda marcado como incompleto: el error no
-          // vacio hace que el runner se salte el delisting.
-          const message = error instanceof Error ? error.message : String(error);
-          errors.push({ stage: 'paginate', message, meta: { path, from } });
-          ctx.log('warn', `Fallo la ventana ${from} de ${path}: ${message}`);
-
-          pagesFetched += 1;
-          hadFailures = true;
-          consecutiveFailures += 1;
-          if (consecutiveFailures >= MAX_CONSECUTIVE_PAGE_FAILURES) {
-            ctx.log('error', `Se abandona "${path}" tras ${consecutiveFailures} ventanas seguidas fallidas`);
+        while (from <= MAX_OFFSET && pagesFetched < maxPages) {
+          if (ctx.signal.aborted) {
+            errors.push({
+              stage: 'paginate',
+              message: 'Corrida abortada por limite de tiempo',
+              meta: { path, from },
+            });
             return { truncated: true, found };
           }
+
+          const to = Math.min(from + config.pageSize - 1, MAX_OFFSET + MAX_PAGE_SIZE - 1);
+          const url =
+            `${config.apiBaseUrl}/products/search/${path}` +
+            `?_from=${from}&_to=${to}&O=${encodeURIComponent(config.orderBy)}`;
+
+          let batch: VtexProduct[];
+          try {
+            batch = await ctx.http.getJson<VtexProduct[]>(url);
+            consecutiveFailures = 0;
+          } catch (error) {
+            // La tienda devuelve algun 500 suelto cuando se la rastrea sostenido
+            // (verificado: la misma ventana responde 206 al reintentarla a mano
+            // un minuto despues). Perder una ventana no justifica abandonar la
+            // rama entera, asi que se salta y se sigue; solo se corta si fallan
+            // varias seguidas, que ya no parece un tropiezo. En cualquiera de los
+            // dos casos el barrido queda marcado como incompleto: el error no
+            // vacio hace que el runner se salte el delisting.
+            const message = error instanceof Error ? error.message : String(error);
+            errors.push({ stage: 'paginate', message, meta: { path, from } });
+            ctx.log('warn', `Fallo la ventana ${from} de ${path}: ${message}`);
+
+            pagesFetched += 1;
+            hadFailures = true;
+            consecutiveFailures += 1;
+            if (consecutiveFailures >= MAX_CONSECUTIVE_PAGE_FAILURES) {
+              ctx.log('error', `Se abandona "${path}" tras ${consecutiveFailures} ventanas seguidas fallidas`);
+              return { truncated: true, found };
+            }
+            from += config.pageSize;
+            continue;
+          }
+
+          pagesFetched += 1;
+          if (!Array.isArray(batch) || batch.length === 0) return { truncated: hadFailures, found };
+
+          for (const item of batch) {
+            const mapped = mapVtexProduct(item, currency, mapOptions);
+            if (!mapped) continue;
+            if (config.syncCategories) collectCategories(item, categoryMap);
+            // Un articulo aparece en varias categorias y puede repetirse entre
+            // paginas: se queda el primero. Ademas `ingest_store_products` falla
+            // si un mismo comando toca dos veces la misma fila.
+            if (!seen.has(mapped.external_id)) {
+              seen.add(mapped.external_id);
+              products.push(mapped);
+            }
+            found += 1;
+          }
+
+          // Pagina corta: se acabo la categoria.
+          if (batch.length < config.pageSize) return { truncated: hadFailures, found };
           from += config.pageSize;
+        }
+
+        // Se salio sin pagina corta: o por el tope de desplazamiento de la API, o
+        // porque se acabo el presupuesto de paginas. En los dos casos quedaron
+        // articulos sin ver por esta ruta.
+        if (pagesFetched >= maxPages) {
+          errors.push({
+            stage: 'paginate',
+            message: `Se alcanzo el tope de ${maxPages} paginas barriendo "${path}"`,
+            meta: { path, from },
+          });
+        }
+        return { truncated: true, found };
+      }
+
+      const startPaths = ctx.target.kind === 'full_catalog' ? await rootPaths() : [config.categoryPath];
+      if (startPaths.length === 0 || startPaths[0] === null) {
+        throw new Error(
+          'No se pudo determinar la ruta de categoria: falta config.categoryPath y el target no tiene url.',
+        );
+      }
+
+      // Cola de rutas por barrer. Crece cuando una categoria no cabe en el tope
+      // de la API y hay que repartirla entre sus hijas.
+      const queue: Array<{ path: string; depth: number }> = (startPaths as string[]).map((path) => ({
+        path,
+        depth: 0,
+      }));
+      const swept = new Set<string>();
+      const partitioned: string[] = [];
+
+      while (queue.length > 0 && pagesFetched < maxPages) {
+        const { path, depth } = queue.shift()!;
+        if (swept.has(path)) continue;
+        swept.add(path);
+
+        const { truncated } = await sweep(path);
+        if (!truncated || !config.partitionOversized) continue;
+
+        if (depth >= MAX_PARTITION_DEPTH) {
+          errors.push({
+            stage: 'partition',
+            message: `La categoria "${path}" sigue superando el limite de la API tras ${depth} niveles`,
+            meta: { path, limit: MAX_ITEMS_PER_QUERY },
+          });
           continue;
         }
 
-        pagesFetched += 1;
-        if (!Array.isArray(batch) || batch.length === 0) return { truncated: hadFailures, found };
-
-        for (const item of batch) {
-          const mapped = mapWalmartHnProduct(item, currency);
-          if (!mapped) continue;
-          if (config.syncCategories) collectCategories(item, categoryMap);
-          // Un articulo aparece en varias categorias y puede repetirse entre
-          // paginas: se queda el primero. Ademas `ingest_store_products` falla
-          // si un mismo comando toca dos veces la misma fila.
-          if (!seen.has(mapped.external_id)) {
-            seen.add(mapped.external_id);
-            products.push(mapped);
-          }
-          found += 1;
+        let children: string[] = [];
+        try {
+          children = directChildren(await loadSitemapPaths(), path);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          errors.push({ stage: 'sitemap', message, meta: { path } });
+          ctx.log('error', `No se pudo leer el sitemap de categorias: ${message}`);
+          continue;
         }
 
-        // Pagina corta: se acabo la categoria.
-        if (batch.length < config.pageSize) return { truncated: hadFailures, found };
-        from += config.pageSize;
+        if (children.length === 0) {
+          // Sin hijas no hay como cubrir el resto: se avisa para que el runner no
+          // de de baja articulos que simplemente no llegamos a ver.
+          errors.push({
+            stage: 'partition',
+            message: `La categoria "${path}" supera los ${MAX_ITEMS_PER_QUERY} articulos que entrega la API y no tiene subcategorias`,
+            meta: { path },
+          });
+          continue;
+        }
+
+        partitioned.push(path);
+        ctx.log('info', `"${path}" supera el tope de la API: se reparte en ${children.length} subcategorias`, {
+          path,
+          children,
+        });
+        for (const child of children) queue.push({ path: child, depth: depth + 1 });
       }
 
-      // Se salio sin pagina corta: o por el tope de desplazamiento de la API, o
-      // porque se acabo el presupuesto de paginas. En los dos casos quedaron
-      // articulos sin ver por esta ruta.
-      if (pagesFetched >= maxPages) {
+      if (queue.length > 0) {
         errors.push({
           stage: 'paginate',
-          message: `Se alcanzo el tope de ${maxPages} paginas barriendo "${path}"`,
-          meta: { path, from },
+          message: `Se alcanzo el tope de ${maxPages} paginas con ${queue.length} categorias sin barrer`,
+          meta: { pending: queue.map((entry) => entry.path) },
         });
       }
-      return { truncated: true, found };
-    }
 
-    const startPaths = ctx.target.kind === 'full_catalog' ? await rootPaths() : [config.categoryPath];
-    if (startPaths.length === 0 || startPaths[0] === null) {
-      throw new Error(
-        'No se pudo determinar la ruta de categoria: falta config.categoryPath y el target no tiene url.',
-      );
-    }
+      return {
+        products,
+        categories: categoryMap.size > 0 ? [...categoryMap.values()] : undefined,
+        pagesFetched,
+        errors,
+        stats: {
+          categoryPath: config.categoryPath,
+          pathsSwept: [...swept],
+          partitioned,
+          pageSize: config.pageSize,
+          orderBy: config.orderBy,
+        },
+      };
+    },
+  };
+}
 
-    // Cola de rutas por barrer. Crece cuando una categoria no cabe en el tope
-    // de la API y hay que repartirla entre sus hijas.
-    const queue: Array<{ path: string; depth: number }> = (startPaths as string[]).map((path) => ({
-      path,
-      depth: 0,
-    }));
-    const swept = new Set<string>();
-    const partitioned: string[] = [];
-
-    while (queue.length > 0 && pagesFetched < maxPages) {
-      const { path, depth } = queue.shift()!;
-      if (swept.has(path)) continue;
-      swept.add(path);
-
-      const { truncated } = await sweep(path);
-      if (!truncated || !config.partitionOversized) continue;
-
-      if (depth >= MAX_PARTITION_DEPTH) {
-        errors.push({
-          stage: 'partition',
-          message: `La categoria "${path}" sigue superando el limite de la API tras ${depth} niveles`,
-          meta: { path, limit: MAX_ITEMS_PER_QUERY },
-        });
-        continue;
-      }
-
-      let children: string[] = [];
-      try {
-        children = directChildren(await loadSitemapPaths(), path);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        errors.push({ stage: 'sitemap', message, meta: { path } });
-        ctx.log('error', `No se pudo leer el sitemap de categorias: ${message}`);
-        continue;
-      }
-
-      if (children.length === 0) {
-        // Sin hijas no hay como cubrir el resto: se avisa para que el runner no
-        // de de baja articulos que simplemente no llegamos a ver.
-        errors.push({
-          stage: 'partition',
-          message: `La categoria "${path}" supera los ${MAX_ITEMS_PER_QUERY} articulos que entrega la API y no tiene subcategorias`,
-          meta: { path },
-        });
-        continue;
-      }
-
-      partitioned.push(path);
-      ctx.log('info', `"${path}" supera el tope de la API: se reparte en ${children.length} subcategorias`, {
-        path,
-        children,
-      });
-      for (const child of children) queue.push({ path: child, depth: depth + 1 });
-    }
-
-    if (queue.length > 0) {
-      errors.push({
-        stage: 'paginate',
-        message: `Se alcanzo el tope de ${maxPages} paginas con ${queue.length} categorias sin barrer`,
-        meta: { pending: queue.map((entry) => entry.path) },
-      });
-    }
-
-    return {
-      products,
-      categories: categoryMap.size > 0 ? [...categoryMap.values()] : undefined,
-      pagesFetched,
-      errors,
-      stats: {
-        categoryPath: config.categoryPath,
-        pathsSwept: [...swept],
-        partitioned,
-        pageSize: config.pageSize,
-        orderBy: config.orderBy,
-      },
-    };
-  },
-};
+export const walmarthnStrategy: ScrapeStrategy = createVtexCatalogStrategy({
+  key: 'walmarthn',
+  label: 'Walmart Honduras (VTEX Catalog API)',
+  apiBaseUrl: DEFAULTS.apiBaseUrl,
+  webBaseUrl: DEFAULTS.webBaseUrl,
+  keepRaw: true,
+});

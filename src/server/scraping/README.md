@@ -467,6 +467,7 @@ resuelto en `truncate` y `stripLoneSurrogates` de
 | Un ejemplo terminado (SPA + API privada) | [`strategies/diunsa.ts`](./strategies/diunsa.ts) |
 | Un ejemplo terminado (Shopify + catálogo por categorías) | [`strategies/ladylee.ts`](./strategies/ladylee.ts) |
 | Un ejemplo terminado (VTEX + reparto por subcategorías) | [`strategies/walmarthn.ts`](./strategies/walmarthn.ts) |
+| Una tienda que **reusa** la estrategia de otra (misma cuenta VTEX, sin `raw`) | [`strategies/paiz.ts`](./strategies/paiz.ts) |
 | Un ejemplo terminado (Bloomreach Discovery vía el proxy del propio sitio) | [`strategies/pricesmart.ts`](./strategies/pricesmart.ts) |
 | Cómo se orquesta una corrida | [`runner.ts`](./runner.ts) |
 | El cliente HTTP | [`http.ts`](./http.ts) |

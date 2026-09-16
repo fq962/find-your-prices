@@ -29,6 +29,7 @@ vi.mock("@/server/db/supabase", () => {
       "is",
       "or",
       "ilike",
+      "textSearch",
       "gte",
       "lte",
       "order",

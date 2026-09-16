@@ -557,6 +557,25 @@ function applyCategoryFacet(request: any, value: string | string[] | undefined):
 }
 
 /**
+ * Convierte lo que escribió el visitante en un tsquery de prefijos con AND:
+ * "Play 5" → "play:* & 5:*". Se normaliza igual que `normalize_text` en la
+ * base (minúsculas, sin acentos, solo [a-z0-9]) para que las palabras
+ * coincidan con lo que indexa `normalized_name`. Devuelve null si no queda
+ * ninguna palabra útil.
+ */
+export function toPrefixTsQuery(raw: string | undefined): string | null {
+  if (!raw) return null;
+  const words = raw
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  if (words.length === 0) return null;
+  return words.map((word) => `${word}:*`).join(' & ');
+}
+
+/**
  * Una pasada de la consulta. Devuelve `null` —y solo `null`— cuando falta una
  * columna que la vista no publica todavía, que es la única condición que vale
  * la pena reintentar.
@@ -589,13 +608,11 @@ async function runCatalogQuery(
       .select(columns, { count: 'exact' })
       .not('price', 'is', null);
 
-    const query = params.query?.trim();
-    if (query) {
-      // ilike con comodines a ambos lados: busca la frase en cualquier parte
-      // del nombre. Los % y _ del usuario se escapan para que no actúen como
-      // comodines y devuelvan resultados que nadie pidió.
-      const safe = query.replace(/[%_\\]/g, (char) => `\\${char}`);
-      request = request.ilike('name', `%${safe}%`);
+    const tsquery = toPrefixTsQuery(params.query);
+    if (tsquery) {
+      // Full-text sobre normalized_name (ver 0026): cada palabra como prefijo
+      // y todas obligatorias, en cualquier orden. "play 5" → 'play:* & 5:*'.
+      request = request.textSearch('normalized_name', tsquery, { config: 'simple' });
     }
     request = applyFacet(request, 'store_name', params.store);
     request = applyCategoryFacet(request, params.category);
