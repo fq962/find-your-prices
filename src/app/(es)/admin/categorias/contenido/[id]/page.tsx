@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { NO_INDEX_ROBOTS } from '@/lib/seo/metadata';
 import { categoryPaths } from '@/lib/seo/categorySeo';
 import { getCategoryForContent, type CategoryContentFields } from '@/server/services/categoryContent';
+import { CategoryImageUploader } from '@/features/admin-category-content/CategoryImageUploader';
 import { removeImageAction, saveContentAction, uploadImageAction } from '../actions';
 
 /**
@@ -73,7 +74,7 @@ export default async function CategoryContentEditPage({ params, searchParams }: 
           <section>
             <SectionTitle
               title="Imagen"
-              hint="Recorte de producto sobre fondo blanco o transparente, idealmente cuadrado, hasta 5 MB. Se muestra en la cabecera de la página, en la tarjeta de las listas y como imagen de vista previa al compartir."
+              hint="Recorte de producto sobre fondo blanco o transparente, idealmente cuadrado, hasta 5 MB. Podés pegarla directo del portapapeles. Se muestra en la cabecera de la página, en la tarjeta de las listas y como imagen de vista previa al compartir."
             />
             <div className="mt-6 grid gap-6 sm:grid-cols-[12rem_1fr]">
               <div className="aspect-square overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--bg-subtle)]">
@@ -87,24 +88,11 @@ export default async function CategoryContentEditPage({ params, searchParams }: 
                 )}
               </div>
               <div className="space-y-4">
-                <form action={uploadImageAction} className="flex flex-wrap items-end gap-4">
-                  <input type="hidden" name="id" value={row.id} />
-                  <label className="block flex-1">
-                    <span className="mb-1 block text-[0.6875rem] tracking-[0.16em] text-[var(--text-tertiary)] uppercase">
-                      Archivo
-                    </span>
-                    <input
-                      type="file"
-                      name="image"
-                      accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml"
-                      required
-                      className="block w-full text-[0.875rem] text-[var(--text-secondary)] file:mr-3 file:rounded-full file:border file:border-[var(--border-strong)] file:bg-transparent file:px-4 file:py-1.5 file:text-[0.8125rem] file:font-medium file:text-[var(--text)]"
-                    />
-                  </label>
-                  <button type="submit" className={buttonClass}>
-                    Subir imagen
-                  </button>
-                </form>
+                <CategoryImageUploader
+                  categoryId={row.id}
+                  action={uploadImageAction}
+                  buttonClass={buttonClass}
+                />
                 {row.imageUrl && (
                   <form action={removeImageAction}>
                     <input type="hidden" name="id" value={row.id} />
