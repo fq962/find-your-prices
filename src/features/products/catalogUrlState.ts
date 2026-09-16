@@ -147,6 +147,10 @@ function notify(): void {
 
 export function subscribeToCatalogUrl(listener: () => void): () => void {
   listeners.add(listener);
+  // Al montar el catálogo (portada o categoría) se anota su dirección, con
+  // filtros o sin ellos, para que "Volver al catálogo" desde una ficha lleve
+  // a donde se estaba y no a la portada limpia.
+  rememberCatalogUrl();
 
   // El botón de retroceso cambia la URL sin pasar por acá. Sin esto, volver
   // atrás dejaría la dirección diciendo una cosa y la lista mostrando otra.
@@ -210,5 +214,49 @@ export function writeCatalogUrl(next: CatalogUrlState): void {
   }
 
   cached = null;
+  rememberCatalogUrl();
   notify();
+}
+
+// ---------------------------------------------------------------------------
+// Última dirección del catálogo
+//
+// La ficha de producto enlaza "Volver al catálogo". Un href fijo a "/" tiraba
+// la búsqueda y los filtros que se llevaban puestos (y la categoría desde la
+// que se entró): el enlace volvía a una portada que no era la que se dejó.
+// Se guarda en sessionStorage —por pestaña y se borra al cerrarla— la última
+// dirección del catálogo, y la ficha enlaza ahí.
+// ---------------------------------------------------------------------------
+
+const LAST_CATALOG_KEY = "fyp.catalog.last";
+
+function rememberCatalogUrl(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const { pathname, search } = window.location;
+    window.sessionStorage.setItem(LAST_CATALOG_KEY, `${pathname}${search}`);
+  } catch {
+    // Almacenamiento bloqueado: el enlace de vuelta cae a la portada.
+  }
+}
+
+/**
+ * Última dirección del catálogo en esta pestaña, o `null` si no hay ninguna
+ * o no sirve.
+ *
+ * `homePath` es la portada del idioma actual ("/" o "/en"): una dirección
+ * guardada en otro idioma no se usa, porque quien cambió de idioma en la ficha
+ * espera volver a un catálogo en ese idioma, no al anterior.
+ */
+export function readLastCatalogUrl(homePath: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const saved = window.sessionStorage.getItem(LAST_CATALOG_KEY);
+    if (!saved || !saved.startsWith("/")) return null;
+    const isEnglish = saved === "/en" || saved.startsWith("/en/") || saved.startsWith("/en?");
+    if ((homePath === "/en") !== isEnglish) return null;
+    return saved;
+  } catch {
+    return null;
+  }
 }

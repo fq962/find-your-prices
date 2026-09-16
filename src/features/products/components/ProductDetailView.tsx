@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Locale } from "@/features/i18n/translate";
 import type { Product } from "@/types";
 import type { ProductDetail } from "@/server/services/catalog";
@@ -8,6 +7,7 @@ import { ProductGallery } from "./ProductGallery";
 import { PriceHistoryChart } from "./PriceHistoryChart";
 import { ProductTile } from "./ProductTile";
 import { FavoriteToggle } from "./FavoriteToggle";
+import { BackToCatalogLink } from "./BackToCatalogLink";
 
 export interface ProductDetailViewProps {
   product: ProductDetail;
@@ -158,8 +158,8 @@ export function ProductDetailView({ product, related, locale }: ProductDetailVie
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pb-24 sm:px-6">
       <nav className="py-6">
-        <Link
-          href={locale === "en" ? "/en" : "/"}
+        <BackToCatalogLink
+          homePath={locale === "en" ? "/en" : "/"}
           className="group inline-flex items-center gap-2 rounded-full text-[0.8125rem] text-[var(--text-secondary)] outline-none transition-colors duration-[var(--dur-fast)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >
           <svg
@@ -174,7 +174,7 @@ export function ProductDetailView({ product, related, locale }: ProductDetailVie
             <path d="M15 6l-6 6 6 6" />
           </svg>
           {copy.backToCatalog}
-        </Link>
+        </BackToCatalogLink>
       </nav>
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-14">

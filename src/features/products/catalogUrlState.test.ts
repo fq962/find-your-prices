@@ -4,6 +4,9 @@ import {
   catalogUrlSearch,
   EMPTY_CATALOG_URL_STATE,
   parseCatalogUrl,
+  readLastCatalogUrl,
+  subscribeToCatalogUrl,
+  writeCatalogUrl,
   type CatalogUrlState,
 } from "./catalogUrlState";
 
@@ -99,5 +102,40 @@ describe("ida y vuelta", () => {
   it("el espacio final de lo tecleado no se pierde: el campo se lee de vuelta desde la URL, y recortarlo acá lo borraría mientras se escribe", () => {
     expect(parseCatalogUrl(catalogUrlSearch({ ...EMPTY_CATALOG_URL_STATE, query: "iphone " })).query)
       .toBe("iphone ");
+  });
+});
+
+describe("última dirección del catálogo — 'Volver al catálogo' vuelve a donde se estaba", () => {
+  it("escribir filtros la deja anotada con su query string", () => {
+    window.sessionStorage.clear();
+    window.history.replaceState(null, "", "/");
+    writeCatalogUrl({ ...EMPTY_CATALOG_URL_STATE, query: "iphone", store: ["diunsa"] });
+    expect(readLastCatalogUrl("/")).toBe("/?q=iphone&store=diunsa");
+  });
+
+  it("montar el catálogo (suscribirse) la anota aunque no haya filtros", () => {
+    window.sessionStorage.clear();
+    window.history.replaceState(null, "", "/categorias/tecnologia?sort=price-asc");
+    const unsubscribe = subscribeToCatalogUrl(() => {});
+    unsubscribe();
+    expect(readLastCatalogUrl("/")).toBe("/categorias/tecnologia?sort=price-asc");
+  });
+
+  it("no cruza idiomas: una dirección en español no sirve para la ficha en inglés, ni al revés", () => {
+    window.sessionStorage.clear();
+    window.history.replaceState(null, "", "/?q=tv");
+    writeCatalogUrl({ ...EMPTY_CATALOG_URL_STATE, query: "tv" });
+    expect(readLastCatalogUrl("/")).toBe("/?q=tv");
+    expect(readLastCatalogUrl("/en")).toBeNull();
+
+    window.history.replaceState(null, "", "/en?q=tv");
+    writeCatalogUrl({ ...EMPTY_CATALOG_URL_STATE, query: "tv" });
+    expect(readLastCatalogUrl("/en")).toBe("/en?q=tv");
+    expect(readLastCatalogUrl("/")).toBeNull();
+  });
+
+  it("sin nada anotado devuelve null", () => {
+    window.sessionStorage.clear();
+    expect(readLastCatalogUrl("/")).toBeNull();
   });
 });
