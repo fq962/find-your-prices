@@ -12,10 +12,50 @@ interface CategoryImageUploaderProps {
 const ACCEPT = 'image/png,image/jpeg,image/webp,image/avif,image/svg+xml';
 const MAX_BYTES = 5 * 1024 * 1024;
 
+/** Ancho al que se reduce la imagen al optimizar; el alto sigue la proporción. */
+const OPTIMIZED_WIDTH = 256;
+const WEBP_QUALITY = 0.85;
+
+/**
+ * Reduce a `OPTIMIZED_WIDTH` de ancho y convierte a WebP con el canvas del
+ * navegador. Se hace acá y no en el servidor a propósito: la foto de una
+ * categoría se sube una vez, y cargar una librería de imágenes en el
+ * servidor solo para eso sería pagar en cada despliegue lo que el navegador
+ * hace gratis. Conserva la transparencia (WebP la soporta). Si la imagen ya
+ * es más angosta no se agranda; solo cambia el formato.
+ *
+ * Devuelve el archivo original si el navegador no puede codificar WebP.
+ */
+async function optimizeImage(file: File): Promise<File> {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, OPTIMIZED_WIDTH / bitmap.width);
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) return file;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(bitmap, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', WEBP_QUALITY));
+    if (!blob || blob.type !== 'image/webp') return file;
+
+    const base = file.name.replace(/\.[a-z0-9]+$/i, '') || 'imagen';
+    return new File([blob], `${base}.webp`, { type: 'image/webp' });
+  } finally {
+    bitmap.close();
+  }
+}
+
 /**
  * Subida de la imagen de categoría por tres caminos: elegir archivo, pegar
  * desde el portapapeles (Ctrl+V / Cmd+V en cualquier parte de la página) o
- * arrastrar y soltar sobre la zona.
+ * arrastrar y soltar sobre la zona. Con «Optimizar» marcado (el default), la
+ * imagen se reduce y se convierte a WebP en el navegador antes de subir.
  *
  * Pegar es el que importa: la foto normalmente viene de una captura o de
  * copiar una imagen del sitio de la tienda, y bajarla a disco para volverla
@@ -29,14 +69,21 @@ const MAX_BYTES = 5 * 1024 * 1024;
  */
 export function CategoryImageUploader({ categoryId, action, buttonClass }: CategoryImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [preview, setPreview] = useState<{ url: string; name: string; size: number } | null>(null);
+  const [preview, setPreview] = useState<{ url: string; name: string; size: number; originalSize?: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [optimize, setOptimize] = useState(true);
+  // El listener de paste se registra una sola vez: lee la casilla por ref
+  // para no quedarse con el valor del primer render.
+  const optimizeRef = useRef(true);
+  const [busy, setBusy] = useState(false);
+  // Se guarda lo último aceptado para rehacerlo si se cambia la casilla.
+  const originalRef = useRef<File | null>(null);
 
   // La URL de vista previa se libera al reemplazarla o al desmontar.
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview.url); }, [preview]);
 
-  function accept(file: File): void {
+  async function accept(file: File, shouldOptimize = optimizeRef.current): Promise<void> {
     if (!file.type.startsWith('image/')) {
       setError('Eso no es una imagen.');
       return;
@@ -47,18 +94,42 @@ export function CategoryImageUploader({ categoryId, action, buttonClass }: Categ
     }
     const input = inputRef.current;
     if (!input) return;
+    originalRef.current = file;
 
     // Un portapapeles entrega el archivo como "image.png": se le pone un
     // nombre con fecha para que se distinga en el bucket.
     const extension = file.type.split('/')[1]?.replace('svg+xml', 'svg') ?? 'png';
     const named = file.name && file.name !== 'image.png' ? file : new File([file], `pegada-${Date.now()}.${extension}`, { type: file.type });
 
+    setError(null);
+    setBusy(true);
+    let final = named;
+    try {
+      // Un SVG ya es chico y escala solo: convertirlo a WebP lo empeoraría.
+      if (shouldOptimize && named.type !== 'image/svg+xml') final = await optimizeImage(named);
+    } catch {
+      setError('No se pudo optimizar; se sube la imagen original.');
+    } finally {
+      setBusy(false);
+    }
+
     const transfer = new DataTransfer();
-    transfer.items.add(named);
+    transfer.items.add(final);
     input.files = transfer.files;
 
-    setError(null);
-    setPreview({ url: URL.createObjectURL(named), name: named.name, size: named.size });
+    setPreview({
+      url: URL.createObjectURL(final),
+      name: final.name,
+      size: final.size,
+      originalSize: final !== named ? named.size : undefined,
+    });
+  }
+
+  function toggleOptimize(next: boolean): void {
+    setOptimize(next);
+    optimizeRef.current = next;
+    // Con una imagen ya elegida, la casilla se aplica al instante.
+    if (originalRef.current) void accept(originalRef.current, next);
   }
 
   useEffect(() => {
@@ -70,7 +141,7 @@ export function CategoryImageUploader({ categoryId, action, buttonClass }: Categ
       const file = Array.from(event.clipboardData?.files ?? []).find((f) => f.type.startsWith('image/'));
       if (!file) return;
       event.preventDefault();
-      accept(file);
+      void accept(file);
     };
     document.addEventListener('paste', onPaste);
     return () => document.removeEventListener('paste', onPaste);
@@ -80,7 +151,7 @@ export function CategoryImageUploader({ categoryId, action, buttonClass }: Categ
     event.preventDefault();
     setDragging(false);
     const file = Array.from(event.dataTransfer.files).find((f) => f.type.startsWith('image/'));
-    if (file) accept(file);
+    if (file) void accept(file);
   }
 
   return (
@@ -114,13 +185,30 @@ export function CategoryImageUploader({ categoryId, action, buttonClass }: Categ
             required
             onChange={(event) => {
               const file = event.target.files?.[0];
-              if (file) accept(file);
+              if (file) void accept(file);
             }}
             className="block w-full text-[0.875rem] text-[var(--text-secondary)] file:mr-3 file:rounded-full file:border file:border-[var(--border-strong)] file:bg-transparent file:px-4 file:py-1.5 file:text-[0.8125rem] file:font-medium file:text-[var(--text)]"
           />
         </label>
 
-        {preview && (
+        <label className="mt-4 flex cursor-pointer items-start gap-3 text-[0.875rem] text-[var(--text-secondary)]">
+          <input
+            type="checkbox"
+            checked={optimize}
+            onChange={(event) => toggleOptimize(event.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+          />
+          <span>
+            <span className="font-medium text-[var(--text)]">Optimizar</span>
+            {' '}— reducir a {OPTIMIZED_WIDTH} px de ancho y convertir a WebP antes de subir. Los SVG no se tocan.
+          </span>
+        </label>
+
+        {busy && (
+          <p className="mt-3 text-[0.8125rem] text-[var(--text-tertiary)]">Optimizando…</p>
+        )}
+
+        {preview && !busy && (
           <div className="mt-4 flex items-center gap-4">
             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)]">
               {/* eslint-disable-next-line @next/next/no-img-element -- vista previa local (blob:) */}
@@ -128,7 +216,16 @@ export function CategoryImageUploader({ categoryId, action, buttonClass }: Categ
             </div>
             <p className="min-w-0 text-[0.8125rem] text-[var(--text-secondary)]">
               <span className="block truncate font-mono text-[var(--text)]">{preview.name}</span>
-              {(preview.size / 1024).toFixed(0)} KB · lista para subir
+              {preview.originalSize !== undefined ? (
+                <>
+                  <span className="line-through opacity-60">{(preview.originalSize / 1024).toFixed(0)} KB</span>
+                  {' → '}
+                  <span className="text-[var(--price-win)]">{(preview.size / 1024).toFixed(0)} KB</span>
+                  {' · lista para subir'}
+                </>
+              ) : (
+                <>{(preview.size / 1024).toFixed(0)} KB · lista para subir</>
+              )}
             </p>
           </div>
         )}
@@ -140,7 +237,7 @@ export function CategoryImageUploader({ categoryId, action, buttonClass }: Categ
         )}
       </div>
 
-      <button type="submit" className={buttonClass}>
+      <button type="submit" disabled={busy} className={`${buttonClass} disabled:opacity-40`}>
         Subir imagen
       </button>
     </form>
