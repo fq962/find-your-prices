@@ -8,6 +8,7 @@ import { LocaleSwitcher } from "@/features/i18n/LocaleSwitcher";
 import { useLocale } from "@/features/i18n/LocaleContext";
 import { routeFor } from "@/features/i18n/routes";
 import type { Locale } from "@/features/i18n/translate";
+import { useFavorites } from "@/features/products/useFavorites";
 import { ThemeToggle } from "@/features/theme/ThemeToggle";
 
 const HOME_LABEL: Record<string, string> = {
@@ -25,6 +26,11 @@ const CATEGORIES_LABEL: Record<string, string> = {
   es: "Categorías",
 };
 
+const FAVORITES_LABEL: Record<string, string> = {
+  en: "Favorites",
+  es: "Favoritos",
+};
+
 /**
  * Barra fija translúcida. La hairline inferior sólo aparece cuando la página
  * ya se desplazó: en reposo la navegación se funde con el fondo.
@@ -37,6 +43,7 @@ export interface SiteNavProps {
 export function SiteNav({ localePaths }: SiteNavProps = {}) {
   const { locale } = useLocale();
   const [isScrolled, setIsScrolled] = useState(false);
+  const { count: favoritesCount } = useFavorites();
 
   useScrollProgress();
 
@@ -89,6 +96,40 @@ export function SiteNav({ localePaths }: SiteNavProps = {}) {
         </Link>
 
         <div className="flex items-center gap-2.5">
+          {/* El corazón de la barra es la puerta a "Mis favoritos" y a la vez
+              el contador: se ve cuántos hay sin entrar. En el servidor y hasta
+              hidratar el contador es 0 y no se pinta, así el HTML coincide. */}
+          <Link
+            href={routeFor("favorites", locale)}
+            aria-label={
+              favoritesCount > 0
+                ? `${FAVORITES_LABEL[locale] ?? FAVORITES_LABEL.en} (${favoritesCount})`
+                : (FAVORITES_LABEL[locale] ?? FAVORITES_LABEL.en)
+            }
+            title={FAVORITES_LABEL[locale] ?? FAVORITES_LABEL.en}
+            className="relative -m-1 flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-secondary)] outline-none transition-colors duration-[var(--dur-fast)] hover:text-[var(--favorite)] focus-visible:ring-2 focus-visible:ring-[var(--favorite)]"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="h-[20px] w-[20px]"
+              fill={favoritesCount > 0 ? "var(--favorite)" : "none"}
+              stroke={favoritesCount > 0 ? "var(--favorite)" : "currentColor"}
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 20.5s-7.5-4.6-9.3-9.4C1.4 7.6 3.6 4.5 6.9 4.5c1.9 0 3.5 1 4.4 2.4a5.1 5.1 0 0 1 4.4-2.4c3.3 0 5.6 3.1 4.3 6.6C19.5 15.9 12 20.5 12 20.5Z" />
+            </svg>
+            {favoritesCount > 0 && (
+              <span
+                aria-hidden="true"
+                className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--favorite)] px-1 text-[0.625rem] font-semibold tabular-nums text-[var(--favorite-contrast)] shadow-[var(--shadow-sm)]"
+              >
+                {favoritesCount > 99 ? "99+" : favoritesCount}
+              </span>
+            )}
+          </Link>
           <LocaleSwitcher paths={localePaths} />
           <ThemeToggle label={THEME_LABEL[locale] ?? THEME_LABEL.en} />
         </div>

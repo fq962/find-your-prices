@@ -83,6 +83,22 @@ export const en: Dictionary = {
   compareAddLabel: "Add to comparison",
   compareRemoveLabel: "Remove from comparison",
   compareFullLabel: "You can compare up to 4 products",
+
+  // --- Favorites ---
+  favoriteAddLabel: "Add to favorites",
+  favoriteRemoveLabel: "Remove from favorites",
+  favoritesNavLabel: "Favorites",
+  favoritesTitle: "My favorites",
+  favoritesLede: "Everything you marked with a heart, ready whenever you come back.",
+  favoritesCountOne: "saved product",
+  favoritesCountMany: "saved products",
+  favoritesEmptyTitle: "No favorites yet",
+  favoritesEmptyBody:
+    "Tap the heart on any product in the catalog and it will show up here. Saved in this browser, no account needed.",
+  favoritesBrowseLabel: "Browse the catalog",
+  favoritesClearLabel: "Clear favorites",
+  favoritesPriceNote:
+    "The price is the one the product had when you saved it; open its page for the current one.",
   compareTrayTitle: "Ready to compare",
   compareTrayHint: "Add up to 4 products",
   compareOpenLabel: "Compare",

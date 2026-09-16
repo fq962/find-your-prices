@@ -11,11 +11,26 @@ import type { Locale } from "./translate";
  * para los buscadores.
  */
 
-export type SitePage = "home" | "categories" | "about" | "terms" | "privacy" | "content";
+export type SitePage =
+  | "home"
+  | "categories"
+  | "favorites"
+  | "about"
+  | "terms"
+  | "privacy"
+  | "content";
+
+/**
+ * Páginas que no van al sitemap ni se indexan: su contenido vive en el
+ * navegador de cada visitante (favoritos), así que para un buscador están
+ * siempre vacías.
+ */
+export const PRIVATE_PAGES = ["favorites"] as const satisfies readonly SitePage[];
 
 export const SITE_ROUTES: Record<SitePage, Record<Locale, string>> = {
   home: { es: "/", en: "/en" },
   categories: { es: "/categorias", en: "/en/categories" },
+  favorites: { es: "/favoritos", en: "/en/favorites" },
   about: { es: "/acerca", en: "/en/about" },
   terms: { es: "/terminos", en: "/en/terms" },
   privacy: { es: "/privacidad", en: "/en/privacy" },

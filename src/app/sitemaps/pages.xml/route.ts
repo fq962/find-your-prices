@@ -1,4 +1,4 @@
-import { SITE_ROUTES, type SitePage } from "@/features/i18n/routes";
+import { PRIVATE_PAGES, SITE_ROUTES, type SitePage } from "@/features/i18n/routes";
 import type { Locale } from "@/features/i18n/translate";
 import { absoluteUrl, HREFLANG } from "@/lib/seo/metadata";
 import {
@@ -26,7 +26,9 @@ export const revalidate = 86_400;
  * verdad: la portada cambia cada vez que corre el scraper, los términos de uso
  * cambian cuando alguien los edita, que es casi nunca.
  */
-const PAGE_HINTS: Record<SitePage, { changefreq: ChangeFrequency; priority: number }> = {
+type PublicPage = Exclude<SitePage, (typeof PRIVATE_PAGES)[number]>;
+
+const PAGE_HINTS: Record<PublicPage, { changefreq: ChangeFrequency; priority: number }> = {
   home: { changefreq: "hourly", priority: 1 },
   categories: { changefreq: "daily", priority: 0.9 },
   about: { changefreq: "monthly", priority: 0.6 },
@@ -40,7 +42,7 @@ const LOCALES: Locale[] = ["es", "en"];
 export function GET(): Response {
   const urls: SitemapUrl[] = [];
 
-  for (const page of Object.keys(PAGE_HINTS) as SitePage[]) {
+  for (const page of Object.keys(PAGE_HINTS) as PublicPage[]) {
     const paths = SITE_ROUTES[page];
 
     // Las alternativas se calculan una vez por página y se repiten idénticas en

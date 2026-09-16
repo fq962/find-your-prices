@@ -6,6 +6,7 @@ import { formatPrice } from "@/lib/format";
 import type { Density, ViewMode } from "@/features/products/viewPreferences";
 import { imageHeightFor } from "@/features/products/viewPreferences";
 import { CompareToggle, type CompareToggleLabels } from "./CompareToggle";
+import { FavoriteToggle, type FavoriteToggleLabels } from "./FavoriteToggle";
 
 export interface ProductTileProps {
   product: Product;
@@ -14,6 +15,7 @@ export interface ProductTileProps {
   density: Density;
   locale?: string;
   compareLabels?: CompareToggleLabels;
+  favoriteLabels?: FavoriteToggleLabels;
 }
 
 /**
@@ -42,6 +44,7 @@ export function ProductTile({
   density,
   locale,
   compareLabels,
+  favoriteLabels,
 }: ProductTileProps) {
   const {
     name,
@@ -187,11 +190,20 @@ export function ProductTile({
         </div>
       </Link>
 
-      <CompareToggle
-        product={product}
-        labels={compareLabels}
-        className="absolute top-2.5 right-2.5 z-10 shadow-[var(--shadow-sm)]"
-      />
+      {/* Los dos controles juntos en la esquina, el corazón primero: es el
+          que más se pulsa al reconocer un producto por la foto. */}
+      <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5">
+        <FavoriteToggle
+          product={product}
+          labels={favoriteLabels}
+          className="shadow-[var(--shadow-sm)]"
+        />
+        <CompareToggle
+          product={product}
+          labels={compareLabels}
+          className="shadow-[var(--shadow-sm)]"
+        />
+      </div>
     </div>
   );
 }

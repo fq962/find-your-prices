@@ -6,6 +6,7 @@ import type { ComparisonColumn } from "@/features/products/useStoreComparison";
 import { formatPrice } from "@/lib/format";
 import type { Product } from "@/types";
 import { CompareToggle, type CompareToggleLabels } from "./CompareToggle";
+import { FavoriteToggle } from "./FavoriteToggle";
 
 /**
  * Comparación lado a lado: una columna por tienda.
@@ -298,12 +299,14 @@ function CompareRow({
         </div>
       </Link>
 
-      <CompareToggle
-        product={product}
-        labels={compareLabels}
-        size="sm"
-        className="absolute top-2.5 right-2 z-10"
-      />
+      <div className="absolute top-2.5 right-2 z-10 flex items-center gap-1">
+        <FavoriteToggle
+          product={product}
+          labels={{ add: t("favoriteAddLabel"), remove: t("favoriteRemoveLabel") }}
+          size="sm"
+        />
+        <CompareToggle product={product} labels={compareLabels} size="sm" />
+      </div>
     </div>
   );
 }

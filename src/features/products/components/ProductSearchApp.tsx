@@ -38,6 +38,7 @@ import { CompareTrayDock } from "./CompareTrayDock";
 import { ProductComparisonDialog } from "./ProductComparisonDialog";
 import { useCompareTray } from "@/features/products/useCompareTray";
 import type { CompareToggleLabels } from "./CompareToggle";
+import type { FavoriteToggleLabels } from "./FavoriteToggle";
 import {
   countActiveFilters,
   EMPTY_FILTER_STATE,
@@ -271,6 +272,11 @@ export function ProductSearchApp({
       remove: t("compareRemoveLabel"),
       full: t("compareFullLabel"),
     }),
+    [t],
+  );
+
+  const favoriteToggleLabels: FavoriteToggleLabels = useMemo(
+    () => ({ add: t("favoriteAddLabel"), remove: t("favoriteRemoveLabel") }),
     [t],
   );
 
@@ -701,6 +707,7 @@ export function ProductSearchApp({
           viewLargerImageLabel={t("viewLargerImageLabel")}
           closeImageLabel={t("closeImageLabel")}
           compareLabels={compareToggleLabels}
+          favoriteLabels={favoriteToggleLabels}
         />
       )}
 

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import type { Product } from "@/types";
 import { formatPrice } from "@/lib/format";
 import { CompareToggle, type CompareToggleLabels } from "./CompareToggle";
+import { FavoriteToggle, type FavoriteToggleLabels } from "./FavoriteToggle";
 
 export interface ProductCardProps {
   product: Product;
@@ -24,6 +25,8 @@ export interface ProductCardProps {
    * la tarjeta se sigue montando sin proveedor de idioma.
    */
   compareLabels?: CompareToggleLabels;
+  /** Textos del corazón de favoritos; mismos defaults en inglés que el de comparar. */
+  favoriteLabels?: FavoriteToggleLabels;
 }
 
 export function ProductCard({
@@ -33,6 +36,7 @@ export function ProductCard({
   viewLargerImageLabel = "View larger image of",
   closeImageLabel = "Close",
   compareLabels,
+  favoriteLabels,
 }: ProductCardProps) {
   const { name, price, currency, store, imageUrl, description, availability } = product;
   const { url, listPrice, discountPercent } = product;
@@ -152,7 +156,10 @@ export function ProductCard({
       {/* Al final de la fila y no sobre la miniatura: en la lista el ojo baja
           por la columna de precios, y apartar algo para comparar es la decisión
           que se toma justo después de leer ese precio. */}
-      <CompareToggle product={product} labels={compareLabels} className="ml-1 sm:ml-2" />
+      <div className="ml-1 flex shrink-0 items-center gap-1.5 sm:ml-2">
+        <FavoriteToggle product={product} labels={favoriteLabels} />
+        <CompareToggle product={product} labels={compareLabels} />
+      </div>
 
       {/* El visor va por portal a <body>: la fila lleva una animación de
           entrada cuyo `transform` persiste, y un ancestro transformado

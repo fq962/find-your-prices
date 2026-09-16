@@ -7,6 +7,7 @@ import { productPath } from "@/features/products/productPath";
 import { ProductGallery } from "./ProductGallery";
 import { PriceHistoryChart } from "./PriceHistoryChart";
 import { ProductTile } from "./ProductTile";
+import { FavoriteToggle } from "./FavoriteToggle";
 
 export interface ProductDetailViewProps {
   product: ProductDetail;
@@ -47,6 +48,8 @@ const COPY = {
     votes: "votos",
     priceDisclaimer:
       "El precio lo publica la tienda y puede cambiar sin aviso. Verificá siempre en el sitio de origen antes de comprar.",
+    favoriteAdd: "Agregar a favoritos",
+    favoriteRemove: "Quitar de favoritos",
   },
   en: {
     backToCatalog: "Back to catalog",
@@ -80,6 +83,8 @@ const COPY = {
     votes: "votes",
     priceDisclaimer:
       "The price is published by the store and may change without notice. Always verify on the source site before buying.",
+    favoriteAdd: "Add to favorites",
+    favoriteRemove: "Remove from favorites",
   },
 } as const;
 
@@ -248,6 +253,9 @@ export function ProductDetailView({ product, related, locale }: ProductDetailVie
             </p>
           </div>
 
+          {/* El corazón va pegado al botón de compra: es la otra decisión que
+              se toma con el precio a la vista ("hoy no, pero lo quiero"). */}
+          <div className="flex items-center gap-3">
           {product.url && (
             <a
               href={product.url}
@@ -271,6 +279,12 @@ export function ProductDetailView({ product, related, locale }: ProductDetailVie
               </svg>
             </a>
           )}
+          <FavoriteToggle
+            product={product}
+            labels={{ add: copy.favoriteAdd, remove: copy.favoriteRemove }}
+            className="[&>button]:h-12 [&>button]:w-12 [&_svg]:h-5 [&_svg]:w-5"
+          />
+          </div>
 
           {product.description && product.description !== product.name && (
             <p className="text-[0.9375rem] leading-relaxed text-[var(--text-secondary)]">
@@ -359,6 +373,7 @@ export function ProductDetailView({ product, related, locale }: ProductDetailVie
                   mode="grid"
                   density="cosy"
                   locale={priceLocale}
+                  favoriteLabels={{ add: copy.favoriteAdd, remove: copy.favoriteRemove }}
                 />
               </li>
             ))}

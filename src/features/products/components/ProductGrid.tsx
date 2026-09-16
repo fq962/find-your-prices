@@ -9,6 +9,7 @@ import {
 import { ProductCard } from "./ProductCard";
 import { ProductTile } from "./ProductTile";
 import type { CompareToggleLabels } from "./CompareToggle";
+import type { FavoriteToggleLabels } from "./FavoriteToggle";
 
 export interface ProductGridProps {
   products: Product[];
@@ -27,6 +28,8 @@ export interface ProductGridProps {
   productHref?: (product: Product) => string | undefined;
   /** Textos del control que aparta un producto para compararlo. */
   compareLabels?: CompareToggleLabels;
+  /** Textos del corazón de favoritos. */
+  favoriteLabels?: FavoriteToggleLabels;
   /**
    * Nombre accesible de la lista. Desde que el pie de página tiene su propia
    * lista de enlaces, "la lista" dejó de ser una sola en el documento: sin
@@ -56,6 +59,7 @@ export function ProductGrid({
   density = DEFAULT_DENSITY,
   productHref,
   compareLabels,
+  favoriteLabels,
   label,
 }: ProductGridProps) {
   const hasProducts = products.length > 0;
@@ -88,6 +92,7 @@ export function ProductGrid({
                 viewLargerImageLabel={viewLargerImageLabel}
                 closeImageLabel={closeImageLabel}
                 compareLabels={compareLabels}
+                favoriteLabels={favoriteLabels}
               />
             ) : (
               <ProductTile
@@ -97,6 +102,7 @@ export function ProductGrid({
                 density={density}
                 locale={locale}
                 compareLabels={compareLabels}
+                favoriteLabels={favoriteLabels}
               />
             )}
           </li>
