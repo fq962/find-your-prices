@@ -4,6 +4,7 @@ import type { Locale } from "@/features/i18n/translate";
 import { formatPrice } from "@/lib/format";
 import type { ProductDetail } from "@/server/services/catalog";
 import type { BreadcrumbItem } from "./schema";
+import { categoryPaths } from "./categorySeo";
 import { productKeywords } from "./keywords";
 import { buildPageMetadata } from "./metadata";
 
@@ -137,9 +138,9 @@ export function missingProductMetadata(locale: Locale): Metadata {
 /**
  * Migas de pan de una ficha: inicio › categoría › producto.
  *
- * La categoría no tiene página propia todavía, así que apunta a la portada.
- * Cuando existan páginas de categoría, éste es el único lugar que hay que
- * tocar para que las migas apunten a ellas.
+ * La categoría apunta a su landing (`/categorias/<slug>`) cuando el artículo
+ * ya tiene categoría canónica; es el enlace interno que reparte autoridad de
+ * decenas de miles de fichas hacia las páginas de categoría.
  */
 export function productBreadcrumbs(
   product: ProductDetail,
@@ -149,7 +150,11 @@ export function productBreadcrumbs(
   const home = locale === "es" ? "/" : "/en";
   return [
     { name: locale === "es" ? "Inicio" : "Home", path: home },
-    { name: product.category, path: home },
+    // Con categoría canónica hay landing propia; sin mapeo aún, la portada.
+    {
+      name: product.category,
+      path: product.categorySlug ? categoryPaths(product.categorySlug)[locale] : home,
+    },
     { name: product.name, path: productPaths(slug)[locale] },
   ];
 }

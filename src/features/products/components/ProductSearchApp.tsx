@@ -70,6 +70,16 @@ export interface ProductSearchAppProps {
    */
   remoteSearch?: boolean;
   locale?: string;
+  /**
+   * Acota TODO a una categoría canónica (slug), sin que se pueda quitar.
+   *
+   * Es lo que hace que el mismo buscador sirva en una página de categoría:
+   * cada consulta lleva `category=<scope>` salvo que la persona marque una
+   * subcategoría, que ya está dentro del alcance. Las facetas de categoría
+   * que se ofrecen son las hijas, y las cuentas de tienda y marca llegan ya
+   * acotadas desde la ruta.
+   */
+  scopeCategory?: string;
 }
 
 /**
@@ -93,6 +103,7 @@ export function ProductSearchApp({
   totalResults,
   remoteSearch = false,
   locale,
+  scopeCategory,
 }: ProductSearchAppProps) {
   const { t } = useLocale();
 
@@ -130,6 +141,16 @@ export function ProductSearchApp({
   );
 
   const { query, store, category, sort, filters } = catalogUrl;
+
+  /**
+   * Categorías que de verdad viajan al servidor. Con alcance fijo y sin
+   * selección, el alcance; con selección, solo la selección (las hijas ya
+   * están dentro del alcance, y mandar las dos con OR lo anularía).
+   */
+  const effectiveCategory = useMemo(
+    () => (category.length === 0 && scopeCategory ? [scopeCategory] : category),
+    [category, scopeCategory],
+  );
 
   /**
    * Cambia parte del estado del catálogo.
@@ -298,7 +319,7 @@ export function ProductSearchApp({
   const compareBaseQuery = useMemo(() => {
     const params = new URLSearchParams();
     if (query.trim()) params.set("q", query.trim());
-    for (const value of category) params.append("category", value);
+    for (const value of effectiveCategory) params.append("category", value);
     for (const value of filters.brand) params.append("brand", value);
     if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
     if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
@@ -307,7 +328,7 @@ export function ProductSearchApp({
     params.set("sort", compareSort);
     if (locale) params.set("locale", locale);
     return params.toString();
-  }, [query, category, filters, compareSort, locale]);
+  }, [query, effectiveCategory, filters, compareSort, locale]);
 
   const visibleCompareStores = useMemo(
     () => seededCompareStores.slice(0, compareColumnCount),
@@ -337,7 +358,7 @@ export function ProductSearchApp({
     const params = new URLSearchParams();
     if (query.trim()) params.set("q", query.trim());
     for (const value of store) params.append("store", value);
-    for (const value of category) params.append("category", value);
+    for (const value of effectiveCategory) params.append("category", value);
     for (const value of filters.brand) params.append("brand", value);
     if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
     if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
@@ -346,7 +367,7 @@ export function ProductSearchApp({
     params.set("sort", sort);
     if (locale) params.set("locale", locale);
     return params.toString();
-  }, [query, store, category, filters, sort, locale]);
+  }, [query, store, effectiveCategory, filters, sort, locale]);
 
   /**
    * Si esta consulta es la que el servidor ya resolvió al pintar la página.

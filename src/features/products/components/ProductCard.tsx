@@ -110,6 +110,7 @@ export function ProductCard({
           {titleHref ? (
             <a
               href={titleHref}
+              data-product-id={product.id}
               {...(isExternal
                 ? { target: "_blank", rel: "noopener noreferrer nofollow" }
                 : {})}

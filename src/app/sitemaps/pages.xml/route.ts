@@ -28,6 +28,7 @@ export const revalidate = 86_400;
  */
 const PAGE_HINTS: Record<SitePage, { changefreq: ChangeFrequency; priority: number }> = {
   home: { changefreq: "hourly", priority: 1 },
+  categories: { changefreq: "daily", priority: 0.9 },
   about: { changefreq: "monthly", priority: 0.6 },
   terms: { changefreq: "yearly", priority: 0.3 },
   privacy: { changefreq: "yearly", priority: 0.3 },

@@ -251,6 +251,7 @@ export function ProductDetailView({ product, related, locale }: ProductDetailVie
           {product.url && (
             <a
               href={product.url}
+              data-product-id={product.id}
               target="_blank"
               rel="noopener noreferrer nofollow"
               className="group inline-flex items-center justify-center gap-2 rounded-full bg-[var(--text)] px-6 py-3.5 text-[0.9375rem] font-medium text-[var(--text-inverted)] outline-none transition-transform duration-[var(--dur-base)] ease-[var(--ease-spring)] hover:scale-[1.015] active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"

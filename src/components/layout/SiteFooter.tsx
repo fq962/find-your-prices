@@ -16,11 +16,12 @@ import type { Locale } from "@/features/i18n/translate";
  * ofrece: una tienda que no encuentra a quién escribirle no escribe, reclama.
  */
 
-const FOOTER_PAGES: SitePage[] = ["home", "about", "terms", "privacy", "content"];
+const FOOTER_PAGES: SitePage[] = ["home", "categories", "about", "terms", "privacy", "content"];
 
 const LABELS: Record<Locale, Record<SitePage, string>> = {
   es: {
     home: "Comparador",
+    categories: "Categorías",
     about: "Acerca de",
     terms: "Términos de uso",
     privacy: "Privacidad",
@@ -28,6 +29,7 @@ const LABELS: Record<Locale, Record<SitePage, string>> = {
   },
   en: {
     home: "Comparator",
+    categories: "Categories",
     about: "About",
     terms: "Terms of use",
     privacy: "Privacy",

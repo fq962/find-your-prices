@@ -14,6 +14,9 @@ export const SITEMAP_INDEX_PATH = "/sitemap.xml";
 /** Portada y páginas de texto, en los dos idiomas. Un solo archivo, chico. */
 export const SITEMAP_PAGES_PATH = "/sitemaps/pages.xml";
 
+/** Las landings de categoría, en los dos idiomas. */
+export const SITEMAP_CATEGORIES_PATH = "/sitemaps/categories.xml";
+
 /** Un archivo por tanda de fichas. Base 1: el primero es `products/1.xml`. */
 export function productSitemapPath(chunk: number): string {
   return `/sitemaps/products/${chunk}.xml`;

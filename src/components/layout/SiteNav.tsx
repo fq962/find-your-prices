@@ -20,6 +20,11 @@ const THEME_LABEL: Record<string, string> = {
   es: "Cambiar el tema de color",
 };
 
+const CATEGORIES_LABEL: Record<string, string> = {
+  en: "Categories",
+  es: "Categorías",
+};
+
 /**
  * Barra fija translúcida. La hairline inferior sólo aparece cuando la página
  * ya se desplazó: en reposo la navegación se funde con el fondo.
@@ -71,6 +76,16 @@ export function SiteNav({ localePaths }: SiteNavProps = {}) {
             <path d="M12.6 3H5.4A2.4 2.4 0 0 0 3 5.4v7.2c0 .64.25 1.25.7 1.7l6.7 6.7a2.4 2.4 0 0 0 3.4 0l6.2-6.2a2.4 2.4 0 0 0 0-3.4l-6.7-6.7a2.4 2.4 0 0 0-1.7-.7Z" />
             <circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none" />
           </svg>
+        </Link>
+
+        {/* La única entrada de texto de la barra: el árbol de categorías es
+            la segunda puerta del sitio después del buscador, y un rastreador
+            tiene que encontrarla desde cualquier página. */}
+        <Link
+          href={routeFor("categories", locale)}
+          className="ml-4 mr-auto rounded-full px-2.5 py-1.5 text-[0.8125rem] font-medium tracking-[-0.01em] text-[var(--text-secondary)] outline-none transition-colors duration-[var(--dur-fast)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        >
+          {CATEGORIES_LABEL[locale] ?? CATEGORIES_LABEL.en}
         </Link>
 
         <div className="flex items-center gap-2.5">

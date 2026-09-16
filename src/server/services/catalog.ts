@@ -520,6 +520,8 @@ export interface SearchCatalogParams {
    * Solo hace falta en la primera página (el cliente lo conserva al paginar)
    * y no hace falta nunca para los relacionados. Default `true`.
    */
+  /** Solo estos artículos. Lo usan los populares de una categoría (0031). */
+  ids?: string[];
   withTotal?: boolean;
 }
 
@@ -588,6 +590,7 @@ export type NormalizedSearchParams = Required<
     category: string[];
     storeCategory: string[];
     brand: string[];
+    ids: string[];
   };
 
 function sortedList(value: string | string[] | undefined): string[] {
@@ -609,6 +612,7 @@ export function normalizeSearchParams(params: SearchCatalogParams): NormalizedSe
     category: sortedList(params.category),
     storeCategory: sortedList(params.storeCategory),
     brand: sortedList(params.brand),
+    ids: sortedList(params.ids),
     minPrice: params.minPrice,
     maxPrice: params.maxPrice,
     onlyDiscounted: params.onlyDiscounted === true,
@@ -740,6 +744,7 @@ async function runCatalogQuery(
       // y todas obligatorias, en cualquier orden. "play 5" → 'play:* & 5:*'.
       request = request.textSearch('normalized_name', tsquery, { config: 'simple' });
     }
+    if (params.ids && params.ids.length > 0) request = request.in('id', params.ids);
     request = applyFacet(request, 'store_name', params.store);
     request = applyCategoryFacet(request, params.category);
     request = applyFacet(request, 'store_category_name', params.storeCategory);

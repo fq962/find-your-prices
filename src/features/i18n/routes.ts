@@ -11,10 +11,11 @@ import type { Locale } from "./translate";
  * para los buscadores.
  */
 
-export type SitePage = "home" | "about" | "terms" | "privacy" | "content";
+export type SitePage = "home" | "categories" | "about" | "terms" | "privacy" | "content";
 
 export const SITE_ROUTES: Record<SitePage, Record<Locale, string>> = {
   home: { es: "/", en: "/en" },
+  categories: { es: "/categorias", en: "/en/categories" },
   about: { es: "/acerca", en: "/en/about" },
   terms: { es: "/terminos", en: "/en/terms" },
   privacy: { es: "/privacidad", en: "/en/privacy" },

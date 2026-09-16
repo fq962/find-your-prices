@@ -3,6 +3,7 @@ import { BackToTop } from "@/components/shared/BackToTop";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteNav } from "@/components/layout/SiteNav";
 import { LocaleProvider } from "@/features/i18n/LocaleContext";
+import { ProductClickTracker } from "@/features/products/ProductClickTracker";
 import type { Locale } from "@/features/i18n/translate";
 import { ThemeProvider } from "@/features/theme/ThemeProvider";
 
@@ -44,6 +45,8 @@ export function PageLayout({ locale, localePaths, children }: PageLayoutProps) {
           {/* Vive acá y no en el catálogo porque las páginas de texto también
               son largas, y el botón se esconde solo donde no hace falta. */}
           <BackToTop label={BACK_TO_TOP[locale]} />
+          {/* Un solo listener por página cuenta los clics a productos. */}
+          <ProductClickTracker />
         </div>
       </LocaleProvider>
     </ThemeProvider>

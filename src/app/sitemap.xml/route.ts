@@ -1,6 +1,7 @@
 import { absoluteUrl } from "@/lib/seo/metadata";
 import {
   productSitemapPath,
+  SITEMAP_CATEGORIES_PATH,
   SITEMAP_PAGES_PATH,
 } from "@/lib/seo/sitemaps";
 import {
@@ -30,7 +31,10 @@ export async function GET(): Promise<Response> {
   const total = await countSitemapProducts();
   const chunks = sitemapChunkCount(total);
 
-  const entries: SitemapIndexEntry[] = [{ loc: absoluteUrl(SITEMAP_PAGES_PATH) }];
+  const entries: SitemapIndexEntry[] = [
+    { loc: absoluteUrl(SITEMAP_PAGES_PATH) },
+    { loc: absoluteUrl(SITEMAP_CATEGORIES_PATH) },
+  ];
 
   for (let chunk = 1; chunk <= chunks; chunk += 1) {
     entries.push({ loc: absoluteUrl(productSitemapPath(chunk)) });

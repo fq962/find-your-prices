@@ -394,3 +394,29 @@ export function graph(nodes: (JsonLdNode | undefined)[]): JsonLdNode {
     "@graph": nodes.filter((node): node is JsonLdNode => Boolean(node)),
   };
 }
+
+/**
+ * Página de categoría: una `CollectionPage` con nombre y descripción propios
+ * (los de la landing, no los del sitio) y, si tiene foto, su imagen. El
+ * `ItemList` de sus productos y las migas van aparte en el mismo grafo.
+ */
+export function categoryCollectionJsonLd(options: {
+  locale: Locale;
+  path: string;
+  name: string;
+  description: string;
+  image?: string | null;
+}): JsonLdNode {
+  const url = absoluteUrl(options.path);
+  return compact({
+    "@type": "CollectionPage",
+    "@id": `${url}#webpage`,
+    url,
+    name: options.name,
+    description: options.description,
+    inLanguage: options.locale === "es" ? "es-HN" : "en",
+    isPartOf: { "@id": WEBSITE_ID },
+    about: { "@id": ORG_ID },
+    ...(options.image ? { primaryImageOfPage: options.image } : {}),
+  });
+}

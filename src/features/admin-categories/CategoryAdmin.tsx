@@ -204,6 +204,10 @@ export function CategoryAdmin({ categories, storeCategories, stores, usage }: Pr
             <Link href="/admin/scraping" className="text-[var(--accent)] hover:opacity-70">
               Scraping
             </Link>
+            {' · '}
+            <Link href="/admin/categorias/contenido" className="text-[var(--accent)] hover:opacity-70">
+              Contenido de categorías
+            </Link>
           </p>
 
           <div className="mt-8 flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">

@@ -68,6 +68,7 @@ export function ProductTile({
     <div className="group relative h-full">
       <Link
         href={href}
+        data-product-id={product.id}
         className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] outline-none transition-[border-color,box-shadow,transform] duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
       >
         <div className="relative overflow-hidden bg-[var(--bg-inset)]">
