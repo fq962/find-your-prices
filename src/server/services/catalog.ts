@@ -1,6 +1,10 @@
 import 'server-only';
 import { getSupabaseAdmin } from '@/server/db/supabase';
-import { excludeBlockedStores, isBlockedStoreName } from '@/server/services/blockedStores';
+import {
+  excludeBlockedStores,
+  getBlockedStoreNames,
+  isBlockedStoreName,
+} from '@/server/services/blockedStores';
 import type { AvailabilityStatus } from '@/server/scraping/types';
 import type { Product } from '@/types';
 import {
@@ -348,13 +352,12 @@ async function computeFacetsByScan(): Promise<CatalogFacets> {
     // selectores, y un selector que promete más de lo que la búsqueda devuelve
     // parece un fallo del sitio, no un filtro.
     const { data, error } = await applyAvailabilityFloor(
-      excludeBlockedStores(
-        db
-          .from(VIEW)
-          .select(
-            'category_slug, category_name, category_root_slug, category_root_name, store_name, brand, price, list_price',
-          ),
-      ).not('price', 'is', null),
+      db
+        .from(VIEW)
+        .select(
+          'category_slug, category_name, category_root_slug, category_root_name, store_name, brand, price, list_price',
+        )
+        .not('price', 'is', null),
     ).range(page * PAGE, page * PAGE + PAGE - 1);
 
     if (error) throw new Error(error.message);
@@ -362,6 +365,11 @@ async function computeFacetsByScan(): Promise<CatalogFacets> {
     if (rows.length === 0) break;
 
     for (const row of rows) {
+      // Parche: acá el filtro va en memoria y no en la consulta. Este camino ya
+      // recorre cada fila para contar, así que saltarla es gratis; pedirle a
+      // Postgres que además la descarte era lo que agotaba el tiempo.
+      if (isBlockedStoreName(row.store_name)) continue;
+
       total += 1;
       const price = Number(row.price);
       if (Number.isFinite(price)) {
@@ -602,6 +610,10 @@ async function runCatalogQuery(
   const limit = Math.min(params.limit ?? 60, 200);
   const offset = Math.max(params.offset ?? 0, 0);
   const locale = params.locale ?? 'es';
+  // Se resuelve antes de armar la consulta: `excludeBlockedStores` tiene que
+  // ser síncrona porque el builder de supabase-js es un thenable y esperarlo
+  // dispararía la petición. Está memoizado, así que no es un viaje por página.
+  const blockedStoreNames = await getBlockedStoreNames();
 
   try {
     // El encadenado condicional de filtros sobre el builder tipado de
@@ -630,8 +642,9 @@ async function runCatalogQuery(
       request = request.textSearch('normalized_name', tsquery, { config: 'simple' });
     }
     // Parche: las tiendas bloqueadas no existen para el catálogo público, ni
-    // aunque se las pida por nombre en `params.store`.
-    request = excludeBlockedStores(request);
+    // aunque se las pida por nombre en `params.store`. Acá sí hace falta
+    // filtrar en la consulta: el total y la paginación los calcula Postgres.
+    request = excludeBlockedStores(request, blockedStoreNames);
     request = applyFacet(request, 'store_name', params.store);
     request = applyCategoryFacet(request, params.category);
     request = applyFacet(request, 'store_category_name', params.storeCategory);
