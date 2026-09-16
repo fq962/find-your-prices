@@ -216,10 +216,12 @@ cual, la portada se llena de ofertas del 0%:
 const listPrice = oldPrice !== null && price !== null && oldPrice > price ? oldPrice : null;
 ```
 
-**`raw` con el payload completo, siempre.**
-Es lo que permite reprocesar la normalización sin volver a descargar el sitio.
-Cuando dentro de tres meses quieras extraer un campo que hoy ignorás, lo vas a
-agradecer.
+**`raw` ya no se guarda.**
+Desde la migración 0026 `ingest_store_products` lo descarta (era el mayor
+consumidor de espacio y nada lo leía), así que no lo mandes: es tráfico inútil.
+Si un campo te interesa, ponelo en `attributes` o `specs`. Lo mismo con
+`description`: la base la guarda sin HTML y recortada a 2 000 caracteres, y
+las imágenes se quedan con las primeras 6.
 
 **`rating_average` en escala 0-5.**
 La base tiene un `check` que lo exige. Diunsa entrega puntos acumulados sobre
@@ -469,6 +471,7 @@ resuelto en `truncate` y `stripLoneSurrogates` de
 | Un ejemplo terminado (VTEX + reparto por subcategorías) | [`strategies/walmarthn.ts`](./strategies/walmarthn.ts) |
 | Una tienda que **reusa** la estrategia de otra (misma cuenta VTEX, sin `raw`) | [`strategies/paiz.ts`](./strategies/paiz.ts) |
 | Un ejemplo terminado (Bloomreach Discovery vía el proxy del propio sitio) | [`strategies/pricesmart.ts`](./strategies/pricesmart.ts) |
+| Un ejemplo terminado (Angular SSR + API propia en AWS, reparto por departamento) | [`strategies/larach.ts`](./strategies/larach.ts) |
 | Cómo se orquesta una corrida | [`runner.ts`](./runner.ts) |
 | El cliente HTTP | [`http.ts`](./http.ts) |
 | Cómo se escribe en la base | [`repository.ts`](./repository.ts) |
@@ -487,7 +490,7 @@ resuelto en `truncate` y `stripLoneSurrogates` de
 [ ] external_id es el identificador primario y estable de la tienda
 [ ] Guardo barcode_raw cuando existe
 [ ] list_price solo cuando hay descuento real
-[ ] raw lleva el payload completo
+[ ] No mando raw (0026 lo descarta)
 [ ] El bucle tiene tope de páginas y deduplica
 [ ] La estrategia está en registry.ts
 [ ] Hay prueba unitaria del mapeador con un artículo real
