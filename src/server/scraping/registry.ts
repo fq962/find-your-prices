@@ -13,6 +13,7 @@ import { comisariatoStrategy } from './strategies/comisariato';
 import { paizStrategy } from './strategies/paiz';
 import { larachStrategy } from './strategies/larach';
 import { okashiStrategy } from './strategies/okashi';
+import { pcbuildsStrategy } from './strategies/pcbuilds';
 
 /**
  * Registro de estrategias.
@@ -39,6 +40,7 @@ const STRATEGIES: ScrapeStrategy[] = [
   paizStrategy,
   larachStrategy,
   okashiStrategy,
+  pcbuildsStrategy,
   // Proximas: lacuracao, supermercados...
 ];
 

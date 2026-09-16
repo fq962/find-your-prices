@@ -84,6 +84,7 @@ se rompe cuando cambian el tema.
 | `__STATE__`, `vtex-` | VTEX | `/api/catalog_system/pub/products/search` |
 | `Mage.Cookies`, `/static/version` | Magento | `/rest/V1/products` |
 | `wp-content`, `woocommerce` | WooCommerce | `/wp-json/wc/store/products` |
+| `odoo.__session_info__`, `oe_product_cart`, `/web/image/product.product/` | Odoo eCommerce | No hay JSON para anonimos: la tarjeta html (`<article class="oe_product_cart">`) con `data-product-template-id`. 15 por pagina fijo; la categoria solo se sabe por el listado en que aparece. |
 | `__NEXT_DATA__` | Next.js | El propio JSON embebido |
 
 ### Encontrar la API escondida
@@ -475,6 +476,7 @@ resuelto en `truncate` y `stripLoneSurrogates` de
 | Una tienda que **reusa** la estrategia de otra (misma cuenta VTEX, sin `raw`) | [`strategies/paiz.ts`](./strategies/paiz.ts) |
 | Un ejemplo terminado (Bloomreach Discovery vía el proxy del propio sitio) | [`strategies/pricesmart.ts`](./strategies/pricesmart.ts) |
 | Un ejemplo terminado (Angular SSR + API propia en AWS, reparto por departamento) | [`strategies/larach.ts`](./strategies/larach.ts) |
+| Un ejemplo terminado (Odoo eCommerce, html SSR sin JSON publico; categoria atribuida recorriendo el arbol de la hoja a la raiz) | [`strategies/pcbuilds.ts`](./strategies/pcbuilds.ts) |
 | Cómo se orquesta una corrida | [`runner.ts`](./runner.ts) |
 | El cliente HTTP | [`http.ts`](./http.ts) |
 | Cómo se escribe en la base | [`repository.ts`](./repository.ts) |
