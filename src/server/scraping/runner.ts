@@ -10,6 +10,7 @@ import {
   getTargetById,
   ingestProducts,
   markDelistedProducts,
+  refreshCatalog,
   updateTargetAfterRun,
   upsertStoreCategories,
 } from './repository';
@@ -264,13 +265,36 @@ export async function runTarget(options: {
   };
 }
 
+/**
+ * Si lo que devolvieron estas corridas cambia algo de lo que el catalogo
+ * publico muestra. Una corrida que solo confirmo que todo sigue igual (o que
+ * fallo antes de ingerir nada) no justifica recomputar la materializada.
+ */
+export function runsChangedCatalog(results: RunResult[]): boolean {
+  return results.some(
+    (run) => run.itemsNew + run.itemsUpdated + run.itemsDelisted + run.priceChanges > 0,
+  );
+}
+
+/**
+ * Hace visible lo ingerido: refresca `mv_catalog` (0030) si hubo cambios.
+ * Va al final de la tanda y no de cada target: cinco targets seguidos son un
+ * refresco, no cinco.
+ */
+async function publishCatalog(results: RunResult[], trigger: ScrapeTrigger): Promise<void> {
+  if (!runsChangedCatalog(results)) return;
+  await refreshCatalog(`runner:${trigger}`);
+}
+
 /** Corre un target por id. Lo usa el boton "Ejecutar ahora" del panel. */
 export async function runTargetById(
   targetId: string,
   trigger: ScrapeTrigger = 'manual',
 ): Promise<RunResult> {
   const target = await getTargetById(targetId);
-  return runTarget({ target, trigger });
+  const result = await runTarget({ target, trigger });
+  await publishCatalog([result], trigger);
+  return result;
 }
 
 /**
@@ -338,6 +362,8 @@ export async function runDueTargets(options?: {
       });
     }
   }
+
+  await publishCatalog(processed, options?.trigger ?? 'cron');
 
   return { processed, remaining: Math.max(0, targets.length - toRun.length) };
 }

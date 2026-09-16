@@ -321,3 +321,26 @@ export async function markDelistedProducts(storeId: string, runId: string): Prom
   if (error) throw new Error(`No se pudieron marcar los productos retirados: ${error.message}`);
   return (data as number) ?? 0;
 }
+
+/**
+ * Refresca `mv_catalog`, la materializada que lee el catálogo público
+ * (migración 0030). Es lo que hace visible una corrida: hasta que corre, la
+ * portada y la búsqueda siguen mostrando el estado anterior.
+ *
+ * Nunca lanza: un refresco fallido no debe convertir una corrida buena en una
+ * fallida, y el pg_cron de respaldo lo reintenta solo. Devuelve `null` en ese
+ * caso para que el llamador lo anote.
+ */
+export async function refreshCatalog(
+  triggeredBy: string,
+): Promise<{ durationMs: number } | null> {
+  const { data, error } = await getSupabaseAdmin().rpc('refresh_catalog', {
+    p_triggered_by: triggeredBy,
+  });
+  if (error) {
+    console.error(`[scraping] No se pudo refrescar el catalogo: ${error.message}`);
+    return null;
+  }
+  const payload = (data ?? {}) as { duration_ms?: number };
+  return { durationMs: Number(payload.duration_ms ?? 0) };
+}

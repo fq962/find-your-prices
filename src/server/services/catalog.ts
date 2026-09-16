@@ -1,4 +1,5 @@
 import 'server-only';
+import { unstable_cache } from 'next/cache';
 import { getSupabaseAdmin } from '@/server/db/supabase';
 import type { AvailabilityStatus } from '@/server/scraping/types';
 import type { Product } from '@/types';
@@ -12,9 +13,10 @@ import {
 /**
  * Lectura del catálogo público.
  *
- * Lee de `v_store_products_current`, que ya trae tienda, marca y categoría
- * resueltas. La vista filtra por `is_active`, así que lo que sale de acá es
- * siempre oferta viva.
+ * Lee de `mv_catalog` (migración 0030), la copia materializada e indexada de
+ * `v_store_products_current`: tienda, marca y categoría ya resueltas, solo
+ * activos. Cada lectura es sobre una tabla plana; el costo de los joins se
+ * paga una vez por refresco, que dispara el runner al terminar el scraping.
  *
  * Punto importante de diseño: el catálogo son miles de artículos y no se
  * mandan todos al navegador. La página sirve un primer lote curado y tanto la
@@ -46,7 +48,34 @@ interface CatalogRow {
   rating_count: number | null;
 }
 
-const VIEW = 'v_store_products_current';
+const MATERIALIZED_VIEW = 'mv_catalog';
+const FALLBACK_VIEW = 'v_store_products_current';
+
+/**
+ * De dónde se lee el catálogo. Arranca en la materializada; si la base no la
+ * tiene todavía (el código se desplegó antes de correr 0030), baja a la vista
+ * y se queda ahí hasta el próximo arranque. Mismo cuidado que con
+ * `public_slug`: una migración pendiente degrada el rendimiento, no el sitio.
+ */
+let catalogSource: string = MATERIALIZED_VIEW;
+
+/**
+ * Si el error es "la materializada no existe", cambia la fuente y devuelve
+ * `true` para que quien llama reintente. PostgREST responde PGRST205 cuando
+ * no encuentra la relación en su caché de esquema; 42P01 es el mismo caso
+ * visto desde Postgres.
+ */
+function switchedToFallbackView(error: { code?: string; message?: string }): boolean {
+  if (catalogSource !== MATERIALIZED_VIEW) return false;
+  const message = String(error.message ?? '');
+  const missingRelation = error.code === 'PGRST205' || error.code === '42P01';
+  if (!missingRelation && !message.includes(MATERIALIZED_VIEW)) return false;
+  console.warn(
+    `[catalog] ${MATERIALIZED_VIEW} no existe todavía (${message}); se lee de ${FALLBACK_VIEW}. Correr la migración 0030.`,
+  );
+  catalogSource = FALLBACK_VIEW;
+  return true;
+}
 
 /**
  * Estados de disponibilidad que sacan un artículo del catálogo por defecto.
@@ -335,14 +364,21 @@ async function computeFacetsByScan(): Promise<CatalogFacets> {
     // parece un fallo del sitio, no un filtro.
     const { data, error } = await applyAvailabilityFloor(
       db
-        .from(VIEW)
+        .from(catalogSource)
         .select(
           'category_slug, category_name, category_root_slug, category_root_name, store_name, brand, price, list_price',
         )
         .not('price', 'is', null),
     ).range(page * PAGE, page * PAGE + PAGE - 1);
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      // Sin la materializada, la misma página se vuelve a pedir a la vista.
+      if (switchedToFallbackView(error)) {
+        page -= 1;
+        continue;
+      }
+      throw new Error(error.message);
+    }
     const rows = (data ?? []) as Array<Record<string, unknown>>;
     if (rows.length === 0) break;
 
@@ -476,12 +512,24 @@ export interface SearchCatalogParams {
   limit?: number;
   offset?: number;
   locale?: CatalogLocale;
+  /**
+   * Pedir también el total de filas que cumplen los filtros.
+   *
+   * El total es un `count(*)` aparte sobre toda la vista filtrada: con miles
+   * de artículos y búsqueda por texto, cuesta tanto o más que traer la página.
+   * Solo hace falta en la primera página (el cliente lo conserva al paginar)
+   * y no hace falta nunca para los relacionados. Default `true`.
+   */
+  withTotal?: boolean;
 }
 
 export interface SearchCatalogResult {
   products: Product[];
-  /** Total que cumple los filtros, no solo lo devuelto en esta página. */
-  total: number;
+  /**
+   * Total que cumple los filtros, no solo lo devuelto en esta página.
+   * `null` cuando no se pidió (`withTotal: false`).
+   */
+  total: number | null;
 }
 
 /**
@@ -496,21 +544,99 @@ export async function searchCatalog(params: SearchCatalogParams): Promise<Search
   return withRetry('búsqueda en el catálogo', () => searchCatalogOnce(params));
 }
 
+/** Etiqueta de caché de las búsquedas; `revalidateTag` la vacía de golpe. */
+export const CATALOG_SEARCH_CACHE_TAG = 'catalog-search';
+
+/** Cuánto vive una búsqueda en caché. Mismo ritmo que la portada (`/`). */
+export const CATALOG_SEARCH_CACHE_SECONDS = 300;
+
+/**
+ * `searchCatalog` con caché entre peticiones.
+ *
+ * Es la puerta que usa `/api/products/search`. Cada combinación distinta de
+ * filtros, orden, página e idioma es una entrada; mientras vive, las
+ * búsquedas repetidas ("tv", "play 5", una tienda) no tocan Postgres. Los
+ * precios cambian por corrida de scraping, no por segundo, así que cinco
+ * minutos de retraso no le mienten a nadie y le ahorran a la base la parte
+ * más cara del tráfico: un `count(*)` y un barrido de la vista por visitante.
+ *
+ * Los parámetros se normalizan antes de entrar (listas ordenadas, defaults
+ * explícitos) para que dos peticiones equivalentes compartan entrada aunque
+ * la query string venga en otro orden.
+ */
+export async function searchCatalogCached(params: SearchCatalogParams): Promise<SearchCatalogResult> {
+  // Sin base no hay nada que guardar, y así los tests unitarios no dependen
+  // del runtime de caché de Next.
+  if (!hasDatabase()) return { products: [], total: 0 };
+  return searchCatalogMemoized(normalizeSearchParams(params));
+}
+
+const searchCatalogMemoized = unstable_cache(
+  (params: NormalizedSearchParams) => searchCatalog(params),
+  ['catalog-search'],
+  { revalidate: CATALOG_SEARCH_CACHE_SECONDS, tags: [CATALOG_SEARCH_CACHE_TAG] },
+);
+
+export type NormalizedSearchParams = Required<
+  Pick<
+    SearchCatalogParams,
+    'sort' | 'limit' | 'offset' | 'locale' | 'withTotal' | 'onlyDiscounted' | 'includeUnavailable'
+  >
+> &
+  Pick<SearchCatalogParams, 'query' | 'minPrice' | 'maxPrice'> & {
+    store: string[];
+    category: string[];
+    storeCategory: string[];
+    brand: string[];
+  };
+
+function sortedList(value: string | string[] | undefined): string[] {
+  const values = (Array.isArray(value) ? value : value ? [value] : []).filter(Boolean);
+  return [...new Set(values)].sort();
+}
+
+/**
+ * Forma canónica de los parámetros: es la clave de caché, así que todo lo que
+ * cambie el resultado tiene que estar acá, y nada que no lo cambie. Los
+ * defaults repiten los de `runCatalogQuery` para que "sin parámetro" y "con
+ * el default explícito" sean la misma entrada.
+ */
+export function normalizeSearchParams(params: SearchCatalogParams): NormalizedSearchParams {
+  const query = params.query?.trim();
+  return {
+    query: query ? query : undefined,
+    store: sortedList(params.store),
+    category: sortedList(params.category),
+    storeCategory: sortedList(params.storeCategory),
+    brand: sortedList(params.brand),
+    minPrice: params.minPrice,
+    maxPrice: params.maxPrice,
+    onlyDiscounted: params.onlyDiscounted === true,
+    includeUnavailable: params.includeUnavailable === true,
+    sort: params.sort ?? 'discount',
+    limit: Math.min(params.limit ?? 60, 200),
+    offset: Math.max(params.offset ?? 0, 0),
+    locale: params.locale ?? 'es',
+    withTotal: params.withTotal !== false,
+  };
+}
+
 async function searchCatalogOnce(params: SearchCatalogParams): Promise<SearchCatalogResult> {
-  // Hasta cuatro pasadas: la buena, y una por cada columna que la vista pueda
-  // no tener todavía. Cada reintento apaga exactamente lo que faltó, así que
-  // el catálogo degrada por partes —sin orden por novedad, sin enlace a la
-  // ficha, o sin categoría canónica— en vez de caerse entero.
+  // Hasta cinco pasadas: la buena, una si falta la materializada, y una por
+  // cada columna que la vista pueda no tener todavía. Cada reintento apaga
+  // exactamente lo que faltó, así que el catálogo degrada por partes —sin
+  // materializada, sin orden por novedad, sin enlace a la ficha, o sin
+  // categoría canónica— en vez de caerse entero.
   let newestColumn = NEWEST_COLUMN;
 
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const published = `${slugColumnPublished}${categoryColumnsPublished}`;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const published = `${catalogSource}${slugColumnPublished}${categoryColumnsPublished}`;
     const result = await runCatalogQuery(params, newestColumn);
     if (result !== null) return result;
 
-    // `null` significa "falta una columna". Cuál, lo dice la bandera que la
-    // propia consulta acaba de bajar; si ninguna bajó, fue la de novedad.
-    if (published !== `${slugColumnPublished}${categoryColumnsPublished}`) continue;
+    // `null` significa "falta algo". Qué, lo dice la bandera que la propia
+    // consulta acaba de cambiar; si ninguna cambió, fue la columna de novedad.
+    if (published !== `${catalogSource}${slugColumnPublished}${categoryColumnsPublished}`) continue;
     newestColumn = 'last_seen_at';
   }
 
@@ -604,8 +730,8 @@ async function runCatalogQuery(
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let request: any = getSupabaseAdmin()
-      .from(VIEW)
-      .select(columns, { count: 'exact' })
+      .from(catalogSource)
+      .select(columns, params.withTotal === false ? undefined : { count: 'exact' })
       .not('price', 'is', null);
 
     const tsquery = toPrefixTsQuery(params.query);
@@ -652,6 +778,9 @@ async function runCatalogQuery(
 
     const { data, error, count } = await request.range(offset, offset + limit - 1);
     if (error) {
+      // La materializada aún no existe: se reintenta contra la vista.
+      if (switchedToFallbackView(error)) return null;
+
       // 42703 = undefined_column en Postgres. Es lo que responde PostgREST
       // cuando se pide o se ordena por una columna que la vista no publica.
       const message = String(error.message);
@@ -676,7 +805,7 @@ async function runCatalogQuery(
 
     return {
       products: ((data ?? []) as unknown as CatalogRow[]).map((row) => toProduct(row, locale)),
-      total: count ?? 0,
+      total: params.withTotal === false ? null : (count ?? 0),
     };
   } catch (error) {
     // Antes esto devolvía un catálogo vacío. Ver `withRetry` para por qué
@@ -723,7 +852,7 @@ export async function getCatalogSnapshot(options?: {
     getCatalogFacets(),
   ]);
 
-  return { products: listing.products, facets, total: listing.total };
+  return { products: listing.products, facets, total: listing.total ?? 0 };
 }
 
 // -----------------------------------------------------------------------------
@@ -1022,6 +1151,8 @@ export async function getRelatedProducts(
     sort: 'discount',
     limit: limit + 1,
     locale,
+    // Solo se pintan las tarjetas: el total sería un count(*) tirado a la basura.
+    withTotal: false,
   });
   return products.filter((candidate) => candidate.id !== product.id).slice(0, limit);
 }

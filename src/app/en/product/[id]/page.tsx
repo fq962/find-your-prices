@@ -15,7 +15,7 @@ import { getProductSlug } from "@/server/services/catalog";
  * el índice a la dirección nueva en vez de tratarla como un desvío temporal y
  * seguir sirviendo la vieja.
  */
-export const revalidate = 600;
+export const revalidate = 3600;
 
 interface PageProps {
   params: Promise<{ id: string }>;

@@ -26,17 +26,19 @@ import {
 /**
  * Ficha de producto en español.
  *
- * Se revalida cada 10 minutos: los datos de un artículo cambian menos que el
- * listado, y una ficha servida desde caché carga al instante. El precio lleva
- * su marca de "último chequeo" a la vista, así que un desfase de minutos es
- * honesto y visible, no un dato caducado disfrazado de actual.
+ * Se revalida cada hora: el precio de un artículo cambia como mucho una vez
+ * por corrida de scraping (diaria en casi todas las tiendas), y con decenas de
+ * miles de fichas que los rastreadores recorren sin parar, regenerarlas cada
+ * diez minutos era gastar la base en servir lo mismo. El precio lleva su marca
+ * de "último chequeo" a la vista, así que un desfase de minutos es honesto y
+ * visible, no un dato caducado disfrazado de actual.
  *
  * Esa misma revalidación es la que mantiene el precio del `<title>` y del
  * JSON-LD alineado con el que ve el visitante. Un precio en los datos
  * estructurados que no coincide con el de la página es motivo de sanción
  * manual de Google, no un detalle cosmético.
  */
-export const revalidate = 600;
+export const revalidate = 3600;
 
 interface PageProps {
   params: Promise<{ slug: string }>;

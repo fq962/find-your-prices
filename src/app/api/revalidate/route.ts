@@ -1,4 +1,5 @@
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { CATALOG_SEARCH_CACHE_TAG } from '@/server/services/catalog';
 import { assertCronAuthorized, toErrorResponse } from '@/server/scraping/api-guard';
 
 /**
@@ -47,7 +48,17 @@ export async function POST(request: Request): Promise<Response> {
 
     for (const path of paths) revalidatePath(path);
 
-    return Response.json({ ok: true, revalidated: paths, at: new Date().toISOString() });
+    // Las búsquedas (/api/products/search) viven en el data cache cinco minutos
+    // y no se refrescan por ruta: cualquier revalidación las marca como viejas
+    // también, con `max` para que se sirvan mientras se regeneran.
+    revalidateTag(CATALOG_SEARCH_CACHE_TAG, 'max');
+
+    return Response.json({
+      ok: true,
+      revalidated: paths,
+      tags: [CATALOG_SEARCH_CACHE_TAG],
+      at: new Date().toISOString(),
+    });
   } catch (error) {
     return toErrorResponse(error);
   }
