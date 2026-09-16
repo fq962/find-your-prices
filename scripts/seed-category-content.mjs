@@ -42,7 +42,9 @@ const headers = {
 async function rest(path, init = {}) {
   const response = await fetch(`${url}/rest/v1/${path}`, { ...init, headers: { ...headers, ...(init.headers ?? {}) } });
   if (!response.ok) throw new Error(`${init.method ?? 'GET'} ${path} → ${response.status}: ${await response.text()}`);
-  return response.status === 204 ? null : response.json();
+  // Con `return=minimal` el upsert responde 201 sin cuerpo.
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
 }
 
 // --- Carga y validación ------------------------------------------------------
