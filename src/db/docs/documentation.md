@@ -185,14 +185,21 @@ Dos columnas merecen explicación:
   El hash **excluye `raw`** a propósito: ese payload trae marcas de tiempo de la
   tienda que cambian sin que cambie nada real.
 
-- **`raw`** — el payload original completo. Permite reprocesar la normalización
-  sin volver a descargar el sitio.
+- **`raw`** — desde 0026 la ingesta lo deja siempre en `{}`: era el payload
+  completo de la tienda por producto, nada lo leía y era el mayor consumidor de
+  espacio. Si hace falta reprocesar, se vuelve a scrapear. `description` también
+  se guarda sin HTML y recortada a 2 000 caracteres.
 
-### 3.9 `store_product_images` y `store_product_variants`
+### 3.9 Galería (`store_products.images`) y `store_product_variants`
 
-Galería completa y variantes (talla, color, capacidad) con precio y stock
-propios. Se separan porque un artículo puede traer decenas de imágenes y en los
-listados solo se consulta la principal.
+La galería vive en la columna `images` de `store_products`, como
+`[{"url", "alt"}]` ordenado (la primera es la principal), con tope de 6 por
+producto. Antes era una tabla aparte (`store_product_images`); se eliminó en
+0026 porque 249k filas de URLs con su uuid, FK y tres índices pesaban más que
+todo `price_history`, y la ingesta la borraba y reinsertaba en cada corrida.
+
+Las variantes (talla, color, capacidad) sí siguen en `store_product_variants`,
+porque tienen precio y stock propios.
 
 ### 3.10 `price_history` — la serie temporal
 
@@ -301,7 +308,7 @@ después.
 
 | Grupo | Tablas | `anon` / `authenticated` |
 |---|---|---|
-| Catálogo público | `stores`, `brands`, `categories`, `store_categories`, `products`, `store_products`, `store_product_images`, `store_product_variants`, `price_history` | **SELECT y nada más.** Una policy de lectura + `revoke insert/update/delete`. |
+| Catálogo público | `stores`, `brands`, `categories`, `store_categories`, `products`, `store_products`, `store_product_variants`, `price_history` | **SELECT y nada más.** Una policy de lectura + `revoke insert/update/delete`. |
 | Operativas | `scrape_targets`, `scrape_runs`, `product_match_candidates` | **Nada.** RLS activa y *sin ninguna policy*: el resultado siempre es cero filas. Además se revocan los grants, así que ni llegan a evaluar RLS. |
 
 `service_role` tiene `BYPASSRLS`, así que el backend opera con normalidad.

@@ -823,7 +823,6 @@ export async function getProductDetail(
         `*,
          stores!inner(name, slug, logo_url, is_active),
          store_categories(name, categories(slug, name)),
-         store_product_images(url, position, is_primary, alt_text),
          store_product_variants(external_id, name, color, size, price, list_price, in_stock)`,
       )
       .eq(UUID_PATTERN.test(key) ? 'id' : 'public_slug', key)
@@ -862,14 +861,14 @@ export async function getProductDetail(
       .map((point) => point.price)
       .filter((price): price is number => price !== null);
 
-    const images = ((row.store_product_images ?? []) as Record<string, unknown>[])
-      .map((image) => ({
-        url: String(image.url),
-        position: Number(image.position ?? 0),
-        isPrimary: Boolean(image.is_primary),
-        altText: (image.alt_text as string | null) ?? undefined,
-      }))
-      .sort((a, b) => a.position - b.position);
+    // La galería vive en la columna `images` (0026): ya viene ordenada y la
+    // primera es la principal.
+    const images = ((row.images ?? []) as { url: string; alt?: string }[]).map((image, index) => ({
+      url: String(image.url),
+      position: index,
+      isPrimary: index === 0,
+      altText: image.alt ?? undefined,
+    }));
 
     const variants = ((row.store_product_variants ?? []) as Record<string, unknown>[]).map(
       (variant) => ({
