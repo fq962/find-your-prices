@@ -1,10 +1,5 @@
 import 'server-only';
 import { getSupabaseAdmin } from '@/server/db/supabase';
-import {
-  excludeBlockedStores,
-  getBlockedStoreNames,
-  isBlockedStoreName,
-} from '@/server/services/blockedStores';
 import type { AvailabilityStatus } from '@/server/scraping/types';
 import type { Product } from '@/types';
 import {
@@ -299,27 +294,14 @@ export async function getCatalogFacets(): Promise<CatalogFacets> {
 
     const totals = summary.data as Record<string, number>;
 
-    /**
-     * Parche: la vista de facetas sí cuenta las tiendas bloqueadas, así que se
-     * descuentan acá. Sus artículos salen del total —si no, la portada
-     * anunciaría más de los que el listado devuelve— y la tienda sale del
-     * conteo de tiendas.
-     */
-    const storeRows = (stores.data ?? []) as Record<string, unknown>[];
-    const blockedProducts = storeRows
-      .filter((row) => isBlockedStoreName(row.store_name))
-      .reduce((sum, row) => sum + Number(row.product_count ?? 0), 0);
-    const visibleStores = storeRows.filter((row) => !isBlockedStoreName(row.store_name));
-    const blockedStores = storeRows.length - visibleStores.length;
-
     return {
       categories: buildCategoryTree(toCategoryRows(categories.data ?? [])),
-      stores: toOptions(visibleStores, 'store_name'),
+      stores: toOptions(stores.data ?? [], 'store_name'),
       brands: brands.error ? [] : toOptions(brands.data ?? [], 'brand_name'),
       minPrice: Number(totals.min_price ?? 0),
       maxPrice: Number(totals.max_price ?? 0),
-      totalProducts: Math.max(0, Number(totals.total_products ?? 0) - blockedProducts),
-      totalStores: Math.max(0, Number(totals.total_stores ?? 0) - blockedStores),
+      totalProducts: Number(totals.total_products ?? 0),
+      totalStores: Number(totals.total_stores ?? 0),
       totalCategories: Number(totals.total_categories ?? 0),
       discountedProducts: Number(totals.discounted_products ?? 0),
     };
@@ -365,11 +347,6 @@ async function computeFacetsByScan(): Promise<CatalogFacets> {
     if (rows.length === 0) break;
 
     for (const row of rows) {
-      // Parche: acá el filtro va en memoria y no en la consulta. Este camino ya
-      // recorre cada fila para contar, así que saltarla es gratis; pedirle a
-      // Postgres que además la descarte era lo que agotaba el tiempo.
-      if (isBlockedStoreName(row.store_name)) continue;
-
       total += 1;
       const price = Number(row.price);
       if (Number.isFinite(price)) {
@@ -610,10 +587,6 @@ async function runCatalogQuery(
   const limit = Math.min(params.limit ?? 60, 200);
   const offset = Math.max(params.offset ?? 0, 0);
   const locale = params.locale ?? 'es';
-  // Se resuelve antes de armar la consulta: `excludeBlockedStores` tiene que
-  // ser síncrona porque el builder de supabase-js es un thenable y esperarlo
-  // dispararía la petición. Está memoizado, así que no es un viaje por página.
-  const blockedStoreNames = await getBlockedStoreNames();
 
   try {
     // El encadenado condicional de filtros sobre el builder tipado de
@@ -641,10 +614,6 @@ async function runCatalogQuery(
       // y todas obligatorias, en cualquier orden. "play 5" → 'play:* & 5:*'.
       request = request.textSearch('normalized_name', tsquery, { config: 'simple' });
     }
-    // Parche: las tiendas bloqueadas no existen para el catálogo público, ni
-    // aunque se las pida por nombre en `params.store`. Acá sí hace falta
-    // filtrar en la consulta: el total y la paginación los calcula Postgres.
-    request = excludeBlockedStores(request, blockedStoreNames);
     request = applyFacet(request, 'store_name', params.store);
     request = applyCategoryFacet(request, params.category);
     request = applyFacet(request, 'store_category_name', params.storeCategory);
@@ -883,10 +852,6 @@ export async function getProductDetail(
     const row = data as Record<string, never> & Record<string, unknown>;
     const store = row.stores as { name: string; slug: string } | null;
     if (!store) return null;
-    // Parche: la ficha de una tienda bloqueada responde 404, igual que la de un
-    // artículo dado de baja. Si devolviera la ficha, un enlace ya compartido
-    // —o el índice de Google— seguiría mostrando lo que el catálogo esconde.
-    if (isBlockedStoreName(store.name)) return null;
 
     // El histórico se pide aparte: es una serie que puede ser larga y no tiene
     // sentido arrastrarla en el mismo join.
@@ -1024,24 +989,15 @@ export async function getProductSlug(id: string): Promise<string | null> {
   if (!UUID_PATTERN.test(id)) return null;
 
   return withRetry('slug de producto', async () => {
-    // Se trae el nombre de la tienda sólo para el parche de tiendas
-    // bloqueadas: sin él, la ruta vieja redirigiría a una ficha que responde
-    // 404, que es peor que el 404 directo.
     const { data, error } = await getSupabaseAdmin()
       .from('store_products')
-      .select('public_slug, stores!inner(name)')
+      .select('public_slug')
       .eq('id', id)
       .eq('is_active', true)
       .maybeSingle();
 
     if (error) throw new Error(error.message);
     if (!data) return null;
-    // El tipado de PostgREST da la relación incrustada como arreglo aunque la
-    // clave foránea sea de uno a uno; se acepta cualquiera de las dos formas.
-    const related = (data as unknown as { stores: { name: string } | { name: string }[] | null })
-      .stores;
-    const storeName = Array.isArray(related) ? related[0]?.name : related?.name;
-    if (isBlockedStoreName(storeName)) return null;
     const slug = (data as { public_slug: string | null }).public_slug;
     return slug && slug !== '' ? slug : null;
   });

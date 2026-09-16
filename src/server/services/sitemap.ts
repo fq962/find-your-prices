@@ -1,6 +1,5 @@
 import 'server-only';
 import { getSupabaseAdmin } from '@/server/db/supabase';
-import { excludeBlockedStores, getBlockedStoreNames } from '@/server/services/blockedStores';
 
 /**
  * Datos para los sitemaps de producto.
@@ -90,13 +89,10 @@ let slugColumnPublished = true;
  */
 export async function countSitemapProducts(): Promise<number> {
   try {
-    // Parche: las tiendas bloqueadas tampoco entran al sitemap. Si entraran,
-    // Google seguiría rastreando fichas que el sitio responde con 404.
-    const blocked = await getBlockedStoreNames();
-    const { count, error } = await excludeBlockedStores(
-      getSupabaseAdmin().from(VIEW).select('id', { count: 'exact', head: true }),
-      blocked,
-    ).gt('price', 0);
+    const { count, error } = await getSupabaseAdmin()
+      .from(VIEW)
+      .select('id', { count: 'exact', head: true })
+      .gt('price', 0);
 
     if (error) return 0;
     return count ?? 0;
@@ -128,7 +124,6 @@ export async function getSitemapProducts(chunk: number): Promise<SitemapProduct[
 
   try {
     const db = getSupabaseAdmin();
-    const blocked = await getBlockedStoreNames();
 
     for (let offset = 0; offset < SITEMAP_CHUNK_SIZE; offset += FETCH_PAGE) {
       const from = start + offset;
@@ -154,12 +149,9 @@ export async function getSitemapProducts(chunk: number): Promise<SitemapProduct[
        * obtener" y lo que hace que Google deje de rastrear el catálogo.
        */
       const select = () =>
-        excludeBlockedStores(
-          db
-            .from(VIEW)
-            .select(slugColumnPublished ? 'id, public_slug, last_seen_at' : 'id, last_seen_at'),
-          blocked,
-        )
+        db
+          .from(VIEW)
+          .select(slugColumnPublished ? 'id, public_slug, last_seen_at' : 'id, last_seen_at')
           .gt('price', 0)
           .order('id', { ascending: true })
           .range(from, from + size - 1);
