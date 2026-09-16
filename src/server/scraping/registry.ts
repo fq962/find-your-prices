@@ -12,6 +12,7 @@ import { farmaciasimanStrategy } from './strategies/farmaciasiman';
 import { comisariatoStrategy } from './strategies/comisariato';
 import { paizStrategy } from './strategies/paiz';
 import { larachStrategy } from './strategies/larach';
+import { okashiStrategy } from './strategies/okashi';
 
 /**
  * Registro de estrategias.
@@ -37,6 +38,7 @@ const STRATEGIES: ScrapeStrategy[] = [
   comisariatoStrategy,
   paizStrategy,
   larachStrategy,
+  okashiStrategy,
   // Proximas: lacuracao, supermercados...
 ];
 

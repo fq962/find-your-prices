@@ -64,6 +64,16 @@ import type {
  * de nombres. Si algun dia se quiere, el camino es enriquecer SOLO los
  * articulos nuevos o con precio cambiado desde /products/{handle}.js, nunca el
  * catalogo entero en cada corrida.
+ *
+ * ---------------------------------------------------------------------------
+ * Este archivo es tambien la fabrica de estrategias Shopify
+ * ---------------------------------------------------------------------------
+ * Todo lo de arriba vale para cualquier tienda Shopify: cambian el dominio,
+ * las colecciones del menu y algun detalle de la ficha. Por eso el barrido
+ * vive en `createShopifyStrategy` (al final) y `ladyleeStrategy` es una
+ * configuracion de esa fabrica, igual que Paiz lo es de Walmart HN. Okashi
+ * (`okashi.ts`) reusa la misma fabrica: cualquier arreglo al barrido aplica a
+ * las dos sin duplicarlo.
  */
 
 // -----------------------------------------------------------------------------
@@ -101,7 +111,7 @@ interface ShopifyOption {
   values?: string[];
 }
 
-interface ShopifyProduct {
+export interface ShopifyProduct {
   id: number;
   title: string;
   handle: string;
@@ -184,15 +194,16 @@ const CATEGORY_LABELS: Record<string, string> = {
  * Nombre legible de una coleccion: el rotulo del menu si es una de las
  * conocidas, y si no el titulo de Shopify o el propio handle.
  */
-export function categoryLabel(handle: string, shopifyTitle?: string | null): string {
-  return CATEGORY_LABELS[handle] ?? shopifyTitle ?? handle;
+export function categoryLabel(
+  handle: string,
+  shopifyTitle?: string | null,
+  labels: Record<string, string> = CATEGORY_LABELS,
+): string {
+  return labels[handle] ?? shopifyTitle ?? handle;
 }
 
-const DEFAULTS = {
-  webBaseUrl: 'https://ladylee.net',
-  pageSize: 250,
-  collectionHandle: 'all',
-} as const;
+const DEFAULT_PAGE_SIZE = 250;
+const DEFAULT_COLLECTION_HANDLE = 'all';
 
 /** Handle de la coleccion que contiene todo el catalogo publicado. */
 const ALL_HANDLE = 'all';
@@ -206,13 +217,34 @@ const MAX_PAGES_PER_COLLECTION = 100;
 /** Tope de paginas de la corrida entera, sumando todas las colecciones. */
 const MAX_PAGES_HARD_LIMIT = 400;
 
-interface LadyleeConfig {
+interface ShopifyConfig {
   webBaseUrl: string;
   pageSize: number;
   collectionHandle: string;
   categoryHandles: string[];
   includeUncategorized: boolean;
   syncCategories: boolean;
+}
+
+/** Lo que cambia de una tienda Shopify a otra. */
+export interface ShopifyStrategyOptions {
+  key: string;
+  label: string;
+  webBaseUrl: string;
+  /** Colecciones que recorre un `full_catalog` antes de cerrar con "all". */
+  categoryHandles: readonly string[];
+  /** Rotulo legible por handle; sin entrada se usa el titulo de Shopify. */
+  categoryLabels: Record<string, string>;
+  /** Si se conserva el payload original. Desde la migracion 0026 la ingesta lo descarta. */
+  keepRaw: boolean;
+  /**
+   * Categoria sintetica para lo que solo aparece en /collections/all. Sirve
+   * cuando la tienda no tiene coleccion para su rubro principal (en Okashi el
+   * manga es "todo lo que no es figura ni TCG"). Solo aplica en `full_catalog`.
+   */
+  uncategorizedCategory?: { external_id: string; name: string };
+  /** Ajustes propios de la tienda sobre el producto ya mapeado (ISBN, ficha...). */
+  enrich?: (mapped: NormalizedProduct, product: ShopifyProduct) => NormalizedProduct;
 }
 
 // -----------------------------------------------------------------------------
@@ -290,7 +322,8 @@ export function stripHtml(html: string | null | undefined): string {
   const text = (html ?? '')
     .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<br\s*\/?>/gi, '\n')
+    // Con atributos tambien: el editor de Okashi escribe <br data-mce-fragment="1">.
+    .replace(/<br\b[^>]*>/gi, '\n')
     .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n')
     .replace(/<[^>]+>/g, ' ');
 
@@ -333,9 +366,16 @@ export function truncate(input: string, maxLength: number): string {
   return (lastSpace > maxLength * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd();
 }
 
-/** La url publica de Shopify: /products/{handle}, sin prefijo de coleccion. */
+/**
+ * La url publica de Shopify: /products/{handle}, sin prefijo de coleccion.
+ *
+ * Shopify admite handles con caracteres fuera de ascii (Okashi tiene
+ * "...-hatake-kakashi-ⅱ-banpresto", con el numeral romano) y el tema los
+ * enlaza codificados (`%E2%85%B1`). Se codifica igual para que la url guardada
+ * sea la misma que la del sitio; en un handle ascii no cambia nada.
+ */
 export function buildLadyleeProductUrl(handle: string, webBaseUrl: string): string {
-  return `${webBaseUrl.replace(/\/+$/, '')}/products/${handle}`;
+  return `${webBaseUrl.replace(/\/+$/, '')}/products/${encodeURIComponent(handle)}`;
 }
 
 function toAvailability(available: boolean | null): AvailabilityStatus {
@@ -408,11 +448,12 @@ export interface LadyleeCategoryContext {
 }
 
 /** Traduce un producto de Shopify al contrato comun del sistema. */
-export function mapLadyleeProduct(
+export function mapShopifyProduct(
   product: ShopifyProduct,
-  config: Pick<LadyleeConfig, 'webBaseUrl'>,
+  config: Pick<ShopifyConfig, 'webBaseUrl'>,
   currency: string,
   category: LadyleeCategoryContext = { handle: null },
+  options: { keepRaw: boolean } = { keepRaw: true },
 ): NormalizedProduct | null {
   if (!product?.id || !product?.title || !product?.handle) return null;
 
@@ -504,8 +545,18 @@ export function mapLadyleeProduct(
     },
     badges,
 
-    raw: product as unknown as Record<string, unknown>,
+    ...(options.keepRaw ? { raw: product as unknown as Record<string, unknown> } : {}),
   };
+}
+
+/** Mapeador de Ladylee: el de Shopify con `raw`. Exportado para probarlo sin red. */
+export function mapLadyleeProduct(
+  product: ShopifyProduct,
+  config: Pick<ShopifyConfig, 'webBaseUrl'>,
+  currency: string,
+  category: LadyleeCategoryContext = { handle: null },
+): NormalizedProduct | null {
+  return mapShopifyProduct(product, config, currency, category, { keepRaw: true });
 }
 
 // -----------------------------------------------------------------------------
@@ -524,7 +575,11 @@ export function handleFromUrl(url: string | null | undefined): string | null {
   return match ? match[1].toLowerCase() : null;
 }
 
-function readConfig(raw: Record<string, unknown>, targetUrl: string | null): LadyleeConfig {
+function readConfig(
+  raw: Record<string, unknown>,
+  targetUrl: string | null,
+  options: Pick<ShopifyStrategyOptions, 'webBaseUrl' | 'categoryHandles'>,
+): ShopifyConfig {
   const str = (key: string, fallback: string) => {
     const value = raw[key];
     return typeof value === 'string' && value.trim().length > 0 ? value.trim() : fallback;
@@ -533,15 +588,253 @@ function readConfig(raw: Record<string, unknown>, targetUrl: string | null): Lad
   const pageSize = toNumber(raw.pageSize);
 
   return {
-    webBaseUrl: str('webBaseUrl', DEFAULTS.webBaseUrl).replace(/\/+$/, ''),
+    webBaseUrl: str('webBaseUrl', options.webBaseUrl).replace(/\/+$/, ''),
     // Shopify recorta a 250 en silencio: mas vale pedir lo que va a dar.
     pageSize:
-      pageSize !== null && pageSize > 0 ? Math.min(Math.floor(pageSize), MAX_PAGE_SIZE) : DEFAULTS.pageSize,
+      pageSize !== null && pageSize > 0 ? Math.min(Math.floor(pageSize), MAX_PAGE_SIZE) : DEFAULT_PAGE_SIZE,
     // El handle puede venir en la config o deducirse de la url del target.
-    collectionHandle: str('collectionHandle', handleFromUrl(targetUrl) ?? DEFAULTS.collectionHandle),
-    categoryHandles: readStringArray(raw.categoryHandles) ?? [...DEFAULT_CATEGORY_HANDLES],
+    collectionHandle: str('collectionHandle', handleFromUrl(targetUrl) ?? DEFAULT_COLLECTION_HANDLE),
+    categoryHandles: readStringArray(raw.categoryHandles) ?? [...options.categoryHandles],
     includeUncategorized: raw.includeUncategorized !== false,
     syncCategories: raw.syncCategories !== false,
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Fabrica de estrategias Shopify
+// -----------------------------------------------------------------------------
+
+/**
+ * Construye una estrategia para una tienda Shopify. Ladylee y Okashi son dos
+ * configuraciones de esta misma fabrica: el barrido, la paginacion, la
+ * deduplicacion y la lectura de config son identicos; solo cambian el dominio,
+ * las colecciones del menu y lo que cada tienda agrega a la ficha.
+ */
+export function createShopifyStrategy(options: ShopifyStrategyOptions): ScrapeStrategy {
+  const label = (handle: string, shopifyTitle?: string | null) =>
+    categoryLabel(handle, shopifyTitle, options.categoryLabels);
+  const mapOptions = { keepRaw: options.keepRaw };
+
+  return {
+    key: options.key,
+    label: options.label,
+    supports: ['full_catalog', 'category'],
+    configSchema: [
+      {
+        key: 'collectionHandle',
+        label: 'Handle de la coleccion',
+        example: options.categoryHandles[0] ?? 'all',
+        description:
+          'Solo para targets de tipo categoria. Es el segmento de /collections/<handle>. Si el target tiene url, se deduce de ahi.',
+      },
+      {
+        key: 'categoryHandles',
+        label: 'Categorias del catalogo completo',
+        example: JSON.stringify(options.categoryHandles.slice(0, 3)),
+        description: `Solo para full_catalog: colecciones que se recorren para que cada producto llegue con su categoria. Por defecto, las ${options.categoryHandles.length} del menu principal.`,
+      },
+      {
+        key: 'includeUncategorized',
+        label: 'Barrer tambien /collections/all',
+        example: 'true',
+        description:
+          'Recoge los productos que no cuelgan de ninguna categoria del menu. Dejalo en true: sin eso el barrido no cubre el catalogo y dar de baja lo ausente borraria articulos validos.',
+      },
+      {
+        key: 'pageSize',
+        label: 'Articulos por peticion',
+        example: '250',
+        description: 'Maximo aceptado por Shopify: 250.',
+      },
+      {
+        key: 'syncCategories',
+        label: 'Sincronizar categorias',
+        example: 'true',
+        description: 'Descarga el nombre y la imagen de cada coleccion recorrida (una peticion extra por coleccion).',
+      },
+    ],
+
+    async run(ctx: ScrapeContext): Promise<ScrapeResult> {
+      const config = readConfig(ctx.config, ctx.target.url, options);
+      const currency = ctx.store.default_currency || 'HNL';
+      const errors: NonNullable<ScrapeResult['errors']> = [];
+
+      // --- 1. Que colecciones recorrer --------------------------------------
+      // Una categoria barre solo la suya. El catalogo completo pasa por las del
+      // menu (para poblar la categoria) y cierra con "all", que recoge lo que
+      // no aparecio en ninguna. El orden importa: "all" va de ultimo porque la
+      // deduplicacion se queda con la primera aparicion, y esa es la que trae
+      // categoria.
+      const isFullCatalog = ctx.target.kind === 'full_catalog';
+      const handles = isFullCatalog
+        ? [...config.categoryHandles, ...(config.includeUncategorized ? [ALL_HANDLE] : [])]
+        : [config.collectionHandle];
+
+      const uniqueHandles = [...new Set(handles.filter((h) => h.length > 0))];
+      if (uniqueHandles.length === 0) {
+        throw new Error('No hay ninguna coleccion que recorrer: revisa collectionHandle / categoryHandles.');
+      }
+
+      const maxPagesPerCollection = Math.min(
+        ctx.target.max_pages ?? MAX_PAGES_PER_COLLECTION,
+        MAX_PAGES_PER_COLLECTION,
+      );
+
+      const products: NormalizedProduct[] = [];
+      const categories: NormalizedCategory[] = [];
+      const seen = new Set<string>();
+      const perCollection: Record<string, number> = {};
+      const declaredCounts: Record<string, number> = {};
+
+      // La categoria sintetica de "all" solo tiene sentido en el catalogo
+      // completo: ahi "all" trae lo que no cayo en ninguna del menu. En un
+      // target de categoria sobre /collections/all seria etiquetar todo.
+      const fallbackCategory =
+        isFullCatalog && config.includeUncategorized ? options.uncategorizedCategory : undefined;
+      if (fallbackCategory) {
+        categories.push({
+          external_id: fallbackCategory.external_id,
+          name: fallbackCategory.name,
+          slug: fallbackCategory.external_id,
+          url: `${config.webBaseUrl}/collections/${ALL_HANDLE}`,
+          level: 1,
+        });
+      }
+
+      let pagesFetched = 0;
+      let aborted = false;
+
+      for (const handle of uniqueHandles) {
+        if (aborted || pagesFetched >= MAX_PAGES_HARD_LIMIT) break;
+
+        // --- 2. Ficha de la coleccion (opcional, una peticion) ---------------
+        let categoryTitle: string | null = null;
+        if (config.syncCategories && handle !== ALL_HANDLE) {
+          try {
+            const payload = await ctx.http.getJson<{ collection?: ShopifyCollection }>(
+              `${config.webBaseUrl}/collections/${handle}.json`,
+            );
+            const collection = payload?.collection;
+            if (collection?.handle) {
+              categoryTitle = label(collection.handle, collection.title);
+              declaredCounts[handle] = collection.products_count ?? 0;
+              categories.push({
+                external_id: collection.handle,
+                name: categoryTitle,
+                slug: collection.handle,
+                url: `${config.webBaseUrl}/collections/${collection.handle}`,
+                level: 1,
+                // Referencial: Shopify cuenta aqui articulos que products.json
+                // no entrega, asi que no cuadra con lo que se guarda.
+                product_count: collection.products_count ?? null,
+                ...(options.keepRaw ? { raw: collection as unknown as Record<string, unknown> } : {}),
+              });
+            }
+          } catch (error) {
+            // No es fatal: sin el titulo los productos igual se guardan con el
+            // handle como categoria.
+            const message = error instanceof Error ? error.message : String(error);
+            errors.push({ stage: 'collection', message, meta: { handle } });
+            ctx.log('warn', `No se pudo leer la ficha de /collections/${handle}: ${message}`);
+          }
+        }
+
+        // --- 3. Paginado de productos ---------------------------------------
+        const categoryContext: LadyleeCategoryContext =
+          handle === ALL_HANDLE
+            ? fallbackCategory
+              ? { handle: fallbackCategory.external_id, title: fallbackCategory.name }
+              : { handle: null }
+            : { handle, title: categoryTitle ?? label(handle) };
+
+        let page = 1;
+        let collected = 0;
+        let completed = false;
+
+        while (page <= maxPagesPerCollection && pagesFetched < MAX_PAGES_HARD_LIMIT) {
+          if (ctx.signal.aborted) {
+            errors.push({ stage: 'paginate', message: 'Corrida abortada por limite de tiempo', meta: { handle, page } });
+            aborted = true;
+            break;
+          }
+
+          const url = `${config.webBaseUrl}/collections/${handle}/products.json?limit=${config.pageSize}&page=${page}`;
+          let payload: ShopifyProductsPage;
+          try {
+            payload = await ctx.http.getJson<ShopifyProductsPage>(url);
+          } catch (error) {
+            // Una pagina caida no tira la corrida entera: se registra y se
+            // corta esta coleccion. El error en la lista impide el markDelisted.
+            const message = error instanceof Error ? error.message : String(error);
+            errors.push({ stage: 'paginate', message, meta: { handle, page } });
+            ctx.log('error', `Fallo /collections/${handle} pagina ${page}: ${message}`);
+            break;
+          }
+
+          pagesFetched += 1;
+          const batch = Array.isArray(payload.products) ? payload.products : [];
+          if (batch.length === 0) {
+            completed = true;
+            break;
+          }
+
+          for (const item of batch) {
+            let mapped = mapShopifyProduct(item, config, currency, categoryContext, mapOptions);
+            if (mapped && options.enrich) mapped = options.enrich(mapped, item);
+            // Un articulo puede estar en varias colecciones: gana la primera,
+            // que es la mas especifica porque "all" se recorre al final.
+            if (mapped && !seen.has(mapped.external_id)) {
+              seen.add(mapped.external_id);
+              products.push(mapped);
+              collected += 1;
+            }
+          }
+
+          // Shopify no reporta el total: la ultima pagina es la que viene corta.
+          if (batch.length < config.pageSize) {
+            completed = true;
+            break;
+          }
+          page += 1;
+        }
+
+        perCollection[handle] = collected;
+
+        // Cortar por el tope de paginas deja el barrido incompleto. Se registra
+        // como error para que el runner NO de de baja lo que no llego a ver.
+        if (!completed && !aborted) {
+          const message = `Barrido incompleto de /collections/${handle}: se alcanzo el tope de ${maxPagesPerCollection} paginas`;
+          errors.push({ stage: 'paginate', message, meta: { handle, maxPagesPerCollection } });
+          ctx.log('warn', message);
+        }
+      }
+
+      if (pagesFetched >= MAX_PAGES_HARD_LIMIT) {
+        const message = `Se alcanzo el tope global de ${MAX_PAGES_HARD_LIMIT} paginas: el barrido puede estar incompleto`;
+        errors.push({ stage: 'paginate', message });
+        ctx.log('warn', message);
+      }
+
+      ctx.log('info', `${options.label}: ${products.length} articulos unicos en ${pagesFetched} peticiones de catalogo`, {
+        perCollection,
+      });
+
+      return {
+        products,
+        categories: categories.length > 0 ? categories : undefined,
+        pagesFetched,
+        errors,
+        stats: {
+          collections: uniqueHandles,
+          perCollection,
+          // Lo que Shopify dice tener por coleccion. Siempre mayor que lo
+          // entregado: incluye articulos no publicados en el canal web.
+          declaredCounts,
+          pageSize: config.pageSize,
+          includeUncategorized: isFullCatalog && config.includeUncategorized,
+        },
+      };
+    },
   };
 }
 
@@ -549,207 +842,11 @@ function readConfig(raw: Record<string, unknown>, targetUrl: string | null): Lad
 // Estrategia
 // -----------------------------------------------------------------------------
 
-export const ladyleeStrategy: ScrapeStrategy = {
+export const ladyleeStrategy: ScrapeStrategy = createShopifyStrategy({
   key: 'ladylee',
   label: 'Ladylee (Shopify JSON)',
-  supports: ['full_catalog', 'category'],
-  configSchema: [
-    {
-      key: 'collectionHandle',
-      label: 'Handle de la coleccion',
-      example: 'juguetes',
-      description:
-        'Solo para targets de tipo categoria. Es el segmento de /collections/<handle>. Si el target tiene url, se deduce de ahi.',
-    },
-    {
-      key: 'categoryHandles',
-      label: 'Categorias del catalogo completo',
-      example: '["juguetes","tecnologia","celulares"]',
-      description:
-        'Solo para full_catalog: colecciones que se recorren para que cada producto llegue con su categoria. Por defecto, las 13 del menu principal.',
-    },
-    {
-      key: 'includeUncategorized',
-      label: 'Barrer tambien /collections/all',
-      example: 'true',
-      description:
-        'Recoge los productos que no cuelgan de ninguna categoria del menu. Dejalo en true: sin eso el barrido no cubre el catalogo y dar de baja lo ausente borraria articulos validos.',
-    },
-    {
-      key: 'pageSize',
-      label: 'Articulos por peticion',
-      example: '250',
-      description: 'Maximo aceptado por Shopify: 250.',
-    },
-    {
-      key: 'syncCategories',
-      label: 'Sincronizar categorias',
-      example: 'true',
-      description: 'Descarga el nombre y la imagen de cada coleccion recorrida (una peticion extra por coleccion).',
-    },
-  ],
-
-  async run(ctx: ScrapeContext): Promise<ScrapeResult> {
-    const config = readConfig(ctx.config, ctx.target.url);
-    const currency = ctx.store.default_currency || 'HNL';
-    const errors: NonNullable<ScrapeResult['errors']> = [];
-
-    // --- 1. Que colecciones recorrer ----------------------------------------
-    // Una categoria barre solo la suya. El catalogo completo pasa por las del
-    // menu (para poblar la categoria) y cierra con "all", que recoge lo que no
-    // aparecio en ninguna. El orden importa: "all" va de ultimo porque la
-    // deduplicacion se queda con la primera aparicion, y esa es la que trae
-    // categoria.
-    const isFullCatalog = ctx.target.kind === 'full_catalog';
-    const handles = isFullCatalog
-      ? [...config.categoryHandles, ...(config.includeUncategorized ? [ALL_HANDLE] : [])]
-      : [config.collectionHandle];
-
-    const uniqueHandles = [...new Set(handles.filter((h) => h.length > 0))];
-    if (uniqueHandles.length === 0) {
-      throw new Error('No hay ninguna coleccion que recorrer: revisa collectionHandle / categoryHandles.');
-    }
-
-    const maxPagesPerCollection = Math.min(
-      ctx.target.max_pages ?? MAX_PAGES_PER_COLLECTION,
-      MAX_PAGES_PER_COLLECTION,
-    );
-
-    const products: NormalizedProduct[] = [];
-    const categories: NormalizedCategory[] = [];
-    const seen = new Set<string>();
-    const perCollection: Record<string, number> = {};
-    const declaredCounts: Record<string, number> = {};
-
-    let pagesFetched = 0;
-    let aborted = false;
-
-    for (const handle of uniqueHandles) {
-      if (aborted || pagesFetched >= MAX_PAGES_HARD_LIMIT) break;
-
-      // --- 2. Ficha de la coleccion (opcional, una peticion) -----------------
-      let categoryTitle: string | null = null;
-      if (config.syncCategories && handle !== ALL_HANDLE) {
-        try {
-          const payload = await ctx.http.getJson<{ collection?: ShopifyCollection }>(
-            `${config.webBaseUrl}/collections/${handle}.json`,
-          );
-          const collection = payload?.collection;
-          if (collection?.handle) {
-            categoryTitle = categoryLabel(collection.handle, collection.title);
-            declaredCounts[handle] = collection.products_count ?? 0;
-            categories.push({
-              external_id: collection.handle,
-              name: categoryTitle,
-              slug: collection.handle,
-              url: `${config.webBaseUrl}/collections/${collection.handle}`,
-              level: 1,
-              // Referencial: Shopify cuenta aqui articulos que products.json no
-              // entrega, asi que no cuadra con lo que se guarda. Ver cabecera.
-              product_count: collection.products_count ?? null,
-              raw: collection as unknown as Record<string, unknown>,
-            });
-          }
-        } catch (error) {
-          // No es fatal: sin el titulo los productos igual se guardan con el
-          // handle como categoria.
-          const message = error instanceof Error ? error.message : String(error);
-          errors.push({ stage: 'collection', message, meta: { handle } });
-          ctx.log('warn', `No se pudo leer la ficha de /collections/${handle}: ${message}`);
-        }
-      }
-
-      // --- 3. Paginado de productos -----------------------------------------
-      const categoryContext: LadyleeCategoryContext =
-        handle === ALL_HANDLE
-          ? { handle: null }
-          : { handle, title: categoryTitle ?? categoryLabel(handle) };
-
-      let page = 1;
-      let collected = 0;
-      let completed = false;
-
-      while (page <= maxPagesPerCollection && pagesFetched < MAX_PAGES_HARD_LIMIT) {
-        if (ctx.signal.aborted) {
-          errors.push({ stage: 'paginate', message: 'Corrida abortada por limite de tiempo', meta: { handle, page } });
-          aborted = true;
-          break;
-        }
-
-        const url = `${config.webBaseUrl}/collections/${handle}/products.json?limit=${config.pageSize}&page=${page}`;
-        let payload: ShopifyProductsPage;
-        try {
-          payload = await ctx.http.getJson<ShopifyProductsPage>(url);
-        } catch (error) {
-          // Una pagina caida no tira la corrida entera: se registra y se corta
-          // esta coleccion. El error en la lista impide el markDelisted.
-          const message = error instanceof Error ? error.message : String(error);
-          errors.push({ stage: 'paginate', message, meta: { handle, page } });
-          ctx.log('error', `Fallo /collections/${handle} pagina ${page}: ${message}`);
-          break;
-        }
-
-        pagesFetched += 1;
-        const batch = Array.isArray(payload.products) ? payload.products : [];
-        if (batch.length === 0) {
-          completed = true;
-          break;
-        }
-
-        for (const item of batch) {
-          const mapped = mapLadyleeProduct(item, config, currency, categoryContext);
-          // Un articulo puede estar en varias colecciones: gana la primera, que
-          // es la mas especifica porque "all" se recorre al final.
-          if (mapped && !seen.has(mapped.external_id)) {
-            seen.add(mapped.external_id);
-            products.push(mapped);
-            collected += 1;
-          }
-        }
-
-        // Shopify no reporta el total: la ultima pagina es la que viene corta.
-        if (batch.length < config.pageSize) {
-          completed = true;
-          break;
-        }
-        page += 1;
-      }
-
-      perCollection[handle] = collected;
-
-      // Cortar por el tope de paginas deja el barrido incompleto. Se registra
-      // como error para que el runner NO de de baja lo que no llego a ver.
-      if (!completed && !aborted) {
-        const message = `Barrido incompleto de /collections/${handle}: se alcanzo el tope de ${maxPagesPerCollection} paginas`;
-        errors.push({ stage: 'paginate', message, meta: { handle, maxPagesPerCollection } });
-        ctx.log('warn', message);
-      }
-    }
-
-    if (pagesFetched >= MAX_PAGES_HARD_LIMIT) {
-      const message = `Se alcanzo el tope global de ${MAX_PAGES_HARD_LIMIT} paginas: el barrido puede estar incompleto`;
-      errors.push({ stage: 'paginate', message });
-      ctx.log('warn', message);
-    }
-
-    ctx.log('info', `Ladylee: ${products.length} articulos unicos en ${pagesFetched} peticiones de catalogo`, {
-      perCollection,
-    });
-
-    return {
-      products,
-      categories: categories.length > 0 ? categories : undefined,
-      pagesFetched,
-      errors,
-      stats: {
-        collections: uniqueHandles,
-        perCollection,
-        // Lo que Shopify dice tener por coleccion. Siempre mayor que lo
-        // entregado: incluye articulos no publicados en el canal web.
-        declaredCounts,
-        pageSize: config.pageSize,
-        includeUncategorized: isFullCatalog && config.includeUncategorized,
-      },
-    };
-  },
-};
+  webBaseUrl: 'https://ladylee.net',
+  categoryHandles: DEFAULT_CATEGORY_HANDLES,
+  categoryLabels: CATEGORY_LABELS,
+  keepRaw: true,
+});

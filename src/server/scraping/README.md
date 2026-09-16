@@ -430,6 +430,8 @@ primera corrida contra 6 s la segunda**.
 | Cortar la paginación por el total que declara la tienda | Barrido incompleto o bucle de más | Verificá el total contra lo entregado. Shopify declara 11 837 en Ladylee y entrega 6 462: cuenta artículos sin publicar. |
 | Usar el campo `url` que trae la API sin mirarlo | Todas las fichas llevan al sitio de otro país | PriceSmart devuelve `.../site/cr/es/pagina-producto/50630` —**cr**, Costa Rica— para el catálogo hondureño, sea cual sea el `view_id`. Compará el campo contra el sitemap antes de confiar en él: que exista no quiere decir que sirva. |
 | `full_catalog` que no cubre todo el catálogo | `markDelisted` da de baja productos vivos | Si el barrido queda incompleto, devolvé un error no fatal: el runner ya se salta el delisting cuando `errors` no está vacío. |
+| Ordenar las colecciones del menú "como aparecen" | Una categoría queda en 0 y otra se la come | La deduplicación se queda con la **primera** aparición, así que las colecciones contenedoras van al final. En Okashi, `coleccionable` incluye a `cd-dvd` y `artbooks`: con ese orden CD/DVD quedó en 0 y Artbooks en 41 de 62. Mirá `perCollection` en `stats` de la primera corrida y compará contra lo que entrega cada colección sola. |
+| Dar por perdido el código de barras porque la API no lo trae | `barcode_raw` en null en toda la tienda, cruce por nombre | Buscá el número en la descripción antes de resignarte. Shopify no expone `barcode` en `products.json`, pero Okashi escribe "ISBN: 978…" y "JAN Code: 458…" en `body_html`: un ISBN-13 o un JAN **es** un EAN-13. Validá el dígito verificador: la tienda tenía ~80 mal tipeados que habrían emparejado con basura. |
 
 ### El corte que parte un emoji por la mitad
 
@@ -467,7 +469,8 @@ resuelto en `truncate` y `stripLoneSurrogates` de
 |---|---|
 | El contrato completo | [`types.ts`](./types.ts) |
 | Un ejemplo terminado (SPA + API privada) | [`strategies/diunsa.ts`](./strategies/diunsa.ts) |
-| Un ejemplo terminado (Shopify + catálogo por categorías) | [`strategies/ladylee.ts`](./strategies/ladylee.ts) |
+| Un ejemplo terminado (Shopify + catálogo por categorías) y la fábrica `createShopifyStrategy` | [`strategies/ladylee.ts`](./strategies/ladylee.ts) |
+| Una tienda Shopify que **reusa** la fábrica (sin `raw`, ISBN/JAN sacados de la descripción, categoría sintética para lo que solo está en `all`) | [`strategies/okashi.ts`](./strategies/okashi.ts) |
 | Un ejemplo terminado (VTEX + reparto por subcategorías) | [`strategies/walmarthn.ts`](./strategies/walmarthn.ts) |
 | Una tienda que **reusa** la estrategia de otra (misma cuenta VTEX, sin `raw`) | [`strategies/paiz.ts`](./strategies/paiz.ts) |
 | Un ejemplo terminado (Bloomreach Discovery vía el proxy del propio sitio) | [`strategies/pricesmart.ts`](./strategies/pricesmart.ts) |
