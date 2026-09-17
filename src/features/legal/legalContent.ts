@@ -14,7 +14,7 @@ import type { SitePage } from "@/features/i18n/routes";
  *
  * Lo que se afirma acá describe lo que el sistema hace de verdad. Si cambia el
  * comportamiento del scraper (server/scraping/http.ts) o lo que se guarda en el
- * navegador (features/products/viewPreferences.ts y compareTray.ts), este
+ * navegador (features/products/compareTray.ts y favorites.ts), este
  * archivo cambia con ellos: una política que describe algo que ya no es cierto
  * es peor que no tener política.
  */
@@ -129,7 +129,6 @@ const privacyEs: LegalDoc = {
       ],
       list: [
         "El tema claro u oscuro que elegiste.",
-        "Cómo preferís ver el catálogo: lista, cuadrícula, galería o comparación, y el tamaño de las fichas.",
         "Los productos que apartaste en la bandeja de comparación.",
       ],
     },
@@ -317,7 +316,6 @@ const privacyEn: LegalDoc = {
       ],
       list: [
         "The light or dark theme you picked.",
-        "How you prefer to view the catalogue — list, grid, gallery or comparison — and the card size.",
         "The products you set aside in the comparison tray.",
       ],
     },

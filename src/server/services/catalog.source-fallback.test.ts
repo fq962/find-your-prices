@@ -14,7 +14,7 @@ vi.mock("@/server/db/supabase", () => {
   function builder(table: string): Record<string, unknown> {
     const chain: Record<string, unknown> = {};
     const self = () => chain;
-    for (const method of ["select", "not", "eq", "in", "is", "or", "gt", "textSearch", "gte", "lte", "order", "range"]) {
+    for (const method of ["select", "not", "eq", "in", "is", "or", "gt", "textSearch", "like", "gte", "lte", "order", "range"]) {
       chain[method] = self;
     }
     chain.then = (resolve: (value: unknown) => void) => {
@@ -56,13 +56,21 @@ beforeEach(() => {
 
 describe("fuente del catálogo", () => {
   test("sin la materializada baja a la vista y responde; después ya no la vuelve a pedir", async () => {
+    // Con texto y orden "newest" la búsqueda va en capas (ver runCatalogQuery):
+    // una cuenta de los que empiezan por "tv", sus filas, y las del resto.
+    // El doble responde 7 a cada cuenta, así que el total es 7 + 7. Lo que
+    // se comprueba acá es la fuente: la primera petición va a la
+    // materializada, falla, y TODAS las siguientes van a la vista.
     const first = await searchCatalog({ query: "tv", sort: "newest" });
-    expect(first.total).toBe(7);
-    expect(state.tables).toEqual(["mv_catalog", "v_store_products_current"]);
+    expect(first.total).toBe(14);
+    expect(state.tables[0]).toBe("mv_catalog");
+    expect(state.tables.slice(1).every((table) => table === "v_store_products_current")).toBe(true);
+    expect(state.tables.length).toBeGreaterThan(1);
 
     state.tables = [];
     const second = await searchCatalog({ query: "tv", sort: "newest" });
-    expect(second.total).toBe(7);
-    expect(state.tables).toEqual(["v_store_products_current"]);
+    expect(second.total).toBe(14);
+    expect(state.tables.every((table) => table === "v_store_products_current")).toBe(true);
+    expect(state.tables.length).toBeGreaterThan(0);
   });
 });

@@ -177,7 +177,12 @@ export function ProductDetailView({ product, related, locale }: ProductDetailVie
         </BackToCatalogLink>
       </nav>
 
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-14">
+      {/* `minmax(0,1fr)` también en una sola columna: la columna implícita
+          de una retícula es `auto`, y su ancho mínimo es el del contenido
+          más ancho —la tira de miniaturas, que no se encoge—. En teléfono
+          eso estiraba la columna a 424px dentro de 375 y toda la página se
+          desplazaba en horizontal. Con mínimo cero, la tira se desplaza sola. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-14">
         {/* Columna izquierda: la imagen manda -------------------------------- */}
         <div className="enter" style={{ ["--enter-delay" as string]: "80ms" }}>
           <ProductGallery
@@ -282,7 +287,7 @@ export function ProductDetailView({ product, related, locale }: ProductDetailVie
           <FavoriteToggle
             product={product}
             labels={{ add: copy.favoriteAdd, remove: copy.favoriteRemove }}
-            className="[&>button]:h-12 [&>button]:w-12 [&_svg]:h-5 [&_svg]:w-5"
+            className="[&>button]:h-12 [&>button]:w-12 [&>button[aria-pressed=false]]:border-[var(--border)] [&>button[aria-pressed=false]]:bg-[var(--bg-elevated)] [&>button[aria-pressed=false]]:text-[var(--text-secondary)] [&_svg]:h-5 [&_svg]:w-5"
           />
           </div>
 
@@ -370,8 +375,6 @@ export function ProductDetailView({ product, related, locale }: ProductDetailVie
                 <ProductTile
                   product={item}
                   href={item.slug ? productPath(locale, item.slug) : (item.url ?? "#")}
-                  mode="grid"
-                  density="cosy"
                   locale={priceLocale}
                   favoriteLabels={{ add: copy.favoriteAdd, remove: copy.favoriteRemove }}
                 />

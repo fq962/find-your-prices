@@ -80,7 +80,7 @@ export function FavoriteToggle({
         } transition-[background-color,border-color,color,transform] duration-[var(--dur-fast)] ease-[var(--ease-spring)] focus-visible:ring-2 focus-visible:ring-[var(--favorite)] active:scale-90 ${
           isSelected
             ? "border-[var(--favorite)] bg-[var(--favorite-soft)] text-[var(--favorite)]"
-            : "border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--text-tertiary)] hover:border-[var(--favorite)] hover:text-[var(--favorite)]"
+            : "border-transparent bg-transparent text-neutral-500 hover:text-[var(--favorite)]"
         }`}
       >
         <svg

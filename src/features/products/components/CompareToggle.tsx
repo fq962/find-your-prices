@@ -89,7 +89,7 @@ export function CompareToggle({
         } transition-[background-color,border-color,color,transform] duration-[var(--dur-fast)] ease-[var(--ease-spring)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 ${
           isSelected
             ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-contrast)]"
-            : "border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--text-tertiary)] hover:border-[var(--border-strong)] hover:text-[var(--text)]"
+            : "border-transparent bg-transparent text-neutral-500 hover:text-neutral-900"
         }`}
       >
         <svg

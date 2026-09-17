@@ -46,13 +46,10 @@ export function PopularProducts({ products, locale, label }: PopularProductsProp
       // Igual que ProductSearchApp: "es-HN" imprime "L 299.00", "es" a secas
       // imprime "299,00 HNL".
       locale={locale === "en" ? "en-HN" : "es-HN"}
-      mode="grid"
-      density="compact"
+      columns={4}
       productHref={href}
       compareLabels={compareLabels}
       favoriteLabels={favoriteLabels}
-      viewLargerImageLabel={t("viewLargerImageLabel")}
-      closeImageLabel={t("closeImageLabel")}
       label={label}
     />
   );

@@ -4,8 +4,10 @@ import Link from "next/link";
 import { SHELL } from "@/components/layout/shell";
 import { siteConfig } from "@/config/site";
 import { useLocale } from "@/features/i18n/LocaleContext";
+import { LocaleSwitcher } from "@/features/i18n/LocaleSwitcher";
 import { routeFor, type SitePage } from "@/features/i18n/routes";
 import type { Locale } from "@/features/i18n/translate";
+import { ThemeToggle } from "@/features/theme/ThemeToggle";
 
 /**
  * Pie de página.
@@ -39,12 +41,22 @@ const LABELS: Record<Locale, Record<SitePage, string>> = {
   },
 };
 
+const THEME_LABEL: Record<Locale, string> = {
+  es: "Cambiar el tema de color",
+  en: "Switch color theme",
+};
+
 const TAGLINE: Record<Locale, string> = {
   es: "Comparador de precios de Honduras. No vendemos nada.",
   en: "Price comparison for Honduras. We sell nothing.",
 };
 
-export function SiteFooter() {
+export interface SiteFooterProps {
+  /** La página actual en cada idioma, para el selector de idioma de teléfono. */
+  localePaths?: Record<Locale, string>;
+}
+
+export function SiteFooter({ localePaths }: SiteFooterProps = {}) {
   const { locale } = useLocale();
 
   return (
@@ -60,6 +72,14 @@ export function SiteFooter() {
           <p className="mt-2 text-[0.8125rem] tabular-nums text-[var(--text-tertiary)] opacity-70">
             © {new Date().getFullYear()}
           </p>
+        </div>
+
+        {/* Idioma y tema viven en la barra de navegación a partir de `sm`; en
+            teléfono la barra no tiene sitio —son logo, buscador y categorías—
+            y los dos controles bajan acá, donde no compiten con nada. */}
+        <div className="flex items-center gap-2.5 sm:hidden">
+          <LocaleSwitcher paths={localePaths} />
+          <ThemeToggle label={THEME_LABEL[locale]} />
         </div>
 
         <nav aria-label={LABELS[locale].about}>

@@ -14,7 +14,7 @@ import {
 
 /**
  * Contrato de la bandeja de comparación (módulo puro + persistencia, hermano
- * de `viewPreferences`):
+ * de `favorites`):
  *
  *   - `toggleInTray` agrega si no está y quita si está; NUNCA muta la entrada.
  *   - Con la bandeja llena, agregar algo nuevo devuelve la MISMA referencia:

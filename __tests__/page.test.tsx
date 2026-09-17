@@ -72,9 +72,31 @@ vi.mock("@/server/services/catalog", () => ({
   }),
 }));
 
+// La barra de navegación lleva el buscador del sitio, que decide entre filtrar
+// en la portada y navegar hacia ella leyendo la ruta actual. Fuera de Next no
+// hay router montado, así que se sustituye por uno que siempre está en la
+// portada del idioma que se renderiza.
+vi.mock("next/navigation", () => ({
+  usePathname: () => currentPath,
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+}));
+let currentPath = "/";
+
 /** Renderiza un Server Component asíncrono resolviéndolo antes. */
 async function renderPage(Page: () => Promise<React.ReactElement>) {
+  currentPath = Page === EnglishPage ? "/en" : "/";
   return render(await Page());
+}
+
+/**
+ * La barra de navegación: la primera `<nav>` del documento.
+ *
+ * El selector de idioma está dos veces en el DOM —en la barra a partir de
+ * `sm`, y en el pie en teléfono, donde la barra no tiene sitio—. En el
+ * navegador sólo uno se ve; jsdom no aplica CSS, así que hay que acotar.
+ */
+function siteNav(): HTMLElement {
+  return screen.getAllByRole("navigation")[0];
 }
 
 const ROUTES = [
@@ -111,7 +133,9 @@ describe.each(ROUTES)("Home $name", ({ Page, dict }) => {
     // verificables en jsdom (no hay motor de layout) — queda para code review.
     const { container } = await renderPage(Page);
 
-    const searchbox = screen.getByRole("searchbox");
+    // El buscador vive en la barra de navegación y ofrece sugerencias, así
+    // que es un combobox y no una caja de búsqueda a secas.
+    const searchbox = screen.getByRole("combobox", { name: dict.searchPlaceholder });
     // Tienda y categoría dejaron de ser <select> en la barra superior: ahora
     // son secciones del panel de facetas. Lo que se ancla es su encabezado,
     // que es lo que está siempre en el documento —el contenido de una sección
@@ -160,9 +184,9 @@ describe.each(ROUTES)("Home $name", ({ Page, dict }) => {
       expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     });
 
-    test("expone un searchbox con nombre accesible", async () => {
+    test("expone un buscador con nombre accesible", async () => {
       await renderPage(Page);
-      expect(screen.getByRole("searchbox", { name: dict.searchPlaceholder })).toBeInTheDocument();
+      expect(screen.getByRole("combobox", { name: dict.searchPlaceholder })).toBeInTheDocument();
     });
 
     test("expone el orden como combobox y las facetas como grupos de radios", async () => {
@@ -185,13 +209,18 @@ describe.each(ROUTES)("Home $name", ({ Page, dict }) => {
         expect(section).toHaveAttribute("aria-controls");
       }
 
-      const comboboxes = [screen.getByRole("combobox", { name: dict.sortLabel })];
+      // Dos desplegables: el buscador (con sugerencias) y el orden. El orden
+      // está dos veces en el DOM —barra lateral y hoja de teléfono— pero la
+      // hoja sólo se monta al abrirla, así que acá hay uno.
+      const comboboxes = [
+        screen.getByRole("combobox", { name: dict.searchPlaceholder }),
+        screen.getByRole("combobox", { name: dict.sortLabel }),
+      ];
 
       for (const combobox of comboboxes) {
         expect(combobox).toBeInTheDocument();
       }
-      // El orden es el único desplegable que queda en la página.
-      expect(screen.getAllByRole("combobox")).toHaveLength(1);
+      expect(screen.getAllByRole("combobox")).toHaveLength(comboboxes.length);
     });
 
     test("expone una lista con un item por producto del fixture", async () => {
@@ -204,8 +233,9 @@ describe.each(ROUTES)("Home $name", ({ Page, dict }) => {
     test("expone un LocaleSwitcher con enlaces EN/ES alcanzables por nombre", async () => {
       await renderPage(Page);
 
-      const enLink = screen.getByRole("link", { name: "EN" });
-      const esLink = screen.getByRole("link", { name: "ES" });
+      const nav = siteNav();
+      const enLink = within(nav).getByRole("link", { name: "EN" });
+      const esLink = within(nav).getByRole("link", { name: "ES" });
 
       expect(enLink).toBeInTheDocument();
       expect(esLink).toBeInTheDocument();
@@ -224,7 +254,7 @@ describe("cada ruta sirve su propio idioma", () => {
   test("/ renderiza la copia en español, no la inglesa", async () => {
     await renderPage(SpanishPage);
 
-    expect(screen.getByRole("searchbox", { name: es.searchPlaceholder })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: es.searchPlaceholder })).toBeInTheDocument();
     expect(screen.getByText(es.heroTagline)).toBeInTheDocument();
     expect(screen.queryByText(en.heroTagline)).not.toBeInTheDocument();
   });
@@ -232,20 +262,20 @@ describe("cada ruta sirve su propio idioma", () => {
   test("/en renderiza la copia en inglés, no la española", async () => {
     await renderPage(EnglishPage);
 
-    expect(screen.getByRole("searchbox", { name: en.searchPlaceholder })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: en.searchPlaceholder })).toBeInTheDocument();
     expect(screen.getByText(en.heroTagline)).toBeInTheDocument();
     expect(screen.queryByText(es.heroTagline)).not.toBeInTheDocument();
   });
 
   test("el LocaleSwitcher marca como actual el idioma de la ruta visible", async () => {
     const { unmount } = await renderPage(SpanishPage);
-    expect(screen.getByRole("link", { name: "ES" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "EN" })).not.toHaveAttribute("aria-current");
+    expect(within(siteNav()).getByRole("link", { name: "ES" })).toHaveAttribute("aria-current", "page");
+    expect(within(siteNav()).getByRole("link", { name: "EN" })).not.toHaveAttribute("aria-current");
     unmount();
 
     await renderPage(EnglishPage);
-    expect(screen.getByRole("link", { name: "EN" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "ES" })).not.toHaveAttribute("aria-current");
+    expect(within(siteNav()).getByRole("link", { name: "EN" })).toHaveAttribute("aria-current", "page");
+    expect(within(siteNav()).getByRole("link", { name: "ES" })).not.toHaveAttribute("aria-current");
   });
 });
 

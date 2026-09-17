@@ -8,6 +8,7 @@ import { LocaleSwitcher } from "@/features/i18n/LocaleSwitcher";
 import { useLocale } from "@/features/i18n/LocaleContext";
 import { routeFor } from "@/features/i18n/routes";
 import type { Locale } from "@/features/i18n/translate";
+import { SiteSearch } from "@/features/products/components/SiteSearch";
 import { useFavorites } from "@/features/products/useFavorites";
 import { ThemeToggle } from "@/features/theme/ThemeToggle";
 
@@ -62,13 +63,13 @@ export function SiteNav({ localePaths }: SiteNavProps = {}) {
           : "border-b border-transparent"
       }`}
     >
-      <div className={`${SHELL} flex h-full items-center justify-between`}>
+      <div className={`${SHELL} flex h-full items-center gap-3 sm:gap-4`}>
         {/* El logo lleva al catálogo. Desde que existen páginas que no son la
             portada, era la única salida de vuelta y no estaba. */}
         <Link
           href={routeFor("home", locale)}
           aria-label={HOME_LABEL[locale] ?? HOME_LABEL.en}
-          className="-m-2 rounded-full p-2 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          className="-m-2 shrink-0 rounded-full p-2 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >
           <svg
             aria-hidden="true"
@@ -85,17 +86,47 @@ export function SiteNav({ localePaths }: SiteNavProps = {}) {
           </svg>
         </Link>
 
-        {/* La única entrada de texto de la barra: el árbol de categorías es
-            la segunda puerta del sitio después del buscador, y un rastreador
-            tiene que encontrarla desde cualquier página. */}
+        {/* El buscador va en la barra y no en la página: es la acción
+            principal del sitio y tiene que estar a mano en todas las páginas
+            y a cualquier altura del scroll. En teléfono ocupa todo lo que
+            queda entre el logo y el icono de categorías; en escritorio se
+            acota para que no se convierta en una línea de un metro. */}
+        <div className="min-w-0 flex-1 lg:mx-auto lg:max-w-[34rem]">
+          <SiteSearch />
+        </div>
+
+        {/* El árbol de categorías es la segunda puerta del sitio después del
+            buscador, y un rastreador tiene que encontrarla desde cualquier
+            página. En teléfono es sólo el icono —el texto no cabe junto al
+            buscador—; el nombre sigue ahí para el lector de pantalla. */}
         <Link
           href={routeFor("categories", locale)}
-          className="ml-4 mr-auto rounded-full px-2.5 py-1.5 text-[0.8125rem] font-medium tracking-[-0.01em] text-[var(--text-secondary)] outline-none transition-colors duration-[var(--dur-fast)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          aria-label={CATEGORIES_LABEL[locale] ?? CATEGORIES_LABEL.en}
+          title={CATEGORIES_LABEL[locale] ?? CATEGORIES_LABEL.en}
+          className="-m-1 flex h-9 shrink-0 items-center gap-1.5 rounded-full px-1 text-[0.8125rem] font-medium tracking-[-0.01em] text-[var(--text-secondary)] outline-none transition-colors duration-[var(--dur-fast)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:px-2.5"
         >
-          {CATEGORIES_LABEL[locale] ?? CATEGORIES_LABEL.en}
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-[20px] w-[20px]"
+          >
+            <rect x="3.5" y="3.5" width="7" height="7" rx="1.6" />
+            <rect x="13.5" y="3.5" width="7" height="7" rx="1.6" />
+            <rect x="3.5" y="13.5" width="7" height="7" rx="1.6" />
+            <rect x="13.5" y="13.5" width="7" height="7" rx="1.6" />
+          </svg>
+          <span className="hidden sm:inline">{CATEGORIES_LABEL[locale] ?? CATEGORIES_LABEL.en}</span>
         </Link>
 
-        <div className="flex items-center gap-2.5">
+        {/* En teléfono la barra son tres cosas: logo, buscador y categorías.
+            Favoritos, idioma y tema bajan al pie de página, donde caben; a
+            partir de `sm` vuelven acá. */}
+        <div className="hidden items-center gap-2.5 sm:flex">
           {/* El corazón de la barra es la puerta a "Mis favoritos" y a la vez
               el contador: se ve cuántos hay sin entrar. En el servidor y hasta
               hidratar el contador es 0 y no se pinta, así el HTML coincide. */}

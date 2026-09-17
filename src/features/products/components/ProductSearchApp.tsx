@@ -1,39 +1,21 @@
 "use client";
 
-import {
-  useCallback,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-  type CSSProperties,
-} from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import type { Product } from "@/types";
 import type { FacetOption } from "@/features/products/categoryFacets";
 import { useLocale } from "@/features/i18n/LocaleContext";
 import { filterProducts, getFacets } from "@/features/products/filterProducts";
 import { productPath } from "@/features/products/productPath";
 import { DEFAULT_SORT, sortProducts, type SortOption } from "@/features/products/sortProducts";
-import {
-  clampCompareColumns,
-  getViewPreferencesServerSnapshot,
-  getViewPreferencesSnapshot,
-  MAX_COMPARE_COLUMNS,
-  subscribeToViewPreferences,
-  writeViewPreferences,
-  type Density,
-  type ViewMode,
-} from "@/features/products/viewPreferences";
-import { useStoreComparison } from "@/features/products/useStoreComparison";
 import { useCatalogFeed } from "@/features/products/useCatalogFeed";
+import type { Suggestion } from "@/features/products/useSearchSuggestions";
+import { categoryPaths } from "@/lib/seo/categorySeo";
 import { SearchBar } from "./SearchBar";
 import { SortFilter } from "./SortFilter";
 import { FilterSidebar } from "./FilterSidebar";
 import { FilterSheet } from "./FilterSheet";
 import { ProductGrid } from "./ProductGrid";
-import { CatalogControls } from "./CatalogControls";
 import { CatalogFeedFooter } from "./CatalogFeedFooter";
-import { CompareBar } from "./CompareBar";
-import { CompareGrid } from "./CompareGrid";
 import { CompareTrayDock } from "./CompareTrayDock";
 import { ProductComparisonDialog } from "./ProductComparisonDialog";
 import { useCompareTray } from "@/features/products/useCompareTray";
@@ -81,6 +63,15 @@ export interface ProductSearchAppProps {
    * acotadas desde la ruta.
    */
   scopeCategory?: string;
+  /**
+   * Pintar la caja de búsqueda encima de los resultados.
+   *
+   * La portada la apaga: ahí el buscador vive en la barra de navegación, que
+   * escribe en la misma URL que este componente lee. Una página de categoría
+   * la deja puesta, porque su buscador está acotado a la categoría y el de la
+   * barra no.
+   */
+  showSearch?: boolean;
 }
 
 /**
@@ -105,21 +96,11 @@ export function ProductSearchApp({
   remoteSearch = false,
   locale,
   scopeCategory,
+  showSearch = true,
 }: ProductSearchAppProps) {
   const { t } = useLocale();
 
   const [showFilters, setShowFilters] = useState(false);
-  /**
-   * Tienda de cada columna de comparación, por posición. Se guardan las cuatro
-   * aunque se vean menos: bajar de 4 a 2 columnas y volver a subir no debería
-   * borrar lo que ya se había elegido.
-   *
-   * `null` significa "nadie ha tocado esto todavía", que no es lo mismo que
-   * "las cuatro vacías": con `null` mandan las tiendas sembradas por defecto, y
-   * en cuanto se elige una vez el array pasa a ser la verdad, incluso si se
-   * deja alguna columna en blanco a propósito.
-   */
-  const [compareStores, setCompareStores] = useState<(string | undefined)[] | null>(null);
 
   // ---------------------------------------------------------------------------
   // La búsqueda, las facetas y el orden viven en la URL
@@ -189,28 +170,25 @@ export function ProductSearchApp({
     [updateCatalog],
   );
 
-  // Las preferencias viven en localStorage, que es estado externo y mutable:
-  // useSyncExternalStore es la herramienta para eso. En el servidor devuelve
-  // los valores por defecto, así que el HTML servidor/cliente coincide y no hay
-  // fallo de hidratación; React reconcilia con el valor real tras montar.
-  const view = useSyncExternalStore(
-    subscribeToViewPreferences,
-    getViewPreferencesSnapshot,
-    getViewPreferencesServerSnapshot,
-  );
-
-  const updateView = useCallback(
-    (next: { mode?: ViewMode; density?: Density; compareColumns?: number }) => {
-      writeViewPreferences({ ...view, ...next });
+  /**
+   * Una sugerencia elegida en la caja de esta página. Un artículo ya puso su
+   * nombre en la caja; una tienda es un filtro; una categoría es su página.
+   *
+   * A la categoría se va con una navegación completa y no con el router de
+   * Next: este componente también se monta fuera de la app (pruebas), donde
+   * no hay router, y una página de categoría se sirve entera de todos modos.
+   */
+  const onSelectSuggestion = useCallback(
+    (suggestion: Suggestion) => {
+      if (suggestion.kind === "store") updateCatalog({ query: "", store: [suggestion.name] });
+      if (suggestion.kind === "category") {
+        window.location.assign(categoryPaths(suggestion.slug)[locale === "en" ? "en" : "es"]);
+      }
     },
-    [view],
+    [updateCatalog, locale],
   );
 
-  const isComparing = view.mode === "compare";
-  /** Modo que entiende la retícula: comparar no es uno de sus modos. */
-  const gridMode = view.mode === "compare" ? "list" : view.mode;
-
-  // Sin locale explícito se deja que ProductCard use su default: es lo que
+  // Sin locale explícito se deja que la ficha use su default: es lo que
   // esperan las pruebas del componente, que lo montan sin idioma.
   const priceLocale = locale ? (PRICE_LOCALES[locale] ?? locale) : undefined;
 
@@ -258,9 +236,9 @@ export function ProductSearchApp({
   // ---------------------------------------------------------------------------
   // Bandeja de comparación de productos
   //
-  // Es la otra comparación: no "qué tiene cada tienda" sino "cuál de estos
-  // cuatro artículos me conviene". Vive en su propio store persistido para que
-  // la selección sobreviva a cambiar de filtro, de vista y de sesión.
+  // "Cuál de estos cuatro artículos me conviene". Vive en su propio store
+  // persistido para que la selección sobreviva a cambiar de filtro y de
+  // sesión.
   // ---------------------------------------------------------------------------
 
   const tray = useCompareTray();
@@ -286,68 +264,6 @@ export function ProductSearchApp({
     tray.clear();
     setIsComparisonOpen(false);
   }
-
-  // ---------------------------------------------------------------------------
-  // Comparación por tienda
-  // ---------------------------------------------------------------------------
-
-  const compareColumnCount = clampCompareColumns(view.compareColumns);
-
-  /**
-   * Selección efectiva de tiendas.
-   *
-   * Sin elección previa se siembra con las tiendas más grandes del catálogo
-   * (las facetas ya llegan ordenadas por cantidad). Abrir la vista en blanco y
-   * exigir dos decisiones antes de mostrar nada la haría parecer rota; con
-   * tiendas puestas se ve la forma de entrada y cambiarlas es un gesto, no un
-   * requisito. Se deriva en vez de sembrarse desde un efecto: un efecto que
-   * escribe estado en el primer render sólo agrega un render de más.
-   */
-  const seededCompareStores = useMemo(
-    () => compareStores ?? Array.from({ length: MAX_COMPARE_COLUMNS }, (_, i) => stores[i]),
-    [compareStores, stores],
-  );
-
-  /**
-   * Orden dentro de cada columna.
-   *
-   * "Recién agregados" y "Destacados" no significan nada enfrentados entre
-   * tiendas —cada una publica a su ritmo—, así que en esta vista se traducen a
-   * precio ascendente, que es la pregunta que la comparación viene a
-   * responder. Cualquier otro criterio elegido a mano se respeta tal cual.
-   */
-  const compareSort: SortOption = sort === "newest" || sort === "relevance" ? "price-asc" : sort;
-
-  /**
-   * Filtros comunes a todas las columnas. Va sin `store` a propósito: esa es
-   * justamente la variable que cambia de una columna a otra.
-   */
-  const compareBaseQuery = useMemo(() => {
-    const params = new URLSearchParams();
-    if (query.trim()) params.set("q", query.trim());
-    for (const value of effectiveCategory) params.append("category", value);
-    for (const value of filters.brand) params.append("brand", value);
-    if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
-    if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
-    if (filters.onlyDiscounted) params.set("onlyDiscounted", "1");
-    if (filters.includeUnavailable) params.set("includeUnavailable", "1");
-    params.set("sort", compareSort);
-    if (locale) params.set("locale", locale);
-    return params.toString();
-  }, [query, effectiveCategory, filters, compareSort, locale]);
-
-  const visibleCompareStores = useMemo(
-    () => seededCompareStores.slice(0, compareColumnCount),
-    [seededCompareStores, compareColumnCount],
-  );
-
-  const comparisonColumns = useStoreComparison({
-    enabled: isComparing,
-    stores: visibleCompareStores,
-    baseQuery: compareBaseQuery,
-    remoteSearch,
-    localProducts: initialProducts,
-  });
 
   const activeExtraFilters = countActiveFilters(filters);
 
@@ -500,241 +416,185 @@ export function ProductSearchApp({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* La búsqueda se pega bajo la navegación, sola y a todo el ancho. Es la
-          acción principal del sitio y ya no comparte línea con los selectores:
-          esos se fueron a la barra lateral, que es donde se pueden ver todos a
-          la vez en lugar de tres píldoras que esconden su contenido. */}
-      <div
-        className="enter sticky top-14 z-30 -mx-4 bg-[var(--glass)] px-4 py-3 backdrop-blur-xl sm:mx-0 sm:rounded-2xl sm:border sm:border-[var(--border)] sm:px-3"
-        style={{ "--enter-delay": "560ms" } as CSSProperties}
-      >
-        <SearchBar value={query} onQueryChange={setQuery} />
-      </div>
-
-      {isComparing && (
-        <CompareBar
-          stores={stores}
-          columnCount={compareColumnCount}
-          onColumnCountChange={(count) => updateView({ compareColumns: count })}
-          selection={seededCompareStores}
-          onSelectionChange={(index, store) => {
-            const next = [...seededCompareStores];
-            next[index] = store;
-            setCompareStores(next);
-          }}
-        />
+      {/* La caja de búsqueda de la página, sólo donde la barra de navegación
+          no la cubre (ver `showSearch`). */}
+      {showSearch && (
+        <div className="py-1">
+          <SearchBar
+            value={query}
+            onQueryChange={setQuery}
+            suggest={remoteSearch}
+            onSelectSuggestion={onSelectSuggestion}
+          />
+        </div>
       )}
 
       {/* Dos columnas a partir de lg: facetas fijas a la izquierda, resultados
           a la derecha. Por debajo de ese ancho la columna de filtros no cabe
           sin robarle al catálogo la mitad de la pantalla, así que se convierte
-          en la hoja a pantalla completa.
+          en la hoja a pantalla completa, y el botón que la abre va a la
+          derecha de la línea de estado. */}
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[16.5rem_minmax(0,1fr)]">
+        <aside className="hidden lg:block">
+          {/* El panel crece hasta donde le haga falta y se desplaza con la
+              página, sin caja propia.
 
-          Comparar es la excepción y ocupa todo el ancho: cuatro columnas de
-          producto dentro de dos tercios de pantalla dejan el nombre del
-          artículo en tres palabras, y comparar deja de ser leer. */}
-      <div
-        className={
-          isComparing
-            ? "flex flex-col gap-4"
-            : "flex flex-col gap-4 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[16.5rem_minmax(0,1fr)]"
-        }
-      >
-        {!isComparing && (
-          <aside className="hidden lg:block">
-            {/* El panel crece hasta donde le haga falta y se desplaza con la
-                página, sin caja propia.
+              Antes tenía alto máximo y `overflow-y-auto`, y eso creaba tres
+              superficies de desplazamiento anidadas —la página, el panel y
+              cada lista de facetas—. La rueda actuaba sobre una o sobre otra
+              según dónde estuviera el puntero, y las secciones de abajo
+              quedaban escondidas detrás de una barra de cuatro píxeles. Se
+              pierde que los filtros queden fijos al desplazar; a cambio, todo
+              lo que hay se ve, que es la condición previa a poder usarlo.
 
-                Antes tenía alto máximo y `overflow-y-auto`, y eso creaba tres
-                superficies de desplazamiento anidadas —la página, el panel y
-                cada lista de facetas—. La rueda actuaba sobre una o sobre otra
-                según dónde estuviera el puntero, y las secciones de abajo
-                quedaban escondidas detrás de una barra de cuatro píxeles. Se
-                pierde que los filtros queden fijos al desplazar; a cambio, todo
-                lo que hay se ve, que es la condición previa a poder usarlo.
+              `lg:items-start` en la retícula es lo que evita que la columna
+              se estire al alto de los resultados. */}
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] px-4 pb-2">
+            <h2 className="pt-4 pb-1 text-[0.6875rem] font-medium tracking-[0.14em] text-[var(--text-tertiary)] uppercase">
+              {t("filterByLabel")}
+            </h2>
+            {sidebar}
+          </div>
+        </aside>
 
-                `lg:items-start` en la retícula es lo que evita que la columna
-                se estire al alto de los resultados. */}
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] px-4 pb-2">
-              <h2 className="pt-4 pb-1 text-[0.6875rem] font-medium tracking-[0.14em] text-[var(--text-tertiary)] uppercase">
-                {t("filterByLabel")}
-              </h2>
-              {sidebar}
-            </div>
-          </aside>
-        )}
+        <div className="flex min-w-0 flex-col gap-5">
+          {/* Línea de estado: cuántos resultados hay y, a la derecha, cómo se
+              ordenan (escritorio) o el botón de filtros (teléfono y tableta).
 
-        <div className="flex min-w-0 flex-col gap-4">
-      {/* Línea de estado: cuántos resultados hay, cómo se ordenan y cómo se
-          ven. En comparar el recuento no se pinta: el total útil es el de cada
-          columna, y va en su cabecera. */}
-      <div className="flex min-h-8 flex-wrap items-center justify-between gap-3">
-        <p
-          aria-live="polite"
-          className="flex items-center gap-2 text-[0.8125rem] tracking-[0.005em] text-[var(--text-tertiary)] tabular-nums"
-        >
-          {/* El punto pulsa mientras hay una consulta en vuelo: da señal de que
-              algo está pasando sin reemplazar por un spinner la cifra que se
-              está leyendo. */}
-          <span
-            aria-hidden="true"
-            className={`h-1.5 w-1.5 rounded-full transition-opacity duration-[var(--dur-base)] ${
-              isSearching ? "bg-[var(--accent)] opacity-100" : "opacity-0"
-            }`}
-            style={
-              isSearching
-                ? { animation: "fyp-pulse 1.1s var(--ease-in-out-expo) infinite" }
-                : undefined
-            }
-          />
-          {/* Con la lista creciendo sola, esta cifra es lo único que dice dónde
-              estás: "96 de 29 753" mientras queden por traer, y el total a secas
-              cuando ya no. */}
-          {isComparing
-            ? ""
-            : feed.hasMore
-              ? `${numberFormat.format(shownCount)} ${t("ofLabel")} ${numberFormat.format(totalCount)} ${resultsLabel}`
-              : `${numberFormat.format(totalCount)} ${resultsLabel}`}
-        </p>
-
-        {/* En teléfono ocupa su propia línea y el selector de orden se estira
-            con lo que sobre. Con `shrink-0` y ancho fijo, los tres controles
-            sumaban 431px dentro de una pantalla de 375 y la página entera se
-            desplazaba en horizontal. */}
-        <div className="flex w-full items-center justify-end gap-2 sm:w-auto sm:shrink-0">
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="group hidden shrink-0 items-center gap-1.5 rounded-full text-[0.8125rem] font-medium text-[var(--accent)] transition-opacity duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:opacity-70 lg:flex"
-              style={{ animation: "fyp-fade 260ms var(--ease-out-quart) both" }}
+              En teléfono se pega bajo la barra de navegación: el botón de
+              filtros es la única puerta a las facetas y al orden, y perderlo
+              de vista a la tercera pantalla de fichas obligaba a volver
+              arriba para cambiar de idea. */}
+          <div className="sticky top-14 z-30 -mx-4 flex min-h-12 items-center justify-between gap-3 bg-[var(--glass)] px-4 py-2 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:min-h-8 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+            <p
+              aria-live="polite"
+              className="flex min-w-0 items-center gap-2 text-[0.9375rem] font-medium tracking-[-0.01em] text-[var(--text)] tabular-nums"
             >
-              <svg
+              {/* El punto pulsa mientras hay una consulta en vuelo: da señal de
+                  que algo está pasando sin reemplazar por un spinner la cifra
+                  que se está leyendo. */}
+              <span
                 aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.9"
-                strokeLinecap="round"
-                className="h-3.5 w-3.5 transition-transform duration-[var(--dur-base)] ease-[var(--ease-spring)] group-hover:rotate-90"
-              >
-                <path d="M6 18 18 6M6 6l12 12" />
-              </svg>
-              {t("clearFiltersLabel")}
-            </button>
-          )}
+                className={`h-1.5 w-1.5 shrink-0 rounded-full transition-opacity duration-[var(--dur-base)] ${
+                  isSearching ? "bg-[var(--accent)] opacity-100" : "opacity-0"
+                }`}
+                style={
+                  isSearching
+                    ? { animation: "fyp-pulse 1.1s var(--ease-in-out-expo) infinite" }
+                    : undefined
+                }
+              />
+              {/* Con la lista creciendo sola, esta cifra es lo único que dice
+                  dónde estás: "96 de 29 753" mientras queden por traer, y el
+                  total a secas cuando ya no. */}
+              <span className="truncate">
+                {feed.hasMore
+                  ? `${numberFormat.format(shownCount)} ${t("ofLabel")} ${numberFormat.format(totalCount)} ${resultsLabel}`
+                  : `${numberFormat.format(totalCount)} ${resultsLabel}`}
+              </span>
+            </p>
 
-          {/* Sólo en teléfono: acá abajo la barra lateral no existe y este
-              botón es la única puerta a las facetas. El contador es lo que
-              impide que la hoja cerrada esconda estado. */}
-          {!isComparing && (
-            <button
-              type="button"
-              onClick={() => setShowFilters(true)}
-              className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3.5 py-2 text-[0.8125rem] font-medium text-[var(--text-secondary)] outline-none transition-colors duration-[var(--dur-fast)] ease-[var(--ease-out-quart)] hover:border-[var(--border-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] lg:hidden"
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="h-3.5 w-3.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-              >
-                <path d="M4 6h16M7 12h10M10 18h4" />
-              </svg>
-              {t("filtersLabel")}
-              {activeSidebarFilters > 0 && (
-                <span className="rounded-full bg-[var(--accent)] px-1.5 text-[0.6875rem] font-semibold tabular-nums text-[var(--accent-contrast)]">
-                  {activeSidebarFilters}
-                </span>
+            <div className="flex shrink-0 items-center gap-2">
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="group hidden shrink-0 items-center gap-1.5 rounded-full text-[0.8125rem] font-medium text-[var(--accent)] transition-opacity duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:opacity-70 lg:flex"
+                  style={{ animation: "fyp-fade 260ms var(--ease-out-quart) both" }}
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.9"
+                    strokeLinecap="round"
+                    className="h-3.5 w-3.5 transition-transform duration-[var(--dur-base)] ease-[var(--ease-spring)] group-hover:rotate-90"
+                  >
+                    <path d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                  {t("clearFiltersLabel")}
+                </button>
               )}
-            </button>
-          )}
 
-          <div className="min-w-0 flex-1 sm:w-[13rem] sm:flex-none">
-            <SortFilter selectedSort={sort} onChange={setSort} />
+              {/* Teléfono y tableta: acá la barra lateral no existe y este
+                  botón es la única puerta a las facetas y al orden. El
+                  contador es lo que impide que la hoja cerrada esconda
+                  estado. */}
+              <button
+                type="button"
+                onClick={() => setShowFilters(true)}
+                className="flex h-10 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-4 text-[0.875rem] font-medium text-[var(--text)] outline-none transition-colors duration-[var(--dur-fast)] ease-[var(--ease-out-quart)] hover:border-[var(--border-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] lg:hidden"
+              >
+                {t("filtersLabel")}
+                {activeSidebarFilters > 0 && (
+                  <span className="rounded-full bg-[var(--accent)] px-1.5 text-[0.6875rem] font-semibold tabular-nums text-[var(--accent-contrast)]">
+                    {activeSidebarFilters}
+                  </span>
+                )}
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4 text-[var(--text-secondary)]"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+
+              {/* Escritorio: el orden a la vista, a la derecha. En teléfono
+                  vive dentro de la hoja de filtros. */}
+              <div className="hidden w-[13rem] lg:block">
+                <SortFilter selectedSort={sort} onChange={setSort} />
+              </div>
+            </div>
           </div>
 
-          <CatalogControls
-            mode={view.mode}
-            density={view.density}
-            onModeChange={(mode) => updateView({ mode })}
-            onDensityChange={(density) => updateView({ density })}
-            labels={{
-              viewMode: t("viewModeLabel"),
-              density: t("densityLabel"),
-              modes: {
-                list: t("viewList"),
-                grid: t("viewGrid"),
-                gallery: t("viewGallery"),
-                compare: t("viewCompare"),
-              },
-              densities: {
-                compact: t("densityCompact"),
-                cosy: t("densityCosy"),
-                roomy: t("densityRoomy"),
-              },
-            }}
+          <ProductGrid
+            products={visibleProducts}
+            locale={priceLocale}
+            productHref={productHref}
+            label={t("resultsListLabel")}
+            /* Una búsqueda que falló no es una búsqueda sin resultados: decir
+               "no hay productos" cuando lo que pasó es que se cayó la red manda a
+               la gente a cambiar los filtros para arreglar algo que no está roto
+               ahí. El pie de la lista ofrece el reintento. */
+            emptyMessage={
+              feed.hasError && shownCount === 0 ? t("searchErrorLabel") : t("noResultsMessage")
+            }
+            compareLabels={compareToggleLabels}
+            favoriteLabels={favoriteToggleLabels}
           />
+
+          {remoteSearch && (
+            <CatalogFeedFooter
+              sentinelRef={feed.sentinelRef}
+              hasMore={feed.hasMore}
+              isAutoPaused={feed.isAutoPaused}
+              isLoadingMore={feed.isLoadingMore}
+              hasError={feed.hasError}
+              hasProducts={shownCount > 0}
+              onLoadMore={feed.loadMore}
+              labels={{
+                loadingMore: t("loadingMoreLabel"),
+                loadMore: t("loadMoreLabel"),
+                error: t("feedErrorLabel"),
+                retry: t("retryLabel"),
+                allShown: t("allResultsShownLabel"),
+              }}
+            />
+          )}
         </div>
       </div>
 
-      {isComparing ? (
-        <CompareGrid
-          columns={comparisonColumns}
-          locale={priceLocale}
-          productHref={productHref}
-          showEmptyState={visibleCompareStores.every((store) => !store)}
-          compareLabels={compareToggleLabels}
-        />
-      ) : (
-        <ProductGrid
-          products={visibleProducts}
-          locale={priceLocale}
-          mode={gridMode}
-          density={view.density}
-          productHref={productHref}
-          label={t("resultsListLabel")}
-          /* Una búsqueda que falló no es una búsqueda sin resultados: decir
-             "no hay productos" cuando lo que pasó es que se cayó la red manda a
-             la gente a cambiar los filtros para arreglar algo que no está roto
-             ahí. El pie de la lista ofrece el reintento. */
-          emptyMessage={
-            feed.hasError && shownCount === 0 ? t("searchErrorLabel") : t("noResultsMessage")
-          }
-          viewLargerImageLabel={t("viewLargerImageLabel")}
-          closeImageLabel={t("closeImageLabel")}
-          compareLabels={compareToggleLabels}
-          favoriteLabels={favoriteToggleLabels}
-        />
-      )}
-
-      {!isComparing && remoteSearch && (
-        <CatalogFeedFooter
-          sentinelRef={feed.sentinelRef}
-          hasMore={feed.hasMore}
-          isAutoPaused={feed.isAutoPaused}
-          isLoadingMore={feed.isLoadingMore}
-          hasError={feed.hasError}
-          hasProducts={shownCount > 0}
-          onLoadMore={feed.loadMore}
-          labels={{
-            loadingMore: t("loadingMoreLabel"),
-            loadMore: t("loadMoreLabel"),
-            error: t("feedErrorLabel"),
-            retry: t("retryLabel"),
-            allShown: t("allResultsShownLabel"),
-          }}
-        />
-      )}
-        </div>
-      </div>
-
-      {/* Las mismas facetas, en teléfono. El componente es uno solo: escribir
-          dos paneles era garantizar que una faceta nueva entrara en uno y no
-          en el otro. */}
+      {/* Las mismas facetas, en teléfono, con el orden arriba del todo: es lo
+          que más se cambia y lo único que en escritorio queda fuera del
+          panel. El componente de facetas es uno solo: escribir dos paneles
+          era garantizar que una faceta nueva entrara en uno y no en el otro. */}
       <FilterSheet
         open={showFilters}
         onClose={() => setShowFilters(false)}
@@ -748,6 +608,10 @@ export function ProductSearchApp({
           seeResults: t("seeResultsLabel"),
         }}
       >
+        <div className="border-b border-[var(--border)] py-4">
+          <p className="mb-2 text-[0.9375rem] font-medium text-[var(--text)]">{t("sortLabel")}</p>
+          <SortFilter selectedSort={sort} onChange={setSort} />
+        </div>
         {mobileSidebar}
       </FilterSheet>
 

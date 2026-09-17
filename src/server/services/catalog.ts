@@ -706,9 +706,37 @@ export function toPrefixTsQuery(raw: string | undefined): string | null {
 }
 
 /**
+ * Con qué empieza el nombre, normalizado igual que `normalized_name` en la
+ * base, para que "Llanta" y "llanta" sean el mismo prefijo.
+ */
+function toNamePrefix(raw: string | undefined): string | null {
+  if (!raw) return null;
+  const needle = normalizeText(raw);
+  return needle.length > 0 ? needle : null;
+}
+
+/**
+ * Órdenes en los que la búsqueda por texto pone primero lo que EMPIEZA por lo
+ * escrito. Son los dos que no piden nada concreto ("recién agregados" y
+ * "destacados"); si alguien eligió "menor precio", lo más barato va primero y
+ * punto, empiece o no por la palabra.
+ */
+const PREFIX_FIRST_SORTS: ReadonlySet<CatalogSort> = new Set(['newest', 'relevance']);
+
+/**
  * Una pasada de la consulta. Devuelve `null` —y solo `null`— cuando falta una
  * columna que la vista no publica todavía, que es la única condición que vale
  * la pena reintentar.
+ *
+ * Con texto y orden por defecto, la búsqueda va en dos capas: primero los
+ * artículos cuyo nombre EMPIEZA por lo escrito, después los que lo tienen en
+ * cualquier otra parte. Buscar "llanta" devolvía primero una carretilla —que
+ * menciona la llanta al final del nombre— y las llantas de verdad quedaban
+ * tres pantallas abajo, porque el índice de texto no distingue dónde cae la
+ * palabra. Las dos capas se paginan como una sola lista: la primera página
+ * agota la capa de prefijo y sigue con la otra donde haga falta, y la
+ * página siguiente arranca donde terminó, así que ningún artículo se repite
+ * ni se salta.
  */
 async function runCatalogQuery(
   params: SearchCatalogParams,
@@ -717,33 +745,51 @@ async function runCatalogQuery(
   const limit = Math.min(params.limit ?? 60, 200);
   const offset = Math.max(params.offset ?? 0, 0);
   const locale = params.locale ?? 'es';
+  const withTotal = params.withTotal !== false;
 
-  try {
-    // El encadenado condicional de filtros sobre el builder tipado de
-    // supabase-js dispara "Type instantiation is excessively deep": cada
-    // .eq()/.gte() reescribe el tipo del resultado. Se afloja el tipo del
-    // builder a propósito; la forma real de las filas se fija abajo, al
-    // mapearlas a CatalogRow.
-    const columns = [
-      BASE_COLUMNS,
-      slugColumnPublished ? SLUG_COLUMN : null,
-      categoryColumnsPublished ? CATEGORY_COLUMNS : null,
-    ]
-      .filter(Boolean)
-      .join(', ');
+  // El encadenado condicional de filtros sobre el builder tipado de
+  // supabase-js dispara "Type instantiation is excessively deep": cada
+  // .eq()/.gte() reescribe el tipo del resultado. Se afloja el tipo del
+  // builder a propósito; la forma real de las filas se fija abajo, al
+  // mapearlas a CatalogRow.
+  const columns = [
+    BASE_COLUMNS,
+    slugColumnPublished ? SLUG_COLUMN : null,
+    categoryColumnsPublished ? CATEGORY_COLUMNS : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
 
+  const tsquery = toPrefixTsQuery(params.query);
+  const prefix = toNamePrefix(params.query);
+  const layered =
+    tsquery !== null &&
+    prefix !== null &&
+    PREFIX_FIRST_SORTS.has(params.sort ?? 'discount') &&
+    !(params.ids && params.ids.length > 0);
+
+  /**
+   * La consulta con todos los filtros y el orden puestos. `layer` acota a una
+   * de las dos capas; `all` es la lista entera. Con `head` sólo se pide la
+   * cuenta, sin filas ni orden.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const build = (layer: 'prefix' | 'rest' | 'all', count: boolean, head = false): any => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let request: any = getSupabaseAdmin()
       .from(catalogSource)
-      .select(columns, params.withTotal === false ? undefined : { count: 'exact' })
+      .select(head ? 'id' : columns, count ? (head ? { count: 'exact', head } : { count: 'exact' }) : undefined)
       .not('price', 'is', null);
 
-    const tsquery = toPrefixTsQuery(params.query);
     if (tsquery) {
       // Full-text sobre normalized_name (ver 0026): cada palabra como prefijo
       // y todas obligatorias, en cualquier orden. "play 5" → 'play:* & 5:*'.
       request = request.textSearch('normalized_name', tsquery, { config: 'simple' });
     }
+    // El prefijo sólo tiene [a-z0-9 ], así que no hay comodines que escapar.
+    if (layer === 'prefix') request = request.like('normalized_name', `${prefix}%`);
+    if (layer === 'rest') request = request.not('normalized_name', 'like', `${prefix}%`);
+
     if (params.ids && params.ids.length > 0) request = request.in('id', params.ids);
     request = applyFacet(request, 'store_name', params.store);
     request = applyCategoryFacet(request, params.category);
@@ -753,6 +799,7 @@ async function runCatalogQuery(
     if (params.maxPrice !== undefined) request = request.lte('price', params.maxPrice);
     if (params.onlyDiscounted) request = request.not('list_price', 'is', null);
     if (!params.includeUnavailable) request = applyAvailabilityFloor(request);
+    if (head) return request;
 
     switch (params.sort) {
       // Lo más nuevo primero. `nullsFirst: false` deja al final lo que no tiene
@@ -779,38 +826,93 @@ async function runCatalogQuery(
 
     // Desempate estable: sin una segunda clave, dos páginas consecutivas pueden
     // repetir o saltarse artículos con el mismo descuento.
-    request = request.order('id', { ascending: true });
+    return request.order('id', { ascending: true });
+  };
 
-    const { data, error, count } = await request.range(offset, offset + limit - 1);
-    if (error) {
-      // La materializada aún no existe: se reintenta contra la vista.
-      if (switchedToFallbackView(error)) return null;
+  /**
+   * Ejecuta y traduce el error. `null` es "falta una columna, reintentar";
+   * cualquier otro fallo se lanza.
+   */
+  const execute = async (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    request: any,
+  ): Promise<{ rows: CatalogRow[]; count: number | null } | null> => {
+    const { data, error, count } = await request;
+    if (!error) {
+      return { rows: (data ?? []) as unknown as CatalogRow[], count: count ?? null };
+    }
 
-      // 42703 = undefined_column en Postgres. Es lo que responde PostgREST
-      // cuando se pide o se ordena por una columna que la vista no publica.
-      const message = String(error.message);
-      const undefinedColumn = error.code === '42703';
+    // La materializada aún no existe: se reintenta contra la vista.
+    if (switchedToFallbackView(error)) return null;
 
-      // El mensaje de PostgREST nombra la columna que falta
-      // ("column ... public_slug does not exist"), que es lo que permite saber
-      // cuál de las dos apagar.
-      if (slugColumnPublished && message.includes(SLUG_COLUMN)) {
-        slugColumnPublished = false;
-        return null;
-      }
-      if (categoryColumnsPublished && message.includes(CATEGORY_NAME_COLUMN)) {
-        categoryColumnsPublished = false;
-        return null;
-      }
+    // 42703 = undefined_column en Postgres. Es lo que responde PostgREST
+    // cuando se pide o se ordena por una columna que la vista no publica.
+    const message = String(error.message);
+    const undefinedColumn = error.code === '42703';
 
-      const missingNewest = undefinedColumn || message.includes(newestColumn);
-      if (missingNewest && params.sort === 'newest') return null;
-      throw new Error(error.message);
+    // El mensaje de PostgREST nombra la columna que falta
+    // ("column ... public_slug does not exist"), que es lo que permite saber
+    // cuál de las dos apagar.
+    if (slugColumnPublished && message.includes(SLUG_COLUMN)) {
+      slugColumnPublished = false;
+      return null;
+    }
+    if (categoryColumnsPublished && message.includes(CATEGORY_NAME_COLUMN)) {
+      categoryColumnsPublished = false;
+      return null;
+    }
+
+    const missingNewest = undefinedColumn || message.includes(newestColumn);
+    if (missingNewest && params.sort === 'newest') return null;
+    throw new Error(error.message);
+  };
+
+  try {
+    if (!layered) {
+      const result = await execute(build('all', withTotal).range(offset, offset + limit - 1));
+      if (result === null) return null;
+      return {
+        products: result.rows.map((row) => toProduct(row, locale)),
+        total: withTotal ? (result.count ?? 0) : null,
+      };
+    }
+
+    // Cuántos empiezan por lo escrito: es la frontera entre las dos capas y
+    // lo que decide de cuál sale cada página. Sólo la cuenta, sin filas.
+    const boundary = await execute(build('prefix', true, true));
+    if (boundary === null) return null;
+    const prefixCount = boundary.count ?? 0;
+
+    const rows: CatalogRow[] = [];
+    let restCount: number | null = null;
+
+    if (offset < prefixCount) {
+      const first = await execute(build('prefix', false).range(offset, offset + limit - 1));
+      if (first === null) return null;
+      rows.push(...first.rows);
+    }
+
+    // Lo que falte para llenar la página sale de la otra capa, empezando
+    // donde la página anterior la dejó. Si no falta nada, el total sigue
+    // necesitando la cuenta de esa capa, sin filas.
+    const missing = limit - rows.length;
+    const restOffset = Math.max(offset - prefixCount, 0);
+    if (missing > 0) {
+      const second = await execute(
+        build('rest', withTotal).range(restOffset, restOffset + missing - 1),
+      );
+      if (second === null) return null;
+      rows.push(...second.rows);
+      restCount = second.count;
+    } else if (withTotal) {
+      const tail = await execute(build('rest', true, true));
+      if (tail === null) return null;
+      restCount = tail.count;
     }
 
     return {
-      products: ((data ?? []) as unknown as CatalogRow[]).map((row) => toProduct(row, locale)),
-      total: params.withTotal === false ? null : (count ?? 0),
+      products: rows.map((row) => toProduct(row, locale)),
+      total: withTotal ? prefixCount + (restCount ?? 0) : null,
     };
   } catch (error) {
     // Antes esto devolvía un catálogo vacío. Ver `withRetry` para por qué
@@ -858,6 +960,136 @@ export async function getCatalogSnapshot(options?: {
   ]);
 
   return { products: listing.products, facets, total: listing.total ?? 0 };
+}
+
+
+// -----------------------------------------------------------------------------
+// Sugerencias del buscador
+// -----------------------------------------------------------------------------
+
+export interface CatalogSuggestions {
+  /** Tiendas cuyo nombre contiene lo escrito. */
+  stores: { name: string }[];
+  /** Categorías canónicas cuyo nombre contiene lo escrito. */
+  categories: { slug: string; name: string }[];
+  /** Nombres de artículos que empiezan por las palabras escritas. */
+  items: { name: string }[];
+}
+
+const EMPTY_SUGGESTIONS: CatalogSuggestions = { stores: [], categories: [], items: [] };
+
+/** Cuántas entradas por sección. Más de esto y el desplegable tapa la página. */
+const SUGGESTION_LIMITS = { stores: 3, categories: 3, items: 6 } as const;
+
+/**
+ * Mismo saneado que `normalize_text` en la base: minúsculas, sin acentos y
+ * sólo [a-z0-9] y espacios. Sirve para comparar en memoria nombres de tienda
+ * y categoría con lo que se tecleó.
+ */
+function normalizeText(raw: string): string {
+  return raw
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/**
+ * Lo que el buscador ofrece mientras alguien escribe: tiendas, categorías y
+ * artículos que coinciden con el texto. Tres listas cortas y no una sola
+ * mezclada, porque son tres intenciones distintas —"ir a esta tienda", "ver
+ * esta categoría", "buscar este artículo"— y el desplegable las rotula.
+ *
+ * Tiendas y categorías son listas pequeñas (decenas) y ya están en caché por
+ * las facetas: se filtran en memoria. Los artículos salen del índice de texto
+ * de `mv_catalog`, el mismo que usa la búsqueda, así que lo que se sugiere es
+ * exactamente lo que después va a aparecer.
+ */
+export async function getCatalogSuggestions(rawQuery: string): Promise<CatalogSuggestions> {
+  if (!hasDatabase()) return EMPTY_SUGGESTIONS;
+  const needle = normalizeText(rawQuery);
+  if (needle.length < 2) return EMPTY_SUGGESTIONS;
+  return suggestionsMemoized(needle);
+}
+
+const suggestionsMemoized = unstable_cache(
+  (needle: string) =>
+    withRetry('sugerencias del catálogo', () => computeSuggestions(needle)),
+  ['catalog-suggest'],
+  { revalidate: CATALOG_SEARCH_CACHE_SECONDS, tags: [CATALOG_SEARCH_CACHE_TAG] },
+);
+
+async function computeSuggestions(needle: string): Promise<CatalogSuggestions> {
+  const [facets, items] = await Promise.all([getCatalogFacets(), suggestItems(needle)]);
+
+  const matches = (name: string) => normalizeText(name).includes(needle);
+
+  const stores = facets.stores
+    .filter((store) => matches(store.value))
+    .slice(0, SUGGESTION_LIMITS.stores)
+    .map((store) => ({ name: store.value }));
+
+  // El árbol de categorías viene aplanado: raíces y, en cada raíz, sus hijas.
+  // Se recorre entero porque una hija ("Celulares") suele ser lo que se busca.
+  const categories: CatalogSuggestions['categories'] = [];
+  const visit = (option: FacetOption) => {
+    if (option.value !== UNCATEGORIZED_VALUE && matches(option.label ?? option.value)) {
+      categories.push({ slug: option.value, name: option.label ?? option.value });
+    }
+    for (const child of option.children ?? []) visit(child);
+  };
+  for (const option of facets.categories) visit(option);
+
+  return {
+    stores,
+    categories: categories.slice(0, SUGGESTION_LIMITS.categories),
+    items,
+  };
+}
+
+/**
+ * Nombres de artículos que coinciden, sin repetidos y con los más útiles
+ * primero.
+ *
+ * Se piden bastantes más filas de las que se muestran, por dos motivos: el
+ * mismo producto está en varias tiendas con el mismo nombre, y el índice de
+ * texto devuelve por igual "iPhone 17 Pro" y "Cobertor para iPhone 17". Se
+ * ordena en memoria: primero lo que empieza por lo escrito, después lo que lo
+ * tiene más cerca del principio, y a igualdad el nombre más corto —que es el
+ * que nombra el producto, no el accesorio.
+ */
+async function suggestItems(needle: string): Promise<{ name: string }[]> {
+  const tsquery = toPrefixTsQuery(needle);
+  if (!tsquery) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const request: any = applyAvailabilityFloor(
+    getSupabaseAdmin()
+      .from(catalogSource)
+      .select('name')
+      .not('price', 'is', null)
+      .textSearch('normalized_name', tsquery, { config: 'simple' }),
+  ).limit(SUGGESTION_LIMITS.items * 15);
+
+  const { data, error } = await request;
+  if (error) {
+    if (switchedToFallbackView(error)) return suggestItems(needle);
+    throw new Error(error.message);
+  }
+
+  const candidates = new Map<string, { name: string; position: number }>();
+  for (const row of (data ?? []) as { name: string }[]) {
+    const key = normalizeText(row.name);
+    if (!key || candidates.has(key)) continue;
+    const at = key.indexOf(needle);
+    candidates.set(key, { name: row.name.trim(), position: at < 0 ? key.length : at });
+  }
+
+  return [...candidates.values()]
+    .sort((a, b) => a.position - b.position || a.name.length - b.name.length)
+    .slice(0, SUGGESTION_LIMITS.items)
+    .map(({ name }) => ({ name }));
 }
 
 // -----------------------------------------------------------------------------

@@ -23,20 +23,11 @@ export const en: Dictionary = {
   statsStoresLabel: "stores",
   statsCategoriesLabel: "categories",
   noResultsMessage: "No products match your search.",
-  viewLargerImageLabel: "View larger image of",
   closeImageLabel: "Close",
 
   // --- Catalog browsing ---
   sortDiscount: "Biggest discount",
   sortRating: "Top rated",
-  viewModeLabel: "View",
-  viewList: "List",
-  viewGrid: "Grid",
-  viewGallery: "Gallery",
-  densityLabel: "Size",
-  densityCompact: "Compact",
-  densityCosy: "Normal",
-  densityRoomy: "Large",
   moreFiltersLabel: "More filters",
   priceRangeLabel: "Price range",
   minPriceLabel: "From",
@@ -65,21 +56,18 @@ export const en: Dictionary = {
   anyPriceLabel: "Any price",
   andUpLabel: "and up",
 
-  // --- Store comparison ---
+  // --- Sort ---
   sortNewest: "Recently added",
-  viewCompare: "Compare",
-  compareColumnsLabel: "Columns",
-  compareStoreLabel: "Store for column",
-  compareChooseStoreLabel: "Pick a store",
-  compareEmptyStateTitle: "Search for a product to compare",
-  compareEmptyStateBody:
-    "Type what you are after and each column shows what that store carries, side by side.",
-  compareNoResultsInStore: "Nothing here matches your search.",
-  compareBestPriceLabel: "Best price",
-  compareCheapestColumnLabel: "Cheapest here",
-  compareFromLabel: "From",
+
+  // --- Search suggestions ---
+  suggestionsLabel: "Suggestions",
+  suggestStoresLabel: "Stores",
+  suggestCategoriesLabel: "Categories",
+  suggestItemsLabel: "Items",
+  clearSearchLabel: "Clear search",
 
   // --- Product comparison tray ---
+  compareBestPriceLabel: "Best price",
   compareAddLabel: "Add to comparison",
   compareRemoveLabel: "Remove from comparison",
   compareFullLabel: "You can compare up to 4 products",

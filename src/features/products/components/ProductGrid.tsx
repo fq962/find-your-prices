@@ -1,12 +1,5 @@
 import type { CSSProperties } from "react";
 import type { Product } from "@/types";
-import {
-  DEFAULT_DENSITY,
-  gridClassesFor,
-  type Density,
-  type ViewMode,
-} from "@/features/products/viewPreferences";
-import { ProductCard } from "./ProductCard";
 import { ProductTile } from "./ProductTile";
 import type { CompareToggleLabels } from "./CompareToggle";
 import type { FavoriteToggleLabels } from "./FavoriteToggle";
@@ -15,16 +8,13 @@ export interface ProductGridProps {
   products: Product[];
   locale?: string;
   emptyMessage?: string;
-  viewLargerImageLabel?: string;
-  closeImageLabel?: string;
   /**
-   * Modo de presentación. Por defecto la lista. `compare` no entra acá: esa
-   * vista no es una retícula de productos sino una columna por tienda, y la
-   * resuelve `CompareGrid`.
+   * Cuántas columnas como máximo. `3` es la del catálogo, que comparte el
+   * ancho con la barra de filtros en escritorio; `4` es para las retículas
+   * que ocupan todo el ancho (populares de una categoría, favoritos).
    */
-  mode?: Exclude<ViewMode, "compare">;
-  density?: Density;
-  /** Ruta de la ficha de cada producto. Sin esto no se enlaza al detalle. */
+  columns?: 3 | 4;
+  /** Ruta de la ficha de cada producto. Sin esto se enlaza a la tienda. */
   productHref?: (product: Product) => string | undefined;
   /** Textos del control que aparta un producto para compararlo. */
   compareLabels?: CompareToggleLabels;
@@ -43,37 +33,41 @@ export interface ProductGridProps {
 const MAX_STAGGERED_ITEMS = 8;
 
 /**
- * Renderiza los resultados en el modo elegido.
+ * Clases de la retícula, mobile-first.
  *
- * La lista y las cuadrículas usan componentes distintos a propósito
- * (`ProductCard` y `ProductTile`): no son la misma tarjeta con otro ancho,
- * responden a formas distintas de mirar el catálogo. Ver `ProductTile`.
+ * Dos columnas en teléfono es el mínimo al que la foto todavía sirve para
+ * reconocer el producto; tres en tableta y escritorio es el máximo al que el
+ * nombre cabe en dos líneas junto a la barra de filtros. El número está
+ * deliberadamente por debajo de lo que el ancho permitiría: con más columnas
+ * la pantalla se vuelve una pared de fichas que no invita a mirar ninguna.
+ */
+const GRID_CLASSES: Record<NonNullable<ProductGridProps["columns"]>, string> = {
+  3: "grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-9",
+  4: "grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-9 lg:grid-cols-4",
+};
+
+/**
+ * La retícula de resultados: una ficha por producto, siempre la misma.
+ *
+ * Antes elegía entre una fila de lista y una ficha según el modo de vista;
+ * ahora sólo existe la ficha (ver `ProductTile`), así que este componente se
+ * limita a repartirla en columnas y a escalonar la entrada.
  */
 export function ProductGrid({
   products,
   locale,
   emptyMessage,
-  viewLargerImageLabel,
-  closeImageLabel,
-  mode = "list",
-  density = DEFAULT_DENSITY,
+  columns = 3,
   productHref,
   compareLabels,
   favoriteLabels,
   label,
 }: ProductGridProps) {
   const hasProducts = products.length > 0;
-  const isList = mode === "list";
-
-  const listClasses =
-    "overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--bg-elevated)] shadow-[var(--shadow-sm)] [&>li+li]:border-t [&>li+li]:border-[var(--border)]";
 
   return (
     <>
-      <ul
-        aria-label={label}
-        className={hasProducts ? (isList ? listClasses : gridClassesFor(mode, density)) : ""}
-      >
+      <ul aria-label={label} className={hasProducts ? GRID_CLASSES[columns] : ""}>
         {products.map((product, index) => (
           <li
             key={product.id}
@@ -84,27 +78,13 @@ export function ProductGrid({
               } as CSSProperties
             }
           >
-            {isList ? (
-              <ProductCard
-                product={product}
-                locale={locale}
-                href={productHref?.(product)}
-                viewLargerImageLabel={viewLargerImageLabel}
-                closeImageLabel={closeImageLabel}
-                compareLabels={compareLabels}
-                favoriteLabels={favoriteLabels}
-              />
-            ) : (
-              <ProductTile
-                product={product}
-                href={productHref?.(product) ?? product.url ?? "#"}
-                mode={mode}
-                density={density}
-                locale={locale}
-                compareLabels={compareLabels}
-                favoriteLabels={favoriteLabels}
-              />
-            )}
+            <ProductTile
+              product={product}
+              href={productHref?.(product) ?? product.url ?? "#"}
+              locale={locale}
+              compareLabels={compareLabels}
+              favoriteLabels={favoriteLabels}
+            />
           </li>
         ))}
       </ul>

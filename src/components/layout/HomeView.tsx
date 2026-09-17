@@ -74,6 +74,9 @@ export function HomeView({ locale, catalog: snapshot }: HomeViewProps) {
                existe. */
             remoteSearch={usingRealCatalog}
             locale={locale}
+            /* El buscador de la portada es el de la barra de navegación, que
+               escribe en la misma URL que lee esta herramienta. */
+            showSearch={false}
           />
         </div>
 

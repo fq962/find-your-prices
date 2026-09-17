@@ -24,20 +24,11 @@ export const es: Dictionary = {
   statsStoresLabel: "tiendas",
   statsCategoriesLabel: "categorías",
   noResultsMessage: "No hay productos que coincidan con tu búsqueda.",
-  viewLargerImageLabel: "Ver imagen ampliada de",
   closeImageLabel: "Cerrar",
 
   // --- Navegación del catálogo ---
   sortDiscount: "Mayor descuento",
   sortRating: "Mejor valorados",
-  viewModeLabel: "Vista",
-  viewList: "Lista",
-  viewGrid: "Cuadrícula",
-  viewGallery: "Galería",
-  densityLabel: "Tamaño",
-  densityCompact: "Compacto",
-  densityCosy: "Normal",
-  densityRoomy: "Grande",
   moreFiltersLabel: "Más filtros",
   priceRangeLabel: "Rango de precio",
   minPriceLabel: "Desde",
@@ -66,21 +57,18 @@ export const es: Dictionary = {
   anyPriceLabel: "Cualquier precio",
   andUpLabel: "y más",
 
-  // --- Comparación por tienda ---
+  // --- Orden ---
   sortNewest: "Recién agregados",
-  viewCompare: "Comparar",
-  compareColumnsLabel: "Columnas",
-  compareStoreLabel: "Tienda de la columna",
-  compareChooseStoreLabel: "Elegí una tienda",
-  compareEmptyStateTitle: "Buscá un producto para comparar",
-  compareEmptyStateBody:
-    "Escribí qué buscás y cada columna te muestra lo que tiene esa tienda, lado a lado.",
-  compareNoResultsInStore: "Esta tienda no tiene nada que coincida.",
-  compareBestPriceLabel: "Mejor precio",
-  compareCheapestColumnLabel: "Más barato acá",
-  compareFromLabel: "Desde",
+
+  // --- Sugerencias de búsqueda ---
+  suggestionsLabel: "Sugerencias",
+  suggestStoresLabel: "Tiendas",
+  suggestCategoriesLabel: "Categorías",
+  suggestItemsLabel: "Artículos",
+  clearSearchLabel: "Borrar búsqueda",
 
   // --- Bandeja de comparación de productos ---
+  compareBestPriceLabel: "Mejor precio",
   compareAddLabel: "Agregar a la comparación",
   compareRemoveLabel: "Quitar de la comparación",
   compareFullLabel: "Solo se pueden comparar 4 productos",

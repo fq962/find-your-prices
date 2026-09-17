@@ -126,7 +126,7 @@ export function catalogUrlSearch(state: CatalogUrlState): string {
 // La barra de direcciones es estado externo y mutable —la escribe esta app,
 // pero también el botón de retroceso y quien pega un enlace—, que es
 // exactamente el caso para el que existe useSyncExternalStore. Es el mismo
-// patrón que `viewPreferences` usa con localStorage.
+// patrón que `compareTray` usa con localStorage.
 //
 // La alternativa era un useState sembrado desde un useEffect, y tiene dos
 // defectos que no se ven hasta que molestan: provoca un render en cascada en

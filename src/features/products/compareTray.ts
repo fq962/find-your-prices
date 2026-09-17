@@ -2,14 +2,11 @@
  * Bandeja de comparación: los productos concretos que alguien apartó para
  * mirarlos uno al lado del otro.
  *
- * Es una cosa distinta del modo "Comparar" por tienda (`useStoreComparison`).
- * Aquel responde "¿cuál de estas tiendas tiene esto más barato?" recorriendo
- * catálogos enteros; esta bandeja responde "¿cuál de estos cuatro me conviene?"
- * sobre artículos elegidos a mano, que pueden ser de la misma tienda o de
- * cuatro distintas.
+ * Responde "¿cuál de estos cuatro me conviene?" sobre artículos elegidos a
+ * mano, que pueden ser de la misma tienda o de cuatro distintas.
  *
  * Lógica pura, sin React ni DOM salvo el acceso guardado a `localStorage`,
- * igual que `viewPreferences`. Se persiste porque comparar rara vez se resuelve
+ * igual que `favorites`. Se persiste porque comparar rara vez se resuelve
  * de una sentada: se apartan dos artículos, se sigue buscando, se agrega un
  * tercero. Perder esa selección al recargar obligaría a rehacer el trabajo.
  */
@@ -139,7 +136,7 @@ export function writeCompareTray(tray: Product[]): void {
 // ---------------------------------------------------------------------------
 // Store para useSyncExternalStore
 //
-// Mismo patrón que `viewPreferences`: `getSnapshot` DEBE devolver la misma
+// Mismo patrón que `favorites`: `getSnapshot` DEBE devolver la misma
 // referencia mientras nada cambie, o React entra en un bucle de renders. De ahí
 // la caché y el array vacío constante.
 // ---------------------------------------------------------------------------

@@ -163,13 +163,10 @@ export function FavoritesView({ locale }: FavoritesViewProps) {
             products={favorites.items}
             // Igual que ProductSearchApp: "es-HN" imprime "L 299.00".
             locale={locale === "en" ? "en-HN" : "es-HN"}
-            mode="grid"
-            density="cosy"
+            columns={4}
             productHref={href}
             compareLabels={compareLabels}
             favoriteLabels={favoriteLabels}
-            viewLargerImageLabel={t("viewLargerImageLabel")}
-            closeImageLabel={t("closeImageLabel")}
             label={t("favoritesTitle")}
           />
           <p className="mt-6 text-[0.75rem] leading-relaxed text-[var(--text-tertiary)]">
