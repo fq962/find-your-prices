@@ -14,6 +14,7 @@ import type { Locale } from "./translate";
 export type SitePage =
   | "home"
   | "categories"
+  | "stores"
   | "favorites"
   | "about"
   | "terms"
@@ -30,6 +31,7 @@ export const PRIVATE_PAGES = ["favorites"] as const satisfies readonly SitePage[
 export const SITE_ROUTES: Record<SitePage, Record<Locale, string>> = {
   home: { es: "/", en: "/en" },
   categories: { es: "/categorias", en: "/en/categories" },
+  stores: { es: "/tiendas", en: "/en/stores" },
   favorites: { es: "/favoritos", en: "/en/favorites" },
   about: { es: "/acerca", en: "/en/about" },
   terms: { es: "/terminos", en: "/en/terms" },

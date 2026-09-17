@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { CategoryNode } from "@/server/services/categoryPages";
 
 interface CategoryTileProps {
@@ -11,6 +11,11 @@ interface CategoryTileProps {
   index?: number;
   /** Prioridad de carga de la imagen: las primeras del pliegue superior. */
   eager?: boolean;
+  /**
+   * Texto de la tarjeta cuando no es el nombre a secas: "Abarrotes en
+   * PriceSmart" en una landing de tienda. El nombre sigue siendo el `alt`.
+   */
+  label?: ReactNode;
 }
 
 /** Tope del escalonado: pasado el 8º elemento el retardo deja de crecer. */
@@ -26,7 +31,14 @@ const MAX_STAGGERED = 8;
  * placa, así que una categoría recién creada ya se ve terminada mientras
  * alguien le sube la foto.
  */
-export function CategoryTile({ category, href, countLabel, index = 0, eager = false }: CategoryTileProps) {
+export function CategoryTile({
+  category,
+  href,
+  countLabel,
+  index = 0,
+  eager = false,
+  label,
+}: CategoryTileProps) {
   const alt = category.imageAlt ?? category.name;
 
   return (
@@ -58,7 +70,7 @@ export function CategoryTile({ category, href, countLabel, index = 0, eager = fa
       <div className="flex flex-1 items-start justify-between gap-3 px-5 pt-4 pb-5">
         <div className="min-w-0">
           <h3 className="text-[0.9375rem] leading-snug font-medium tracking-[-0.01em] text-balance text-[var(--text)]">
-            {category.name}
+            {label ?? category.name}
           </h3>
           <p className="mt-1 text-[0.75rem] tabular-nums text-[var(--text-tertiary)]">{countLabel}</p>
         </div>

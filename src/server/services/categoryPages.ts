@@ -130,14 +130,14 @@ function pickContent(rows: RawContent[], locale: Locale): CategoryContent {
   };
 }
 
-interface Tree {
+export interface CategoryTree {
   nodes: CategoryNode[];
   byId: Map<string, CategoryNode>;
   bySlug: Map<string, CategoryNode>;
 }
 
 /** El árbol entero con conteos y texto, en tres viajes en paralelo. */
-async function loadTree(locale: Locale): Promise<Tree> {
+export async function loadCategoryTree(locale: Locale): Promise<CategoryTree> {
   const db = getSupabaseAdmin();
 
   const selectCategories = (columns: string) =>
@@ -208,7 +208,7 @@ async function loadTree(locale: Locale): Promise<Tree> {
 }
 
 /** Orden editorial: destacadas primero por su posición, luego por artículos. */
-function byEditorialOrder(a: CategoryNode, b: CategoryNode): number {
+export function byEditorialOrder(a: CategoryNode, b: CategoryNode): number {
   return a.position - b.position || b.productCount - a.productCount || a.name.localeCompare(b.name);
 }
 
@@ -219,7 +219,7 @@ function byEditorialOrder(a: CategoryNode, b: CategoryNode): number {
 export async function getCategoryIndex(locale: Locale): Promise<CategoryIndexData> {
   if (!hasDatabase()) return { roots: [], featured: [], childrenOf: {}, totalProducts: 0 };
 
-  const tree = await loadTree(locale);
+  const tree = await loadCategoryTree(locale);
   const withProducts = tree.nodes.filter((node) => node.productCount > 0);
 
   const roots = withProducts.filter((node) => node.parentId === null).sort(byEditorialOrder);
@@ -250,7 +250,7 @@ export async function getCategoryIndex(locale: Locale): Promise<CategoryIndexDat
 export const POPULAR_PRODUCTS_LIMIT = 12;
 
 /** Tamaño del primer lote del buscador acotado; igual que la portada. */
-const INITIAL_BATCH = 48;
+export const INITIAL_BATCH = 48;
 
 /**
  * Los más pedidos de una categoría.
@@ -311,7 +311,7 @@ async function getPopularProducts(
   return popular.slice(0, limit);
 }
 
-const EMPTY_SCOPED_FACETS: ScopedFacets = {
+export const EMPTY_SCOPED_FACETS: ScopedFacets = {
   total: 0,
   discounted: 0,
   minPrice: 0,
@@ -361,7 +361,7 @@ export async function getCategoryPage(
 ): Promise<CategoryPageData | null> {
   if (!hasDatabase()) return null;
 
-  const tree = await loadTree(locale);
+  const tree = await loadCategoryTree(locale);
   const category = tree.bySlug.get(slug);
   if (!category || category.productCount === 0) return null;
 
@@ -408,7 +408,7 @@ export async function listCategorySlugsForSitemap(): Promise<
   Array<{ slug: string; level: number; updatedAt: string | null }>
 > {
   if (!hasDatabase()) return [];
-  const tree = await loadTree('es');
+  const tree = await loadCategoryTree('es');
   return tree.nodes
     .filter((node) => node.productCount > 0)
     .map((node) => ({ slug: node.slug, level: node.level, updatedAt: null }));

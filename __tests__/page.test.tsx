@@ -46,7 +46,7 @@
  */
 
 import { describe, expect, test, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import SpanishPage from "@/app/(es)/page";
 import EnglishPage from "@/app/en/page";
 import { products } from "@/features/products/data";
@@ -90,13 +90,21 @@ async function renderPage(Page: () => Promise<React.ReactElement>) {
 
 /**
  * La barra de navegación: la primera `<nav>` del documento.
- *
- * El selector de idioma está dos veces en el DOM —en la barra a partir de
- * `sm`, y en el pie en teléfono, donde la barra no tiene sitio—. En el
- * navegador sólo uno se ve; jsdom no aplica CSS, así que hay que acotar.
  */
 function siteNav(): HTMLElement {
   return screen.getAllByRole("navigation")[0];
+}
+
+/**
+ * Abre el menú de preferencias de la barra y devuelve la barra.
+ *
+ * Idioma y tema viven plegados en un botón ("Preferencias" / "Preferences"):
+ * los enlaces EN/ES sólo existen en el DOM mientras el panel está abierto.
+ */
+function openPreferences(): HTMLElement {
+  const nav = siteNav();
+  fireEvent.click(within(nav).getByRole("button", { name: /Preferencias|Preferences/ }));
+  return nav;
 }
 
 const ROUTES = [
@@ -233,7 +241,7 @@ describe.each(ROUTES)("Home $name", ({ Page, dict }) => {
     test("expone un LocaleSwitcher con enlaces EN/ES alcanzables por nombre", async () => {
       await renderPage(Page);
 
-      const nav = siteNav();
+      const nav = openPreferences();
       const enLink = within(nav).getByRole("link", { name: "EN" });
       const esLink = within(nav).getByRole("link", { name: "ES" });
 
@@ -269,13 +277,15 @@ describe("cada ruta sirve su propio idioma", () => {
 
   test("el LocaleSwitcher marca como actual el idioma de la ruta visible", async () => {
     const { unmount } = await renderPage(SpanishPage);
-    expect(within(siteNav()).getByRole("link", { name: "ES" })).toHaveAttribute("aria-current", "page");
-    expect(within(siteNav()).getByRole("link", { name: "EN" })).not.toHaveAttribute("aria-current");
+    let nav = openPreferences();
+    expect(within(nav).getByRole("link", { name: "ES" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "EN" })).not.toHaveAttribute("aria-current");
     unmount();
 
     await renderPage(EnglishPage);
-    expect(within(siteNav()).getByRole("link", { name: "EN" })).toHaveAttribute("aria-current", "page");
-    expect(within(siteNav()).getByRole("link", { name: "ES" })).not.toHaveAttribute("aria-current");
+    nav = openPreferences();
+    expect(within(nav).getByRole("link", { name: "EN" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "ES" })).not.toHaveAttribute("aria-current");
   });
 });
 

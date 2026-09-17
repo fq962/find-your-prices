@@ -64,6 +64,14 @@ export interface ProductSearchAppProps {
    */
   scopeCategory?: string;
   /**
+   * Acota TODO a una tienda (slug de `stores`), sin que se pueda quitar.
+   *
+   * Es lo que hace que el mismo buscador sirva en una landing de tienda:
+   * cada consulta lleva `storeSlug=<scope>` y la faceta de tienda desaparece
+   * del panel, porque elegir otra tienda ahí sería salir de la página.
+   */
+  scopeStore?: string;
+  /**
    * Pintar la caja de búsqueda encima de los resultados.
    *
    * La portada la apaga: ahí el buscador vive en la barra de navegación, que
@@ -96,6 +104,7 @@ export function ProductSearchApp({
   remoteSearch = false,
   locale,
   scopeCategory,
+  scopeStore,
   showSearch = true,
 }: ProductSearchAppProps) {
   const { t } = useLocale();
@@ -280,6 +289,7 @@ export function ProductSearchApp({
     const params = new URLSearchParams();
     if (query.trim()) params.set("q", query.trim());
     for (const value of store) params.append("store", value);
+    if (scopeStore) params.append("storeSlug", scopeStore);
     for (const value of effectiveCategory) params.append("category", value);
     for (const value of filters.brand) params.append("brand", value);
     if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
@@ -289,7 +299,7 @@ export function ProductSearchApp({
     params.set("sort", sort);
     if (locale) params.set("locale", locale);
     return params.toString();
-  }, [query, store, effectiveCategory, filters, sort, locale]);
+  }, [query, store, scopeStore, effectiveCategory, filters, sort, locale]);
 
   /**
    * Si esta consulta es la que el servidor ya resolvió al pintar la página.
@@ -411,8 +421,10 @@ export function ProductSearchApp({
     },
   };
 
-  const sidebar = <FilterSidebar {...sidebarProps} />;
-  const mobileSidebar = <FilterSidebar {...sidebarProps} initiallyOpen={[]} />;
+  const sidebar = <FilterSidebar {...sidebarProps} hideStore={Boolean(scopeStore)} />;
+  const mobileSidebar = (
+    <FilterSidebar {...sidebarProps} hideStore={Boolean(scopeStore)} initiallyOpen={[]} />
+  );
 
   return (
     <div className="flex flex-col gap-5">

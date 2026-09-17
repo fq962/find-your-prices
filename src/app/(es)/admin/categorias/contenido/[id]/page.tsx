@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { NO_INDEX_ROBOTS } from '@/lib/seo/metadata';
 import { categoryPaths } from '@/lib/seo/categorySeo';
 import { getCategoryForContent, type CategoryContentFields } from '@/server/services/categoryContent';
-import { CategoryImageUploader } from '@/features/admin-category-content/CategoryImageUploader';
+import { ImageUploader } from '@/features/admin-shared/ImageUploader';
 import { removeImageAction, saveContentAction, uploadImageAction } from '../actions';
 
 /**
@@ -88,8 +88,8 @@ export default async function CategoryContentEditPage({ params, searchParams }: 
                 )}
               </div>
               <div className="space-y-4">
-                <CategoryImageUploader
-                  categoryId={row.id}
+                <ImageUploader
+                  entityId={row.id}
                   action={uploadImageAction}
                   buttonClass={buttonClass}
                 />

@@ -41,7 +41,7 @@ export function PageLayout({ locale, localePaths, children }: PageLayoutProps) {
         <div className="flex flex-1 flex-col">
           <SiteNav localePaths={localePaths} />
           <main className="flex-1">{children}</main>
-          <SiteFooter localePaths={localePaths} />
+          <SiteFooter />
           {/* Vive acá y no en el catálogo porque las páginas de texto también
               son largas, y el botón se esconde solo donde no hace falta. */}
           <BackToTop label={BACK_TO_TOP[locale]} />

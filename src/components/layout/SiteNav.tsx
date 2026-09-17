@@ -1,30 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { PreferencesMenu } from "@/components/layout/PreferencesMenu";
 import { SHELL } from "@/components/layout/shell";
 import { useScrollProgress } from "@/hooks/useScrollProgress";
-import { LocaleSwitcher } from "@/features/i18n/LocaleSwitcher";
 import { useLocale } from "@/features/i18n/LocaleContext";
 import { routeFor } from "@/features/i18n/routes";
 import type { Locale } from "@/features/i18n/translate";
 import { SiteSearch } from "@/features/products/components/SiteSearch";
 import { useFavorites } from "@/features/products/useFavorites";
-import { ThemeToggle } from "@/features/theme/ThemeToggle";
 
 const HOME_LABEL: Record<string, string> = {
   en: "Find Your Prices — home",
   es: "Find Your Prices — inicio",
 };
 
-const THEME_LABEL: Record<string, string> = {
-  en: "Switch color theme",
-  es: "Cambiar el tema de color",
-};
-
 const CATEGORIES_LABEL: Record<string, string> = {
   en: "Categories",
   es: "Categorías",
+};
+
+const STORES_LABEL: Record<string, string> = {
+  en: "Stores",
+  es: "Tiendas",
 };
 
 const FAVORITES_LABEL: Record<string, string> = {
@@ -95,41 +94,33 @@ export function SiteNav({ localePaths }: SiteNavProps = {}) {
           <SiteSearch />
         </div>
 
-        {/* El árbol de categorías es la segunda puerta del sitio después del
-            buscador, y un rastreador tiene que encontrarla desde cualquier
-            página. En teléfono es sólo el icono —el texto no cabe junto al
-            buscador—; el nombre sigue ahí para el lector de pantalla. */}
-        <Link
-          href={routeFor("categories", locale)}
-          aria-label={CATEGORIES_LABEL[locale] ?? CATEGORIES_LABEL.en}
-          title={CATEGORIES_LABEL[locale] ?? CATEGORIES_LABEL.en}
-          className="-m-1 flex h-9 shrink-0 items-center gap-1.5 rounded-full px-1 text-[0.8125rem] font-medium tracking-[-0.01em] text-[var(--text-secondary)] outline-none transition-colors duration-[var(--dur-fast)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:px-2.5"
-        >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-[20px] w-[20px]"
+        {/* Las tres puertas del sitio después del buscador: categorías,
+            tiendas y favoritos. Un rastreador tiene que encontrar las dos
+            primeras desde cualquier página. En teléfono son sólo iconos —el
+            texto no cabe junto al buscador—; el nombre sigue ahí para el
+            lector de pantalla. Idioma y tema van plegados en el último botón. */}
+        <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
+          <NavLink
+            href={routeFor("categories", locale)}
+            label={CATEGORIES_LABEL[locale] ?? CATEGORIES_LABEL.en}
           >
             <rect x="3.5" y="3.5" width="7" height="7" rx="1.6" />
             <rect x="13.5" y="3.5" width="7" height="7" rx="1.6" />
             <rect x="3.5" y="13.5" width="7" height="7" rx="1.6" />
             <rect x="13.5" y="13.5" width="7" height="7" rx="1.6" />
-          </svg>
-          <span className="hidden sm:inline">{CATEGORIES_LABEL[locale] ?? CATEGORIES_LABEL.en}</span>
-        </Link>
+          </NavLink>
 
-        {/* En teléfono la barra son tres cosas: logo, buscador y categorías.
-            Favoritos, idioma y tema bajan al pie de página, donde caben; a
-            partir de `sm` vuelven acá. */}
-        <div className="hidden items-center gap-2.5 sm:flex">
-          {/* El corazón de la barra es la puerta a "Mis favoritos" y a la vez
-              el contador: se ve cuántos hay sin entrar. En el servidor y hasta
-              hidratar el contador es 0 y no se pinta, así el HTML coincide. */}
+          <NavLink href={routeFor("stores", locale)} label={STORES_LABEL[locale] ?? STORES_LABEL.en}>
+            {/* Un toldo de tienda. */}
+            <path d="M3.5 9.5 5 4.5h14l1.5 5" />
+            <path d="M3.5 9.5a2.8 2.8 0 0 0 5.6 0 2.8 2.8 0 0 0 5.8 0 2.8 2.8 0 0 0 5.6 0" />
+            <path d="M5 12.5v7h14v-7" />
+            <path d="M10 19.5v-4.5h4v4.5" />
+          </NavLink>
+
+          {/* El corazón es la puerta a "Mis favoritos" y a la vez el contador:
+              se ve cuántos hay sin entrar. En el servidor y hasta hidratar el
+              contador es 0 y no se pinta, así el HTML coincide. */}
           <Link
             href={routeFor("favorites", locale)}
             aria-label={
@@ -161,8 +152,8 @@ export function SiteNav({ localePaths }: SiteNavProps = {}) {
               </span>
             )}
           </Link>
-          <LocaleSwitcher paths={localePaths} />
-          <ThemeToggle label={THEME_LABEL[locale] ?? THEME_LABEL.en} />
+
+          <PreferencesMenu localePaths={localePaths} />
         </div>
       </div>
 
@@ -174,5 +165,34 @@ export function SiteNav({ localePaths }: SiteNavProps = {}) {
         className="scroll-progress absolute inset-x-0 bottom-0 h-px bg-[var(--accent)]"
       />
     </nav>
+  );
+}
+
+/**
+ * Enlace de la barra con icono y, a partir de `sm`, su nombre. Los hijos
+ * son los trazos del icono (viewBox 24, trazo 1.6).
+ */
+function NavLink({ href, label, children }: { href: string; label: string; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      title={label}
+      className="-m-1 flex h-9 shrink-0 items-center gap-1.5 rounded-full px-1 text-[0.8125rem] font-medium tracking-[-0.01em] text-[var(--text-secondary)] outline-none transition-colors duration-[var(--dur-fast)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:px-2.5"
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-[20px] w-[20px]"
+      >
+        {children}
+      </svg>
+      <span className="hidden lg:inline">{label}</span>
+    </Link>
   );
 }

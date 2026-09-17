@@ -59,6 +59,11 @@ export interface FilterSidebarProps {
    * para leer.
    */
   initiallyOpen?: FilterSectionKey[];
+  /**
+   * No ofrecer la faceta de tienda. Una landing de tienda ya está acotada a
+   * una: mostrar la lista de tiendas ahí sería ofrecer salir de la página.
+   */
+  hideStore?: boolean;
 
   labels: {
     category: string;
@@ -122,6 +127,7 @@ export function FilterSidebar({
   currencySymbol,
   formatAmount,
   initiallyOpen = INITIALLY_OPEN,
+  hideStore = false,
   labels,
 }: FilterSidebarProps) {
   const [open, setOpen] = useState<Set<FilterSectionKey>>(new Set(initiallyOpen));
@@ -183,20 +189,22 @@ export function FilterSidebar({
         />
       </FilterSection>
 
-      <FilterSection
-        title={labels.store}
-        open={open.has("store")}
-        onToggle={() => toggle("store")}
-        summary={facetSummary(store)}
-      >
-        <FilterOptionList
-          name="fyp-facet-store"
-          options={stores}
-          value={store}
-          onChange={onStoreChange}
-          labels={listLabels}
-        />
-      </FilterSection>
+      {!hideStore && (
+        <FilterSection
+          title={labels.store}
+          open={open.has("store")}
+          onToggle={() => toggle("store")}
+          summary={facetSummary(store)}
+        >
+          <FilterOptionList
+            name="fyp-facet-store"
+            options={stores}
+            value={store}
+            onChange={onStoreChange}
+            labels={listLabels}
+          />
+        </FilterSection>
+      )}
 
       <FilterSection
         title={labels.brand}

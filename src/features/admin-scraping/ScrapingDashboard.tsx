@@ -333,6 +333,10 @@ export function ScrapingDashboard({
             <Link href="/admin/categorias" className="text-[var(--accent)] hover:opacity-70">
               Categorías
             </Link>
+            {' · '}
+            <Link href="/admin/tiendas" className="text-[var(--accent)] hover:opacity-70">
+              Tiendas
+            </Link>
           </p>
 
           <div className="mt-8 flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">

@@ -17,6 +17,9 @@ export const SITEMAP_PAGES_PATH = "/sitemaps/pages.xml";
 /** Las landings de categoría, en los dos idiomas. */
 export const SITEMAP_CATEGORIES_PATH = "/sitemaps/categories.xml";
 
+/** Las landings de tienda y tienda × categoría, en los dos idiomas. */
+export const SITEMAP_STORES_PATH = "/sitemaps/stores.xml";
+
 /** Un archivo por tanda de fichas. Base 1: el primero es `products/1.xml`. */
 export function productSitemapPath(chunk: number): string {
   return `/sitemaps/products/${chunk}.xml`;

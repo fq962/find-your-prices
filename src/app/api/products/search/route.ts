@@ -8,9 +8,10 @@ import {
 /**
  * GET /api/products/search
  *
- * Parámetros: q, store, category, brand, minPrice, maxPrice, onlyDiscounted,
- * includeUnavailable, sort, limit, offset, locale. `store`, `category` y
- * `brand` se pueden repetir (`store=A&store=B`) y se combinan con OR.
+ * Parámetros: q, store, storeSlug, category, brand, minPrice, maxPrice,
+ * onlyDiscounted, includeUnavailable, sort, limit, offset, locale. `store`,
+ * `storeSlug`, `category` y `brand` se pueden repetir (`store=A&store=B`) y se
+ * combinan con OR. `storeSlug` es el alcance fijo de una landing de tienda.
  *
  * Búsqueda y filtrado sobre el catálogo completo. La página sirve un primer
  * lote curado; en cuanto el visitante escribe o filtra, la consulta se resuelve
@@ -74,6 +75,7 @@ export async function GET(request: Request): Promise<Response> {
     const { products, total } = await searchCatalogCached({
       query: param("q"),
       store: listParam("store"),
+      storeSlug: listParam("storeSlug"),
       category: listParam("category"),
       brand: listParam("brand"),
       minPrice: numericParam(url.searchParams.get("minPrice")),

@@ -482,6 +482,12 @@ export interface SearchCatalogParams {
    */
   store?: string | string[];
   /**
+   * Slug de la tienda (`stores.slug`), uno o varios. Lo usan las landings de
+   * tienda (`/tiendas/<tienda>`), donde el alcance es fijo y viaja por la URL
+   * como slug, no como nombre comercial.
+   */
+  storeSlug?: string | string[];
+  /**
    * Slugs de `categories`. Una raíz abarca a sus hijas. `UNCATEGORIZED_VALUE`
    * pide lo que aún no tiene mapeo canónico.
    */
@@ -587,6 +593,7 @@ export type NormalizedSearchParams = Required<
 > &
   Pick<SearchCatalogParams, 'query' | 'minPrice' | 'maxPrice'> & {
     store: string[];
+    storeSlug: string[];
     category: string[];
     storeCategory: string[];
     brand: string[];
@@ -609,6 +616,7 @@ export function normalizeSearchParams(params: SearchCatalogParams): NormalizedSe
   return {
     query: query ? query : undefined,
     store: sortedList(params.store),
+    storeSlug: sortedList(params.storeSlug),
     category: sortedList(params.category),
     storeCategory: sortedList(params.storeCategory),
     brand: sortedList(params.brand),
@@ -792,6 +800,7 @@ async function runCatalogQuery(
 
     if (params.ids && params.ids.length > 0) request = request.in('id', params.ids);
     request = applyFacet(request, 'store_name', params.store);
+    request = applyFacet(request, 'store_slug', params.storeSlug);
     request = applyCategoryFacet(request, params.category);
     request = applyFacet(request, 'store_category_name', params.storeCategory);
     request = applyFacet(request, 'brand', params.brand);

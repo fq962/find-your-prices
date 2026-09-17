@@ -2,44 +2,49 @@
 
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 
-interface CategoryImageUploaderProps {
-  categoryId: string;
-  /** La server action que recibe `id` e `image` (ver actions.ts). */
+interface ImageUploaderProps {
+  /** Id de la fila (categoría o tienda) que recibe la imagen. */
+  entityId: string;
+  /** La server action que recibe `id` e `image` (ver actions.ts de cada panel). */
   action: (formData: FormData) => Promise<void>;
   buttonClass: string;
+  /** Ancho inicial de la optimización. Cada panel elige el suyo. */
+  defaultWidth?: number;
 }
 
 const ACCEPT = 'image/png,image/jpeg,image/webp,image/avif,image/svg+xml';
 const MAX_BYTES = 5 * 1024 * 1024;
 
-/** Ancho al que se reduce la imagen al optimizar; el alto sigue la proporción. */
-const OPTIMIZED_WIDTH = 256;
+/** Anchos ofrecidos de un clic. Cualquier otro se escribe a mano. */
+export const OPTIMIZE_PRESETS = [128, 256, 512, 1024] as const;
+const MIN_WIDTH = 16;
+const MAX_WIDTH = 4096;
 const WEBP_QUALITY = 0.85;
 
 /**
- * Reduce a `OPTIMIZED_WIDTH` de ancho y convierte a WebP con el canvas del
- * navegador. Se hace acá y no en el servidor a propósito: la foto de una
- * categoría se sube una vez, y cargar una librería de imágenes en el
- * servidor solo para eso sería pagar en cada despliegue lo que el navegador
- * hace gratis. Conserva la transparencia (WebP la soporta). Si la imagen ya
- * es más angosta no se agranda; solo cambia el formato.
+ * Reduce a `width` de ancho y convierte a WebP con el canvas del navegador.
+ * Se hace acá y no en el servidor a propósito: la foto se sube una vez, y
+ * cargar una librería de imágenes en el servidor solo para eso sería pagar
+ * en cada despliegue lo que el navegador hace gratis. Conserva la
+ * transparencia (WebP la soporta). Si la imagen ya es más angosta no se
+ * agranda; solo cambia el formato.
  *
  * Devuelve el archivo original si el navegador no puede codificar WebP.
  */
-async function optimizeImage(file: File): Promise<File> {
+async function optimizeImage(file: File, width: number): Promise<File> {
   const bitmap = await createImageBitmap(file);
   try {
-    const scale = Math.min(1, OPTIMIZED_WIDTH / bitmap.width);
-    const width = Math.max(1, Math.round(bitmap.width * scale));
-    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const scale = Math.min(1, width / bitmap.width);
+    const targetWidth = Math.max(1, Math.round(bitmap.width * scale));
+    const targetHeight = Math.max(1, Math.round(bitmap.height * scale));
 
     const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
     const context = canvas.getContext('2d');
     if (!context) return file;
     context.imageSmoothingQuality = 'high';
-    context.drawImage(bitmap, 0, 0, width, height);
+    context.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
 
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', WEBP_QUALITY));
     if (!blob || blob.type !== 'image/webp') return file;
@@ -51,11 +56,20 @@ async function optimizeImage(file: File): Promise<File> {
   }
 }
 
+function clampWidth(value: number): number {
+  if (!Number.isFinite(value)) return OPTIMIZE_PRESETS[1];
+  return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(value)));
+}
+
 /**
- * Subida de la imagen de categoría por tres caminos: elegir archivo, pegar
- * desde el portapapeles (Ctrl+V / Cmd+V en cualquier parte de la página) o
- * arrastrar y soltar sobre la zona. Con «Optimizar» marcado (el default), la
- * imagen se reduce y se convierte a WebP en el navegador antes de subir.
+ * Subida de una imagen por tres caminos: elegir archivo, pegar desde el
+ * portapapeles (Ctrl+V / Cmd+V en cualquier parte de la página) o arrastrar
+ * y soltar sobre la zona. Con «Optimizar» marcado (el default), la imagen se
+ * reduce al ancho elegido —128, 256, 512, 1024 o el que se escriba— y se
+ * convierte a WebP en el navegador antes de subir.
+ *
+ * Es el mismo componente para categorías y tiendas: la server action que
+ * recibe `id` e `image` es lo único que cambia entre un panel y otro.
  *
  * Pegar es el que importa: la foto normalmente viene de una captura o de
  * copiar una imagen del sitio de la tienda, y bajarla a disco para volverla
@@ -67,23 +81,27 @@ async function optimizeImage(file: File): Promise<File> {
  * hacer clic en un recuadro antes de pegar; se ignora si el foco está en un
  * campo de texto (ahí pegar significa pegar texto).
  */
-export function CategoryImageUploader({ categoryId, action, buttonClass }: CategoryImageUploaderProps) {
+export function ImageUploader({ entityId, action, buttonClass, defaultWidth = 256 }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [preview, setPreview] = useState<{ url: string; name: string; size: number; originalSize?: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [optimize, setOptimize] = useState(true);
-  // El listener de paste se registra una sola vez: lee la casilla por ref
+  const [width, setWidth] = useState(clampWidth(defaultWidth));
+  // Lo que hay escrito en el campo, que puede estar a medias ("10" camino a
+  // "1024"): se aplica al salir del campo o al elegir una pastilla.
+  const [widthDraft, setWidthDraft] = useState(String(clampWidth(defaultWidth)));
+  // El listener de paste se registra una sola vez: lee los ajustes por ref
   // para no quedarse con el valor del primer render.
-  const optimizeRef = useRef(true);
+  const settingsRef = useRef({ optimize: true, width: clampWidth(defaultWidth) });
   const [busy, setBusy] = useState(false);
-  // Se guarda lo último aceptado para rehacerlo si se cambia la casilla.
+  // Se guarda lo último aceptado para rehacerlo si cambian los ajustes.
   const originalRef = useRef<File | null>(null);
 
   // La URL de vista previa se libera al reemplazarla o al desmontar.
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview.url); }, [preview]);
 
-  async function accept(file: File, shouldOptimize = optimizeRef.current): Promise<void> {
+  async function accept(file: File, settings = settingsRef.current): Promise<void> {
     if (!file.type.startsWith('image/')) {
       setError('Eso no es una imagen.');
       return;
@@ -106,7 +124,7 @@ export function CategoryImageUploader({ categoryId, action, buttonClass }: Categ
     let final = named;
     try {
       // Un SVG ya es chico y escala solo: convertirlo a WebP lo empeoraría.
-      if (shouldOptimize && named.type !== 'image/svg+xml') final = await optimizeImage(named);
+      if (settings.optimize && named.type !== 'image/svg+xml') final = await optimizeImage(named, settings.width);
     } catch {
       setError('No se pudo optimizar; se sube la imagen original.');
     } finally {
@@ -125,11 +143,20 @@ export function CategoryImageUploader({ categoryId, action, buttonClass }: Categ
     });
   }
 
-  function toggleOptimize(next: boolean): void {
-    setOptimize(next);
-    optimizeRef.current = next;
-    // Con una imagen ya elegida, la casilla se aplica al instante.
-    if (originalRef.current) void accept(originalRef.current, next);
+  /** Cambia un ajuste y, con una imagen ya elegida, la rehace al instante. */
+  function applySettings(next: Partial<{ optimize: boolean; width: number }>): void {
+    const settings = { ...settingsRef.current, ...next };
+    settingsRef.current = settings;
+    setOptimize(settings.optimize);
+    setWidth(settings.width);
+    setWidthDraft(String(settings.width));
+    if (originalRef.current) void accept(originalRef.current, settings);
+  }
+
+  function commitWidthDraft(): void {
+    const parsed = clampWidth(Number(widthDraft));
+    if (parsed !== width) applySettings({ width: parsed });
+    else setWidthDraft(String(width));
   }
 
   useEffect(() => {
@@ -156,7 +183,7 @@ export function CategoryImageUploader({ categoryId, action, buttonClass }: Categ
 
   return (
     <form action={action} className="space-y-4">
-      <input type="hidden" name="id" value={categoryId} />
+      <input type="hidden" name="id" value={entityId} />
 
       <div
         onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
@@ -195,14 +222,66 @@ export function CategoryImageUploader({ categoryId, action, buttonClass }: Categ
           <input
             type="checkbox"
             checked={optimize}
-            onChange={(event) => toggleOptimize(event.target.checked)}
+            onChange={(event) => applySettings({ optimize: event.target.checked })}
             className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
           />
           <span>
             <span className="font-medium text-[var(--text)]">Optimizar</span>
-            {' '}— reducir a {OPTIMIZED_WIDTH} px de ancho y convertir a WebP antes de subir. Los SVG no se tocan.
+            {' '}— reducir a {width} px de ancho y convertir a WebP antes de subir. Los SVG no se tocan.
           </span>
         </label>
+
+        {/* El ancho: cuatro pastillas para los tamaños de siempre y un campo
+            para cualquier otro. La pastilla marcada es la que coincide con el
+            campo; un valor a mano no marca ninguna. */}
+        <div
+          role="group"
+          aria-label="Ancho de la optimización"
+          className={`mt-3 flex flex-wrap items-center gap-2 transition-opacity duration-[var(--dur-fast)] ${
+            optimize ? '' : 'pointer-events-none opacity-40'
+          }`}
+        >
+          {OPTIMIZE_PRESETS.map((preset) => {
+            const active = preset === width;
+            return (
+              <button
+                key={preset}
+                type="button"
+                aria-pressed={active}
+                onClick={() => applySettings({ width: preset })}
+                className={`rounded-full border px-3 py-1 text-[0.75rem] font-medium tabular-nums transition-colors duration-[var(--dur-fast)] ${
+                  active
+                    ? 'border-[var(--text)] bg-[var(--text)] text-[var(--text-inverted)]'
+                    : 'border-[var(--border-strong)] text-[var(--text)] hover:bg-[var(--bg-subtle)]'
+                }`}
+              >
+                {preset} px
+              </button>
+            );
+          })}
+          <label className="flex items-center gap-1.5 text-[0.75rem] text-[var(--text-tertiary)]">
+            <span>otro:</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={MIN_WIDTH}
+              max={MAX_WIDTH}
+              step={1}
+              value={widthDraft}
+              onChange={(event) => setWidthDraft(event.target.value)}
+              onBlur={commitWidthDraft}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  commitWidthDraft();
+                }
+              }}
+              aria-label="Ancho en píxeles"
+              className="w-[4.5rem] rounded-full border border-[var(--border-strong)] bg-transparent px-2.5 py-1 text-[0.75rem] tabular-nums text-[var(--text)] outline-none focus:border-[var(--accent)]"
+            />
+            <span>px</span>
+          </label>
+        </div>
 
         {busy && (
           <p className="mt-3 text-[0.8125rem] text-[var(--text-tertiary)]">Optimizando…</p>

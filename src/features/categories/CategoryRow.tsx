@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { CategoryNode } from "@/server/services/categoryPages";
 
 interface CategoryRowProps {
@@ -8,6 +9,8 @@ interface CategoryRowProps {
   meta: string;
   /** Marca la fila de la página actual (en el "también en …" de una hija). */
   current?: boolean;
+  /** Texto de la fila cuando no es el nombre a secas ("Abarrotes en PriceSmart"). */
+  label?: ReactNode;
 }
 
 /**
@@ -18,7 +21,7 @@ interface CategoryRowProps {
  * chevrón se desplaza al pasar por encima: el movimiento dice "esto lleva a
  * algún lado" sin cambiar nada de color.
  */
-export function CategoryRow({ category, href, meta, current = false }: CategoryRowProps) {
+export function CategoryRow({ category, href, meta, current = false, label }: CategoryRowProps) {
   return (
     <li>
       <Link
@@ -32,7 +35,7 @@ export function CategoryRow({ category, href, meta, current = false }: CategoryR
       >
         <span className="min-w-0">
           <span className="block truncate text-[0.9375rem] font-medium tracking-[-0.01em] text-[var(--text)]">
-            {category.name}
+            {label ?? category.name}
           </span>
           <span className="mt-0.5 block text-[0.75rem] tabular-nums text-[var(--text-tertiary)]">
             {meta}

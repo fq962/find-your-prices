@@ -3,6 +3,7 @@ import {
   productSitemapPath,
   SITEMAP_CATEGORIES_PATH,
   SITEMAP_PAGES_PATH,
+  SITEMAP_STORES_PATH,
 } from "@/lib/seo/sitemaps";
 import {
   renderSitemapIndex,
@@ -34,6 +35,7 @@ export async function GET(): Promise<Response> {
   const entries: SitemapIndexEntry[] = [
     { loc: absoluteUrl(SITEMAP_PAGES_PATH) },
     { loc: absoluteUrl(SITEMAP_CATEGORIES_PATH) },
+    { loc: absoluteUrl(SITEMAP_STORES_PATH) },
   ];
 
   for (let chunk = 1; chunk <= chunks; chunk += 1) {

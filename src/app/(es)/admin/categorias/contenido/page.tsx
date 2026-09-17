@@ -37,6 +37,10 @@ export default async function CategoryContentIndexPage() {
             <Link href="/admin/scraping" className="text-[var(--accent)] hover:opacity-70">
               Scraping
             </Link>
+            {' · '}
+            <Link href="/admin/tiendas" className="text-[var(--accent)] hover:opacity-70">
+              Tiendas
+            </Link>
           </p>
           <h1 className="enter mt-6 text-[clamp(2rem,5vw,3.5rem)] leading-[0.95] font-semibold tracking-[-0.04em] text-[var(--text)]">
             Contenido de categorías
