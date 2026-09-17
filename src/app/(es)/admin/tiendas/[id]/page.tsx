@@ -95,7 +95,7 @@ export default async function StoreContentEditPage({ params, searchParams }: Pag
                   entityId={row.id}
                   action={uploadStoreImageAction}
                   buttonClass={buttonClass}
-                  defaultWidth={512}
+                  storageKey="tiendas"
                 />
                 {row.imageUrl && (
                   <form action={removeStoreImageAction}>

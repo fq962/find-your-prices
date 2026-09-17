@@ -91,6 +91,7 @@ export default async function CategoryContentEditPage({ params, searchParams }: 
               <div className="space-y-4">
                 <ImageUploader
                   entityId={row.id}
+                  storageKey="categorias"
                   action={uploadImageAction}
                   buttonClass={buttonClass}
                 />

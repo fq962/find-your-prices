@@ -8,7 +8,13 @@ interface ImageUploaderProps {
   /** La server action que recibe `id` e `image` (ver actions.ts de cada panel). */
   action: (formData: FormData) => Promise<void>;
   buttonClass: string;
-  /** Ancho inicial de la optimización. Cada panel elige el suyo. */
+  /**
+   * Bajo qué nombre se recuerdan los ajustes en este navegador
+   * (`localStorage`): "categorias", "tiendas". Cada panel guarda los suyos,
+   * así 128 para categorías no cambia el 512 de tiendas.
+   */
+  storageKey: string;
+  /** Ancho inicial cuando este navegador no recuerda nada todavía. */
   defaultWidth?: number;
 }
 
@@ -81,7 +87,45 @@ function clampWidth(value: number): number {
  * hacer clic en un recuadro antes de pegar; se ignora si el foco está en un
  * campo de texto (ahí pegar significa pegar texto).
  */
-export function ImageUploader({ entityId, action, buttonClass, defaultWidth = 256 }: ImageUploaderProps) {
+interface UploaderSettings {
+  optimize: boolean;
+  width: number;
+}
+
+function storageKeyFor(key: string): string {
+  return `fyp-image-uploader:${key}`;
+}
+
+/** Los últimos ajustes usados en este navegador, o `null`. Nunca lanza. */
+function readStoredSettings(key: string): UploaderSettings | null {
+  try {
+    const raw = window.localStorage.getItem(storageKeyFor(key));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<UploaderSettings>;
+    return {
+      optimize: parsed.optimize !== false,
+      width: clampWidth(Number(parsed.width)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredSettings(key: string, settings: UploaderSettings): void {
+  try {
+    window.localStorage.setItem(storageKeyFor(key), JSON.stringify(settings));
+  } catch {
+    // Sin almacenamiento (modo privado, cuota): se sigue sin recordar.
+  }
+}
+
+export function ImageUploader({
+  entityId,
+  action,
+  buttonClass,
+  storageKey,
+  defaultWidth = 256,
+}: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [preview, setPreview] = useState<{ url: string; name: string; size: number; originalSize?: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +137,7 @@ export function ImageUploader({ entityId, action, buttonClass, defaultWidth = 25
   const [widthDraft, setWidthDraft] = useState(String(clampWidth(defaultWidth)));
   // El listener de paste se registra una sola vez: lee los ajustes por ref
   // para no quedarse con el valor del primer render.
-  const settingsRef = useRef({ optimize: true, width: clampWidth(defaultWidth) });
+  const settingsRef = useRef<UploaderSettings>({ optimize: true, width: clampWidth(defaultWidth) });
   const [busy, setBusy] = useState(false);
   // Se guarda lo último aceptado para rehacerlo si cambian los ajustes.
   const originalRef = useRef<File | null>(null);
@@ -143,13 +187,34 @@ export function ImageUploader({ entityId, action, buttonClass, defaultWidth = 25
     });
   }
 
-  /** Cambia un ajuste y, con una imagen ya elegida, la rehace al instante. */
-  function applySettings(next: Partial<{ optimize: boolean; width: number }>): void {
-    const settings = { ...settingsRef.current, ...next };
+  /** Pone los ajustes en el estado y en la ref, sin tocar la imagen. */
+  function setSettings(settings: UploaderSettings): void {
     settingsRef.current = settings;
     setOptimize(settings.optimize);
     setWidth(settings.width);
     setWidthDraft(String(settings.width));
+  }
+
+  // Los ajustes recordados se leen después de montar, no en el estado
+  // inicial: el servidor no tiene localStorage y el HTML tiene que
+  // coincidir con el primer render del navegador. Un frame de por medio en
+  // vez de setState síncrono en el efecto, como en el panel de scraping.
+  useEffect(() => {
+    const stored = readStoredSettings(storageKey);
+    if (!stored) return;
+    const frame = requestAnimationFrame(() => setSettings(stored));
+    return () => cancelAnimationFrame(frame);
+  }, [storageKey]);
+
+  /**
+   * Cambia un ajuste, lo recuerda para la próxima vez en este navegador y,
+   * con una imagen ya elegida, la rehace al instante. Recordar es el punto:
+   * quien usa 128 para categorías no tiene que volver a elegirlo en cada una.
+   */
+  function applySettings(next: Partial<UploaderSettings>): void {
+    const settings = { ...settingsRef.current, ...next };
+    setSettings(settings);
+    writeStoredSettings(storageKey, settings);
     if (originalRef.current) void accept(originalRef.current, settings);
   }
 
