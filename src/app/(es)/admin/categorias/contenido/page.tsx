@@ -30,7 +30,10 @@ export default async function CategoryContentIndexPage() {
       <header className="border-b border-[var(--border)] px-6 pt-20 pb-12 sm:px-10 lg:px-16">
         <div className="mx-auto w-full max-w-6xl">
           <p className="enter-fade text-[0.6875rem] font-medium tracking-[0.24em] text-[var(--text-tertiary)] uppercase">
-            Find Your Prices · Panel operativo ·{' '}
+            <Link href="/admin" className="text-[var(--accent)] hover:opacity-70">
+              Panel
+            </Link>
+            {' · '}
             <Link href="/admin/categorias" className="text-[var(--accent)] hover:opacity-70">
               Árbol y mapeo
             </Link>

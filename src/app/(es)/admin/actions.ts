@@ -1,6 +1,8 @@
 'use server';
 
-import { closeAdminSession, openAdminSession } from '@/server/admin/session';
+import { redirect } from 'next/navigation';
+import { closeAdminSession, hasAdminSession, openAdminSession } from '@/server/admin/session';
+import { isCacheScope, refreshCache } from '@/server/services/cacheRefresh';
 
 export interface UnlockState {
   error: string | null;
@@ -20,4 +22,17 @@ export async function unlockAdmin(_prev: UnlockState, formData: FormData): Promi
 
 export async function lockAdmin(): Promise<void> {
   await closeAdminSession();
+}
+
+/**
+ * Botones de "refrescar caché" del hub. El layout ya bloquea la página sin
+ * sesión, pero una server action es un endpoint propio: se vuelve a
+ * comprobar la cookie antes de tirar nada.
+ */
+export async function refreshCacheAction(formData: FormData): Promise<void> {
+  if (!(await hasAdminSession())) throw new Error('No autorizado');
+  const scope = String(formData.get('scope') ?? '');
+  if (!isCacheScope(scope)) redirect('/admin?cache=error');
+  const result = refreshCache(scope);
+  redirect(`/admin?cache=${scope}&paths=${result.paths.length}`);
 }

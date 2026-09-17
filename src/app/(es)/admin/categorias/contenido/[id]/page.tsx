@@ -38,6 +38,8 @@ export default async function CategoryContentEditPage({ params, searchParams }: 
       <header className="border-b border-[var(--border)] px-6 pt-20 pb-10 sm:px-10 lg:px-16">
         <div className="mx-auto w-full max-w-4xl">
           <p className="enter-fade text-[0.6875rem] font-medium tracking-[0.24em] text-[var(--text-tertiary)] uppercase">
+            <Link href="/admin" className="text-[var(--accent)] hover:opacity-70">Panel</Link>
+            {' · '}
             <Link href="/admin/categorias/contenido" className="text-[var(--accent)] hover:opacity-70">
               ← Contenido de categorías
             </Link>

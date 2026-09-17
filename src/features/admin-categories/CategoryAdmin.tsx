@@ -200,7 +200,10 @@ export function CategoryAdmin({ categories, storeCategories, stores, usage }: Pr
             className="enter-fade text-[0.6875rem] font-medium tracking-[0.24em] text-[var(--text-tertiary)] uppercase"
             style={{ '--enter-delay': '80ms' } as CSSProperties}
           >
-            Find Your Prices · Panel operativo ·{' '}
+            <Link href="/admin" className="text-[var(--accent)] hover:opacity-70">
+              Panel
+            </Link>
+            {' · '}
             <Link href="/admin/scraping" className="text-[var(--accent)] hover:opacity-70">
               Scraping
             </Link>

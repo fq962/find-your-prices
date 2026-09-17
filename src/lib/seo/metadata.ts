@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { siteConfig } from "@/config/site";
 import type { Locale } from "@/features/i18n/translate";
 import { SITE_KEYWORDS } from "./keywords";
+import { brandOgImagePath, OG_SIZE, ogAlt } from "./ogMeta";
 
 /**
  * Construcción de la metadata de cada página, en un solo lugar.
@@ -143,6 +144,14 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
     modifiedTime,
   } = input;
 
+  // Siempre hay imagen. Declarar `openGraph` hace que Next descarte el
+  // `opengraph-image` del segmento, así que "sin imagen" no significaba "la
+  // de marca" sino "ninguna": categorías, tiendas y legales salían sin
+  // tarjeta. La de marca vive en `/og/<idioma>` (ver app/og/[locale]).
+  const previewImages: OgImageInput[] = images ?? [
+    { url: brandOgImagePath(locale), alt: ogAlt(locale), width: OG_SIZE.width, height: OG_SIZE.height },
+  ];
+
   const canonical = absoluteUrl(paths[locale]);
   const otherLocale: Locale = locale === "es" ? "en" : "es";
 
@@ -157,7 +166,7 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
     locale: OG_LOCALE[locale],
     alternateLocale: OG_LOCALE[otherLocale],
     ...(type === "article" && modifiedTime ? { modifiedTime } : {}),
-    ...(images ? { images } : {}),
+    images: previewImages,
   };
 
   return {
@@ -176,7 +185,7 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
       card: "summary_large_image",
       title,
       description,
-      ...(images ? { images } : {}),
+      images: previewImages,
     },
   };
 }
