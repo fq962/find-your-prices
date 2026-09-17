@@ -163,7 +163,7 @@ export function StorePageView({ locale, data }: StorePageViewProps) {
               className="enter relative lg:col-span-4"
               style={{ "--enter-delay": "300ms" } as CSSProperties}
             >
-              <div className="relative mx-auto aspect-square w-full max-w-[16rem] overflow-hidden rounded-full border border-[var(--border)] bg-[var(--bg-subtle)] shadow-[var(--shadow-sm)] lg:max-w-none">
+              <div className="relative mx-auto aspect-square w-full max-w-[16rem] overflow-hidden rounded-full border border-[var(--border)] bg-white shadow-[var(--shadow-sm)] lg:max-w-none">
                 {/* eslint-disable-next-line @next/next/no-img-element -- imagen externa (Storage), como en ProductTile */}
                 <img
                   src={store.imageUrl ?? undefined}

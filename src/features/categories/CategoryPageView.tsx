@@ -123,7 +123,7 @@ export function CategoryPageView({ locale, data }: CategoryPageViewProps) {
               className="enter relative lg:col-span-5 lg:-mr-10 xl:-mr-16"
               style={{ "--enter-delay": "300ms" } as CSSProperties}
             >
-              <div className="relative aspect-[5/4] w-full overflow-hidden rounded-[2rem] border border-[var(--border)] bg-[var(--bg-subtle)] shadow-[var(--shadow-sm)] sm:rounded-[2.5rem]">
+              <div className="relative aspect-[5/4] w-full overflow-hidden rounded-[2rem] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)] sm:rounded-[2.5rem]">
                 {/* eslint-disable-next-line @next/next/no-img-element -- imagen externa (Storage), como en ProductTile */}
                 <img
                   src={category.imageUrl ?? undefined}

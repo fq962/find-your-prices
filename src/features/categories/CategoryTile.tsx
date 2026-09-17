@@ -47,7 +47,7 @@ export function CategoryTile({
       className="group enter flex h-full flex-col overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--bg-elevated)] outline-none transition-[border-color,box-shadow,transform] duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--bg)]"
       style={{ "--enter-delay": `${Math.min(index, MAX_STAGGERED) * 55}ms` } as CSSProperties}
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--bg-subtle)]">
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-white">
         {category.imageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element -- imagen externa (Storage), como en ProductTile */
           <img

@@ -1,10 +1,17 @@
 import 'server-only';
+import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 import { getSupabaseAdmin } from '@/server/db/supabase';
 import type { Locale } from '@/features/i18n/translate';
 import type { FacetOption } from '@/features/products/categoryFacets';
 import { DEFAULT_SORT } from '@/features/products/sortProducts';
 import type { Product } from '@/types';
-import { hasDatabase, searchCatalogCached } from './catalog';
+import {
+  CATALOG_SEARCH_CACHE_SECONDS,
+  CATALOG_SEARCH_CACHE_TAG,
+  hasDatabase,
+  searchCatalogCached,
+} from './catalog';
 
 /**
  * Datos de las páginas de categoría (migración 0031).
@@ -136,8 +143,8 @@ export interface CategoryTree {
   bySlug: Map<string, CategoryNode>;
 }
 
-/** El árbol entero con conteos y texto, en tres viajes en paralelo. */
-export async function loadCategoryTree(locale: Locale): Promise<CategoryTree> {
+/** Los nodos del árbol, sin los mapas: es lo que se puede guardar en caché. */
+async function loadCategoryNodes(locale: Locale): Promise<CategoryNode[]> {
   const db = getSupabaseAdmin();
 
   const selectCategories = (columns: string) =>
@@ -204,8 +211,32 @@ export async function loadCategoryTree(locale: Locale): Promise<CategoryTree> {
     }
   }
 
-  return { nodes, byId, bySlug: new Map(nodes.map((node) => [node.slug, node])) };
+  return nodes;
 }
+
+/**
+ * Los nodos, en caché cinco minutos y con la etiqueta del catálogo: son
+ * tres viajes a la base que cada landing de categoría y de tienda repite, y
+ * el árbol solo cambia con el scraping o con el panel, que ya invalidan la
+ * etiqueta. Se guardan los nodos y no los mapas porque la caché de Next
+ * serializa a JSON.
+ */
+const loadCategoryNodesCached = unstable_cache(loadCategoryNodes, ['category-tree'], {
+  revalidate: CATALOG_SEARCH_CACHE_SECONDS,
+  tags: [CATALOG_SEARCH_CACHE_TAG],
+});
+
+/**
+ * El árbol entero con conteos y texto. Una sola vez por petición aunque lo
+ * pidan `generateMetadata` y la página (React `cache`).
+ */
+export const loadCategoryTree = cache(async (locale: Locale): Promise<CategoryTree> => {
+  // Copia por nodo: los de la caché son compartidos y el servicio de tiendas
+  // reescala los conteos sobre su propia copia.
+  const nodes = (await loadCategoryNodesCached(locale)).map((node) => ({ ...node }));
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  return { nodes, byId, bySlug: new Map(nodes.map((node) => [node.slug, node])) };
+});
 
 /** Orden editorial: destacadas primero por su posición, luego por artículos. */
 export function byEditorialOrder(a: CategoryNode, b: CategoryNode): number {
@@ -216,7 +247,7 @@ export function byEditorialOrder(a: CategoryNode, b: CategoryNode): number {
 // Índice
 // -----------------------------------------------------------------------------
 
-export async function getCategoryIndex(locale: Locale): Promise<CategoryIndexData> {
+export const getCategoryIndex = cache(async (locale: Locale): Promise<CategoryIndexData> => {
   if (!hasDatabase()) return { roots: [], featured: [], childrenOf: {}, totalProducts: 0 };
 
   const tree = await loadCategoryTree(locale);
@@ -240,7 +271,7 @@ export async function getCategoryIndex(locale: Locale): Promise<CategoryIndexDat
     childrenOf,
     totalProducts: roots.reduce((sum, root) => sum + root.productCount, 0),
   };
-}
+});
 
 // -----------------------------------------------------------------------------
 // Página de una categoría
@@ -355,10 +386,10 @@ async function getScopedFacets(slug: string): Promise<ScopedFacets> {
  * un 404 a propósito: una landing vacía es la peor página que se puede
  * ofrecer a un buscador.
  */
-export async function getCategoryPage(
+export const getCategoryPage = cache(async (
   slug: string,
   locale: Locale,
-): Promise<CategoryPageData | null> {
+): Promise<CategoryPageData | null> => {
   if (!hasDatabase()) return null;
 
   const tree = await loadCategoryTree(locale);
@@ -398,7 +429,7 @@ export async function getCategoryPage(
     initialProducts: initial.products,
     facets,
   };
-}
+});
 
 /**
  * Slugs de todas las categorías con artículos, para el sitemap. Devuelve

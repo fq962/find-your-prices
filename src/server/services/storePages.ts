@@ -1,10 +1,17 @@
 import 'server-only';
+import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 import { getSupabaseAdmin } from '@/server/db/supabase';
 import type { Locale } from '@/features/i18n/translate';
 import type { FacetOption } from '@/features/products/categoryFacets';
 import { DEFAULT_SORT } from '@/features/products/sortProducts';
 import type { Product } from '@/types';
-import { hasDatabase, searchCatalogCached } from './catalog';
+import {
+  CATALOG_SEARCH_CACHE_SECONDS,
+  CATALOG_SEARCH_CACHE_TAG,
+  hasDatabase,
+  searchCatalogCached,
+} from './catalog';
 import {
   byEditorialOrder,
   EMPTY_SCOPED_FACETS,
@@ -94,7 +101,7 @@ interface RawStore {
 }
 
 /** Tiendas activas con su cifra. Sin la 0033 no hay `image_alt`: se pinta sin él. */
-async function loadStores(): Promise<Map<string, StoreNode>> {
+async function loadStoreRows(): Promise<StoreNode[]> {
   const db = getSupabaseAdmin();
   const selectStores = (columns: string) =>
     db.from('stores').select(columns).eq('is_active', true).order('name');
@@ -115,10 +122,9 @@ async function loadStores(): Promise<Map<string, StoreNode>> {
     counts.set(row.store_slug, Number(row.product_count ?? 0));
   }
 
-  const result = new Map<string, StoreNode>();
-  for (const row of (stores.data ?? []) as unknown as Partial<RawStore>[]) {
+  return ((stores.data ?? []) as unknown as Partial<RawStore>[]).map((row) => {
     const slug = String(row.slug);
-    result.set(slug, {
+    return {
       id: String(row.id),
       slug,
       name: String(row.name),
@@ -127,25 +133,54 @@ async function loadStores(): Promise<Map<string, StoreNode>> {
       imageAlt: row.image_alt ?? null,
       productCount: counts.get(slug) ?? 0,
       categoryCount: 0,
-    });
-  }
-  return result;
+    };
+  });
+}
+
+/**
+ * Las tiendas y el conteo tienda × categoría, en caché cinco minutos con la
+ * etiqueta del catálogo. El conteo agrupa la materializada entera (~83 000
+ * filas) y era lo que hacía esperar a cada landing; cambia solo con el
+ * scraping, que ya invalida la etiqueta.
+ */
+const loadStoreRowsCached = unstable_cache(loadStoreRows, ['store-rows'], {
+  revalidate: CATALOG_SEARCH_CACHE_SECONDS,
+  tags: [CATALOG_SEARCH_CACHE_TAG],
+});
+
+/** Tiendas por slug. Una sola vez por petición (React `cache`). */
+const loadStores = cache(async (): Promise<Map<string, StoreNode>> => {
+  const rows = await loadStoreRowsCached();
+  return new Map(rows.map((row) => [row.slug, { ...row }]));
+});
+
+interface StoreCategoryCountRow {
+  store_slug: string;
+  slug: string;
+  product_count: number;
 }
 
 /** Conteo directo por (tienda, slug de categoría). Vacío si la 0033 no corrió. */
-async function loadStoreCategoryCounts(): Promise<Map<string, Map<string, number>>> {
-  const { data, error } = await getSupabaseAdmin()
-    .from('v_catalog_store_category_facets')
-    .select('store_slug, slug, product_count');
+const loadStoreCategoryCountRows = unstable_cache(
+  async (): Promise<StoreCategoryCountRow[]> => {
+    const { data, error } = await getSupabaseAdmin()
+      .from('v_catalog_store_category_facets')
+      .select('store_slug, slug, product_count');
+    return error ? [] : ((data ?? []) as StoreCategoryCountRow[]);
+  },
+  ['store-category-counts'],
+  { revalidate: CATALOG_SEARCH_CACHE_SECONDS, tags: [CATALOG_SEARCH_CACHE_TAG] },
+);
+
+const loadStoreCategoryCounts = cache(async (): Promise<Map<string, Map<string, number>>> => {
   const byStore = new Map<string, Map<string, number>>();
-  if (error) return byStore;
-  for (const row of (data ?? []) as Array<{ store_slug: string; slug: string; product_count: number }>) {
+  for (const row of await loadStoreCategoryCountRows()) {
     const counts = byStore.get(row.store_slug) ?? new Map<string, number>();
     counts.set(row.slug, Number(row.product_count ?? 0));
     byStore.set(row.store_slug, counts);
   }
   return byStore;
-}
+});
 
 /**
  * El árbol canónico con los conteos de UNA tienda: directo por nodo y, en
@@ -176,7 +211,7 @@ function scopeTreeToStore(
 // Índice
 // -----------------------------------------------------------------------------
 
-export async function getStoreIndex(): Promise<StoreIndexData> {
+export const getStoreIndex = cache(async (): Promise<StoreIndexData> => {
   if (!hasDatabase()) return { stores: [], totalProducts: 0 };
 
   const [stores, counts, tree] = await Promise.all([
@@ -200,7 +235,7 @@ export async function getStoreIndex(): Promise<StoreIndexData> {
     stores: list,
     totalProducts: list.reduce((sum, store) => sum + store.productCount, 0),
   };
-}
+});
 
 // -----------------------------------------------------------------------------
 // Página de una tienda, con o sin categoría
@@ -309,11 +344,11 @@ async function getScopedFacets(storeSlug: string, categorySlug: string | null): 
  * esa categoría. Ese último caso es un 404 a propósito: "Abarrotes en
  * Okashi" no es una página.
  */
-export async function getStorePage(
+export const getStorePage = cache(async (
   storeSlug: string,
   categorySlug: string | null,
   locale: Locale,
-): Promise<StorePageData | null> {
+): Promise<StorePageData | null> => {
   if (!hasDatabase()) return null;
 
   const [stores, counts, tree] = await Promise.all([
@@ -359,7 +394,7 @@ export async function getStorePage(
   ]);
 
   return { store, category, parent, children, siblings, popular, initialProducts: initial.products, facets };
-}
+});
 
 // -----------------------------------------------------------------------------
 // Sitemap

@@ -28,7 +28,7 @@ export function StoreTile({ store, href, meta, index = 0, eager = false }: Store
       className="group enter flex h-full flex-col items-center rounded-3xl border border-[var(--border)] bg-[var(--bg-elevated)] px-5 pt-8 pb-6 text-center outline-none transition-[border-color,box-shadow,transform] duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--bg)]"
       style={{ "--enter-delay": `${Math.min(index, MAX_STAGGERED) * 55}ms` } as CSSProperties}
     >
-      <span className="relative grid h-24 w-24 place-items-center overflow-hidden rounded-full bg-[var(--bg-subtle)] ring-1 ring-[var(--border)] transition-transform duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] group-hover:scale-[1.05] sm:h-28 sm:w-28">
+      <span className="relative grid h-24 w-24 place-items-center overflow-hidden rounded-full bg-white ring-1 ring-[var(--border)] transition-transform duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] group-hover:scale-[1.05] sm:h-28 sm:w-28">
         {store.imageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element -- imagen externa (Storage), como en ProductTile */
           <img
