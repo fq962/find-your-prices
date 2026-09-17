@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
+import { ImagePlate } from "@/components/shared/ImagePlate";
 import type { CategoryNode } from "@/server/services/categoryPages";
 
 interface CategoryTileProps {
@@ -24,12 +25,8 @@ const MAX_STAGGERED = 8;
 /**
  * Tarjeta de categoría con imagen: la unidad de las secciones "populares".
  *
- * La imagen vive en una placa cuadrada de fondo tenue y se pinta con
- * `object-contain`: las fotos de categoría son recortes de producto sobre
- * blanco, y estirarlas a cubrir deformaría o cortaría el objeto. Sin imagen
- * no hay caja gris: la inicial de la categoría en serif itálica ocupa la
- * placa, así que una categoría recién creada ya se ve terminada mientras
- * alguien le sube la foto.
+ * La imagen va en `ImagePlate`, la placa estándar del sitio (ver ese
+ * componente para la regla de fondo y relleno).
  */
 export function CategoryTile({
   category,
@@ -47,26 +44,15 @@ export function CategoryTile({
       className="group enter flex h-full flex-col overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--bg-elevated)] outline-none transition-[border-color,box-shadow,transform] duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--bg)]"
       style={{ "--enter-delay": `${Math.min(index, MAX_STAGGERED) * 55}ms` } as CSSProperties}
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-white">
-        {category.imageUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element -- imagen externa (Storage), como en ProductTile */
-          <img
-            src={category.imageUrl}
-            alt={alt}
-            loading={eager ? "eager" : "lazy"}
-            decoding="async"
-            className="absolute inset-0 h-full w-full object-contain p-6 transition-transform duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] group-hover:scale-[1.05]"
-          />
-        ) : (
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 flex items-center justify-center font-serif text-[clamp(4rem,9vw,6.5rem)] leading-none tracking-[-0.04em] text-[var(--accent)] italic opacity-80 transition-transform duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] group-hover:scale-[1.06]"
-          >
-            {category.name.charAt(0)}
-          </span>
-        )}
-      </div>
-
+      <ImagePlate
+        imageUrl={category.imageUrl}
+        alt={alt}
+        name={category.name}
+        eager={eager}
+        className="aspect-[4/3] w-full"
+        imageClassName="transition-transform duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] group-hover:scale-[1.05]"
+        initialClassName="text-[clamp(4rem,9vw,6.5rem)] transition-transform duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] group-hover:scale-[1.06]"
+      />
       <div className="flex flex-1 items-start justify-between gap-3 px-5 pt-4 pb-5">
         <div className="min-w-0">
           <h3 className="text-[0.9375rem] leading-snug font-medium tracking-[-0.01em] text-balance text-[var(--text)]">

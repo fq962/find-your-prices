@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ImagePlate } from '@/components/shared/ImagePlate';
 import { notFound } from 'next/navigation';
 import { NO_INDEX_ROBOTS } from '@/lib/seo/metadata';
 import { categoryPaths } from '@/lib/seo/categorySeo';
@@ -77,16 +78,14 @@ export default async function CategoryContentEditPage({ params, searchParams }: 
               hint="Recorte de producto sobre fondo blanco o transparente, idealmente cuadrado, hasta 5 MB. Podés pegarla directo del portapapeles. Se muestra en la cabecera de la página, en la tarjeta de las listas y como imagen de vista previa al compartir."
             />
             <div className="mt-6 grid gap-6 sm:grid-cols-[12rem_1fr]">
-              <div className="aspect-square overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--bg-subtle)]">
-                {row.imageUrl ? (
-                  /* eslint-disable-next-line @next/next/no-img-element -- imagen externa (Storage), como en ProductTile */
-                  <img src={row.imageUrl} alt={row.imageAlt ?? row.name} className="h-full w-full object-contain p-4" />
-                ) : (
-                  <span className="flex h-full w-full items-center justify-center font-serif text-6xl text-[var(--accent)] italic">
-                    {row.name.charAt(0)}
-                  </span>
-                )}
-              </div>
+              <ImagePlate
+                imageUrl={row.imageUrl}
+                alt={row.imageAlt ?? row.name}
+                name={row.name}
+                eager
+                className="aspect-square rounded-3xl border border-[var(--border)]"
+                initialClassName="text-6xl"
+              />
               <div className="space-y-4">
                 <ImageUploader
                   entityId={row.id}

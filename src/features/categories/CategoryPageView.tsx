@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { SHELL } from "@/components/layout/shell";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
+import { ImagePlate } from "@/components/shared/ImagePlate";
 import { Reveal } from "@/components/shared/Reveal";
 import type { Locale } from "@/features/i18n/translate";
 import type { FacetOption } from "@/features/products/categoryFacets";
@@ -123,17 +124,13 @@ export function CategoryPageView({ locale, data }: CategoryPageViewProps) {
               className="enter relative lg:col-span-5 lg:-mr-10 xl:-mr-16"
               style={{ "--enter-delay": "300ms" } as CSSProperties}
             >
-              <div className="relative aspect-[5/4] w-full overflow-hidden rounded-[2rem] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)] sm:rounded-[2.5rem]">
-                {/* eslint-disable-next-line @next/next/no-img-element -- imagen externa (Storage), como en ProductTile */}
-                <img
-                  src={category.imageUrl ?? undefined}
-                  alt={category.imageAlt ?? category.name}
-                  loading="eager"
-                  fetchPriority="high"
-                  decoding="async"
-                  className="absolute inset-0 h-full w-full object-contain p-8 sm:p-10"
-                />
-              </div>
+              <ImagePlate
+                imageUrl={category.imageUrl}
+                alt={category.imageAlt ?? category.name}
+                name={category.name}
+                eager
+                className="aspect-[5/4] w-full rounded-[2rem] border border-[var(--border)] shadow-[var(--shadow-sm)] sm:rounded-[2.5rem]"
+              />
             </figure>
           )}
         </header>

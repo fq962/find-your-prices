@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ImagePlate } from '@/components/shared/ImagePlate';
 import { notFound } from 'next/navigation';
 import { NO_INDEX_ROBOTS } from '@/lib/seo/metadata';
 import { storePaths } from '@/lib/seo/storeSeo';
@@ -76,19 +77,17 @@ export default async function StoreContentEditPage({ params, searchParams }: Pag
           <section>
             <SectionTitle
               title="Imagen"
-              hint="El logo de la tienda, idealmente cuadrado y sobre fondo blanco o transparente, hasta 5 MB. Podés pegarla directo del portapapeles. Se muestra en un medallón redondo: dejale aire alrededor."
+              hint="El logo de la tienda, idealmente cuadrado y sobre fondo blanco o transparente, hasta 5 MB. Podés pegarla directo del portapapeles. Se muestra rellenando una placa cuadrada: un logo cuadrado la ocupa entera; uno apaisado queda centrado sobre blanco."
             />
             <div className="mt-6 grid gap-6 sm:grid-cols-[12rem_1fr]">
-              <div className="aspect-square overflow-hidden rounded-full border border-[var(--border)] bg-[var(--bg-subtle)]">
-                {row.imageUrl ? (
-                  /* eslint-disable-next-line @next/next/no-img-element -- imagen externa (Storage), como en ProductTile */
-                  <img src={row.imageUrl} alt={row.imageAlt ?? row.name} className="h-full w-full object-contain p-8" />
-                ) : (
-                  <span className="flex h-full w-full items-center justify-center font-serif text-6xl text-[var(--accent)] italic">
-                    {row.name.charAt(0)}
-                  </span>
-                )}
-              </div>
+              <ImagePlate
+                imageUrl={row.imageUrl}
+                alt={row.imageAlt ?? row.name}
+                name={row.name}
+                eager
+                className="aspect-square rounded-3xl border border-[var(--border)]"
+                initialClassName="text-6xl"
+              />
               <div className="space-y-4">
                 <ImageUploader
                   entityId={row.id}

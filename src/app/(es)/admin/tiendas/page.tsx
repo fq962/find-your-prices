@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ImagePlate } from '@/components/shared/ImagePlate';
 import { NO_INDEX_ROBOTS } from '@/lib/seo/metadata';
 import { storePaths } from '@/lib/seo/storeSeo';
 import { listStoresForContent } from '@/server/services/storeContent';
@@ -52,16 +53,7 @@ export default async function StoreContentIndexPage() {
           {rows.map((row) => (
             <li key={row.id}>
               <div className="flex items-center gap-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3">
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[var(--bg-subtle)]">
-                  {row.imageUrl ? (
-                    /* eslint-disable-next-line @next/next/no-img-element -- imagen externa (Storage), como en ProductTile */
-                    <img src={row.imageUrl} alt="" className="h-full w-full object-contain p-1.5" />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center font-serif text-xl text-[var(--accent)] italic">
-                      {row.name.charAt(0)}
-                    </span>
-                  )}
-                </div>
+                <ImagePlate imageUrl={row.imageUrl} alt="" name={row.name} className="h-12 w-12 shrink-0 rounded-xl" initialClassName="text-xl" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[0.9375rem] font-medium text-[var(--text)]">
                     {row.name}

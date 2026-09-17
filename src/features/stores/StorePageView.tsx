@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { SHELL } from "@/components/layout/shell";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
+import { ImagePlate } from "@/components/shared/ImagePlate";
 import { Reveal } from "@/components/shared/Reveal";
 import { SectionHeading } from "@/features/categories/CategoryIndexView";
 import { CategoryRow } from "@/features/categories/CategoryRow";
@@ -163,17 +164,13 @@ export function StorePageView({ locale, data }: StorePageViewProps) {
               className="enter relative lg:col-span-4"
               style={{ "--enter-delay": "300ms" } as CSSProperties}
             >
-              <div className="relative mx-auto aspect-square w-full max-w-[16rem] overflow-hidden rounded-full border border-[var(--border)] bg-white shadow-[var(--shadow-sm)] lg:max-w-none">
-                {/* eslint-disable-next-line @next/next/no-img-element -- imagen externa (Storage), como en ProductTile */}
-                <img
-                  src={store.imageUrl ?? undefined}
-                  alt={store.imageAlt ?? store.name}
-                  loading="eager"
-                  fetchPriority="high"
-                  decoding="async"
-                  className="absolute inset-0 h-full w-full object-contain p-10 sm:p-12"
-                />
-              </div>
+              <ImagePlate
+                imageUrl={store.imageUrl}
+                alt={store.imageAlt ?? store.name}
+                name={store.name}
+                eager
+                className="mx-auto aspect-square w-full max-w-[16rem] rounded-[2rem] border border-[var(--border)] shadow-[var(--shadow-sm)] sm:rounded-[2.5rem] lg:max-w-none"
+              />
             </figure>
           )}
         </header>
