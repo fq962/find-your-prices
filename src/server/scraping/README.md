@@ -477,6 +477,7 @@ resuelto en `truncate` y `stripLoneSurrogates` de
 | Un ejemplo terminado (Bloomreach Discovery vía el proxy del propio sitio) | [`strategies/pricesmart.ts`](./strategies/pricesmart.ts) |
 | Un ejemplo terminado (Angular SSR + API propia en AWS, reparto por departamento) | [`strategies/larach.ts`](./strategies/larach.ts) |
 | Un ejemplo terminado (Odoo eCommerce, html SSR sin JSON publico; categoria atribuida recorriendo el arbol de la hoja a la raiz) | [`strategies/pcbuilds.ts`](./strategies/pcbuilds.ts) |
+| Otra tienda Odoo (v15: tarjeta `<form class="card oe_product_cart">` con microdatos, `?ppg=` honrado, precios float sin redondear) que **reusa** los helpers de pcbuilds | [`strategies/meyko.ts`](./strategies/meyko.ts) |
 | Cómo se orquesta una corrida | [`runner.ts`](./runner.ts) |
 | El cliente HTTP | [`http.ts`](./http.ts) |
 | Cómo se escribe en la base | [`repository.ts`](./repository.ts) |
