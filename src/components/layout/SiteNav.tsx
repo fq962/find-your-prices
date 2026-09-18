@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
+import { MobileMenu } from "@/components/layout/MobileMenu";
 import { PreferencesMenu } from "@/components/layout/PreferencesMenu";
 import { SHELL } from "@/components/layout/shell";
 import { useScrollProgress } from "@/hooks/useScrollProgress";
@@ -96,9 +97,10 @@ export function SiteNav({ localePaths }: SiteNavProps = {}) {
 
         {/* Las tres puertas del sitio después del buscador: categorías,
             tiendas y favoritos. Un rastreador tiene que encontrar las dos
-            primeras desde cualquier página. En teléfono son sólo iconos —el
-            texto no cabe junto al buscador—; el nombre sigue ahí para el
-            lector de pantalla. Idioma y tema van plegados en el último botón. */}
+            primeras desde cualquier página. Por debajo de `lg` categorías y
+            tiendas se pliegan en el menú hamburguesa (los enlaces siguen en
+            el pie para los rastreadores) y la barra queda con favoritos,
+            preferencias y menú, en ese orden. Idioma y tema van plegados en el último botón. */}
         <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
           <NavLink
             href={routeFor("categories", locale)}
@@ -154,6 +156,11 @@ export function SiteNav({ localePaths }: SiteNavProps = {}) {
           </Link>
 
           <PreferencesMenu localePaths={localePaths} />
+
+          {/* Último en teléfono: favoritos, preferencias, menú. */}
+          <div className="lg:hidden">
+            <MobileMenu />
+          </div>
         </div>
       </div>
 
@@ -169,8 +176,9 @@ export function SiteNav({ localePaths }: SiteNavProps = {}) {
 }
 
 /**
- * Enlace de la barra con icono y, a partir de `sm`, su nombre. Los hijos
- * son los trazos del icono (viewBox 24, trazo 1.6).
+ * Enlace de la barra con icono y nombre, sólo en escritorio (`lg`); por
+ * debajo vive en `MobileMenu`. Los hijos son los trazos del icono (viewBox
+ * 24, trazo 1.6).
  */
 function NavLink({ href, label, children }: { href: string; label: string; children: ReactNode }) {
   return (
@@ -178,7 +186,7 @@ function NavLink({ href, label, children }: { href: string; label: string; child
       href={href}
       aria-label={label}
       title={label}
-      className="-m-1 flex h-9 shrink-0 items-center gap-1.5 rounded-full px-1 text-[0.8125rem] font-medium tracking-[-0.01em] text-[var(--text-secondary)] outline-none transition-colors duration-[var(--dur-fast)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:px-2.5"
+      className="-m-1 hidden h-9 shrink-0 items-center gap-1.5 rounded-full px-1 text-[0.8125rem] lg:flex font-medium tracking-[-0.01em] text-[var(--text-secondary)] outline-none transition-colors duration-[var(--dur-fast)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:px-2.5"
     >
       <svg
         aria-hidden="true"
@@ -192,7 +200,7 @@ function NavLink({ href, label, children }: { href: string; label: string; child
       >
         {children}
       </svg>
-      <span className="hidden lg:inline">{label}</span>
+      <span>{label}</span>
     </Link>
   );
 }
