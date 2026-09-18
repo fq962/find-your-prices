@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/server/scraping/strategies/metromedia.ts"
+        ],
+        "createdAt": "2026-09-18T23:15:05.307Z",
+        "reason": "Claude: L150 es una regex del parser HTML del scraper (/<img[^>]*\\ssrc=/), no una etiqueta renderizada"
+      }
+    ]
+  }
+}
