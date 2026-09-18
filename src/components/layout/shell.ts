@@ -11,13 +11,18 @@
  * grandes y una fila de lista todavía se recorre sin mover la cabeza — más
  * ancho que la columna de lectura original, y bastante menos que la pantalla.
  *
+ * Excepción: a partir de 2xl (1536px, un monitor de 24" a escala 100%) sube a
+ * 80rem. A ese ancho las franjas vacías de los lados ya eran más anchas que
+ * la barra de filtros, y ese espacio se usa para una cuarta columna en el
+ * catálogo (ver `GRID_CLASSES` en ProductGrid) sin achicar las fichas.
+ *
  * Mobile-first: en teléfono es ancho completo con 16px de margen, que es lo
  * único que hay; cada salto suma ancho y respiración, nunca los quita. Vive en
  * un módulo aparte, y no como clase CSS, para que Tailwind vea el literal al
  * escanear el código y genere las utilidades.
  */
 export const SHELL =
-  "mx-auto w-full max-w-[48rem] px-4 sm:px-6 lg:max-w-[60rem] lg:px-8 xl:max-w-[68rem]";
+  "mx-auto w-full max-w-[48rem] px-4 sm:px-6 lg:max-w-[60rem] lg:px-8 xl:max-w-[68rem] 2xl:max-w-[80rem]";
 
 /**
  * Columna de lectura para las páginas de texto —acerca de, políticas—.
