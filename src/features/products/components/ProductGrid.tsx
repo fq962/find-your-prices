@@ -40,9 +40,13 @@ const MAX_STAGGERED_ITEMS = 8;
  * nombre cabe en dos líneas junto a la barra de filtros. El número está
  * deliberadamente por debajo de lo que el ancho permitiría: con más columnas
  * la pantalla se vuelve una pared de fichas que no invita a mirar ninguna.
+ *
+ * Sólo en 2xl (monitores de 24" o más) el catálogo pasa a cuatro: a ese ancho
+ * el contenedor crece a 80rem (ver `SHELL`) y la cuarta columna entra sin que
+ * la ficha quede más chica que en xl (~215px contra ~229px).
  */
 const GRID_CLASSES: Record<NonNullable<ProductGridProps["columns"]>, string> = {
-  3: "grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-9",
+  3: "grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-9 2xl:grid-cols-4",
   4: "grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-9 lg:grid-cols-4",
 };
 
