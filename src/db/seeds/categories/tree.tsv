@@ -1,0 +1,210 @@
+# slug	parent	name	description
+# Los slugs que ya tenían contenido SEO en seeds/category-content se conservan
+# tal cual para que `node scripts/seed-category-content.mjs` los vuelva a colgar.
+abarrotes		Abarrotes	Despensa: granos, aceites, enlatados, pastas, cereales, snacks, panadería y congelados.
+arroz-frijoles-semillas	abarrotes	Arroz, Frijoles y Semillas	Arroz, frijoles, lentejas, granos básicos y semillas.
+aceites-mantecas-aderezos	abarrotes	Aceites, Mantecas y Aderezos	Aceites de cocina, mantecas, mayonesa, aderezos y vinagres.
+enlatados-conservas	abarrotes	Enlatados y Conservas	Atún, vegetales y frutas enlatadas, aceitunas y conservas.
+pastas-salsas	abarrotes	Pastas y Salsas	Pastas, salsas para pasta y pizza, cátsup, mostaza y salsas picantes.
+sopas-cremas-instantaneos	abarrotes	Sopas, Cremas e Instantáneos	Sopas, consomés, cremas y comida instantánea.
+harinas-mezclas-reposteria	abarrotes	Harinas, Mezclas y Repostería	Harinas, mezclas para hornear, gelatinas, flanes y chocolate para hornear.
+cereales-avenas-barras	abarrotes	Cereales, Avenas y Barras	Cereales, avenas, granolas, barras, mermeladas, miel y untables.
+cafe-te-modificadores	abarrotes	Café, Té y Modificadores	Café, té, infusiones, cremas para café y jarabes.
+azucar-endulzantes-especias	abarrotes	Azúcar, Endulzantes y Especias	Azúcar, sustitutos, sal, especias, sazonadores y condimentos.
+snacks-botanas-galletas	abarrotes	Snacks, Botanas y Galletas	Frituras, palomitas, galletas, frutos secos y nueces.
+dulces-chocolates	abarrotes	Dulces y Chocolates	Chocolates, caramelos, gomitas, chicles y confites.
+panaderia-reposteria	abarrotes	Panadería y Repostería	Pan, tortillas, pasteles, donas y postres.
+congelados	abarrotes	Congelados	Comida congelada, helados y postres congelados.
+comidas-preparadas	abarrotes	Comidas Preparadas	Listo para comer, delicatessen, ensaladas y empacados.
+tabaco	abarrotes	Tabaco y Encendedores	Cigarros, tabacos, vapeo, fósforos y encendedores.
+lacteos-y-huevos		Lácteos y Huevos	Leche, quesos, yogurt, mantequilla y huevos.
+leche-liquida-polvo	lacteos-y-huevos	Leche Líquida y en Polvo	Leche entera, deslactosada, evaporada, condensada y bebidas vegetales.
+quesos-cremas	lacteos-y-huevos	Quesos y Cremas	Quesos frescos, procesados, crema y natilla.
+yogurt-postres-lacteos	lacteos-y-huevos	Yogurt y Postres Lácteos	Yogurt batido, bebible, natural y postres.
+mantequilla-margarina	lacteos-y-huevos	Mantequilla y Margarina	Mantequillas y margarinas.
+huevos	lacteos-y-huevos	Huevos	Cartones de huevos blancos y rojos.
+carnes-pescados-embutidos		Carnes, Pescados y Embutidos	Res, cerdo, pollo, embutidos y mariscos.
+carne-de-res	carnes-pescados-embutidos	Carne de Res	Cortes, molida, filetes y marinados de res.
+carne-de-cerdo	carnes-pescados-embutidos	Carne de Cerdo	Chuletas, costilla, postas y marinados de cerdo.
+pollo-y-aves	carnes-pescados-embutidos	Pollo y Aves	Pollo entero, piezas, pechuga y pavo.
+embutidos-jamones	carnes-pescados-embutidos	Embutidos y Jamones	Jamón, salchichas, chorizo, tocino y carnes frías.
+pescados-mariscos	carnes-pescados-embutidos	Pescados y Mariscos	Pescado, camarones y mariscos frescos, congelados y enlatados.
+frutas-y-verduras		Frutas y Verduras	Frescas, congeladas y empacadas.
+frutas-frescas	frutas-y-verduras	Frutas Frescas	Bananos, manzanas, cítricos, berries y tropicales.
+verduras-hortalizas	frutas-y-verduras	Verduras y Hortalizas	Tomate, cebolla, papa, lechuga, chiles y tubérculos.
+hierbas-aromaticas	frutas-y-verduras	Hierbas Aromáticas	Cilantro, perejil, cebollino y hierbas frescas.
+ensaladas-empacadas	frutas-y-verduras	Ensaladas y Empacados	Ensaladas listas, vegetales procesados y congelados.
+jugos-y-bebidas		Jugos y Bebidas	Agua, jugos, gaseosas, energizantes y bebidas en polvo.
+aguas-purificadas-saborizadas	jugos-y-bebidas	Aguas Purificadas y Saborizadas	Agua natural, saborizada y envases.
+gaseosas-refrescos	jugos-y-bebidas	Gaseosas y Refrescos	Carbonatados, refrescos y bebidas en polvo.
+jugos-nectares	jugos-y-bebidas	Jugos y Néctares	Jugos de fruta, néctares y jugos de verduras.
+bebidas-energeticas-isotonicas	jugos-y-bebidas	Bebidas Energéticas e Isotónicas	Energizantes, hidratantes y bebidas deportivas.
+te-frio-bebidas-preparadas	jugos-y-bebidas	Té Frío y Bebidas Preparadas	Té listo para beber, café preparado y bebidas frías.
+cervezas-vinos-licores		Cervezas, Vinos y Licores	Cerveza, vino y destilados.
+cervezas	cervezas-vinos-licores	Cervezas	Cervezas nacionales, importadas y artesanales.
+vinos	cervezas-vinos-licores	Vinos	Tinto, blanco, rosado, espumante y sidras.
+ron-tequila-aguardiente	cervezas-vinos-licores	Ron, Tequila y Aguardiente	Ron, tequila, brandy y aguardientes.
+whisky-vodka-ginebra	cervezas-vinos-licores	Whisky, Vodka y Ginebra	Whisky, vodka, gin y otros destilados.
+hielo-mezcladores	cervezas-vinos-licores	Hielo y Mezcladores	Hielo, mixers y mezcladores.
+limpieza-del-hogar		Limpieza del Hogar	Limpiadores, lavandería, papel y utensilios de limpieza.
+detergentes-suavizantes	limpieza-del-hogar	Detergentes y Suavizantes	Detergentes, suavizantes, quitamanchas y accesorios de lavandería.
+lavaplatos-desengrasantes	limpieza-del-hogar	Lavaplatos y Desengrasantes	Lavaplatos líquido y en pasta, limpiadores de cocina.
+limpiadores-desinfectantes	limpieza-del-hogar	Limpiadores y Desinfectantes	Multiusos, cloro, desinfectantes, limpiadores de baño y pisos.
+papel-higienico-servilletas	limpieza-del-hogar	Papel Higiénico y Servilletas	Papel higiénico, toallas de papel, servilletas y pañuelos.
+utensilios-limpieza	limpieza-del-hogar	Utensilios de Limpieza	Escobas, trapeadores, esponjas, guantes y bolsas de basura.
+insecticidas-ambientadores	limpieza-del-hogar	Insecticidas y Ambientadores	Aromatizantes, insecticidas, repelentes y trampas.
+higiene-y-belleza		Higiene y Belleza	Cabello, piel, maquillaje, higiene y fragancias.
+cuidado-del-cabello	higiene-y-belleza	Cuidado del Cabello	Shampoo, acondicionador, tintes, tratamientos y accesorios.
+cuidado-bucal	higiene-y-belleza	Cuidado Bucal	Cepillos, pastas, enjuagues e hilo dental.
+jabones-geles-bano	higiene-y-belleza	Jabones, Geles y Baño	Jabones, geles corporales, algodón e higiene personal.
+desodorantes-antitranspirantes	higiene-y-belleza	Desodorantes y Antitranspirantes	Desodorantes y antitranspirantes.
+cuidado-facial-corporal	higiene-y-belleza	Cuidado Facial y Corporal	Cremas, protección solar, tratamientos faciales y corporales.
+afeitado-depilacion	higiene-y-belleza	Afeitado y Depilación	Rastrillos, cremas de afeitar y depilación.
+higiene-femenina	higiene-y-belleza	Higiene Femenina	Toallas sanitarias, tampones y cuidado íntimo.
+maquillaje-cosmetologia	higiene-y-belleza	Maquillaje y Cosmetología	Rostro, ojos, labios, uñas y accesorios cosméticos.
+fragancias	higiene-y-belleza	Fragancias	Perfumes y colonias.
+farmacia-y-salud		Farmacia y Salud	Medicamentos, vitaminas, equipo médico y primeros auxilios.
+analgesicos-antiinflamatorios	farmacia-y-salud	Analgésicos y Antiinflamatorios	Dolor, fiebre, dolor muscular y de cabeza.
+gripe-tos-resfriado	farmacia-y-salud	Gripe, Tos y Resfriado	Antigripales, jarabes, alergias y sistema respiratorio.
+salud-digestiva	farmacia-y-salud	Salud Digestiva	Antiácidos, antidiarreicos, laxantes y digestión.
+medicamentos	farmacia-y-salud	Otros Medicamentos	Antibióticos, cardiovascular, diabetes, dermatológicos y tratamientos.
+vitaminas-suplementos	farmacia-y-salud	Vitaminas y Suplementos	Vitaminas, minerales, colágeno, omega 3 y productos naturales.
+primeros-auxilios	farmacia-y-salud	Primeros Auxilios	Curitas, gasas, vendas, alcohol y antisépticos.
+equipo-medico	farmacia-y-salud	Equipo Médico y Ortopedia	Tensiómetros, glucómetros, nebulizadores, sillas de ruedas y soportes.
+salud-sexual	farmacia-y-salud	Salud Sexual	Preservativos, lubricantes y pruebas de embarazo.
+cuidado-adulto	farmacia-y-salud	Cuidado del Adulto	Pañales para adulto e incontinencia.
+bebes-y-ninos		Bebés y Niños	Pañales, alimentación, cuidado, ropa y paseo.
+panales-toallitas-humedas	bebes-y-ninos	Pañales y Toallitas Húmedas	Pañales por etapa y toallitas húmedas.
+alimentacion-infantil-formulas	bebes-y-ninos	Alimentación Infantil y Fórmulas	Fórmulas, colados, cereales y leches infantiles.
+biberones-chupones-accesorios	bebes-y-ninos	Biberones, Chupones y Accesorios	Biberones, tetinas, lactancia y vajilla infantil.
+cuidado-higiene-bebe	bebes-y-ninos	Cuidado e Higiene del Bebé	Shampoo, cremas, baño e higiene del bebé.
+ropa-bebe	bebes-y-ninos	Ropa de Bebé	Conjuntos, pijamas, mamelucos y ropa interior de bebé.
+puericultura-coches-sillas	bebes-y-ninos	Puericultura, Coches y Sillas	Coches, sillas de auto, cunas, corrales y sillas altas.
+maternidad	bebes-y-ninos	Maternidad	Ropa para embarazadas, prenatal y accesorios de mamá.
+articulos-para-el-hogar		Artículos para el Hogar	Cocina, decoración, muebles, textiles, baño y jardín.
+accesorios-para-cocina	articulos-para-el-hogar	Accesorios para Cocina	Ollas, sartenes, utensilios, recipientes y repostería.
+accesorios-mesa-vajillas	articulos-para-el-hogar	Accesorios para Mesa y Vajillas	Vajillas, cubiertos, vasos, cristalería y termos.
+camas-colchones-blancos	articulos-para-el-hogar	Camas, Colchones y Blancos	Colchones, sábanas, edredones, almohadas y cobijas.
+textil-hogar	articulos-para-el-hogar	Textiles del Hogar	Toallas, manteles, cortinas y textil de cocina.
+decoracion-muebles	articulos-para-el-hogar	Decoración	Adornos, cuadros, velas, espejos, alfombras y plantas artificiales.
+muebles	articulos-para-el-hogar	Muebles	Salas, comedores, dormitorios, gabinetes y estantes.
+bano	articulos-para-el-hogar	Baño	Accesorios, organizadores y textiles de baño.
+organizacion-almacenamiento	articulos-para-el-hogar	Organización y Almacenamiento	Cajas, canastas, organizadores, ganchos y perchas.
+desechables	articulos-para-el-hogar	Desechables	Platos, vasos, cubiertos, bolsas y envoltorios desechables.
+fiestas	articulos-para-el-hogar	Fiestas y Regalos	Artículos de fiesta, piñatería, envolturas y disfraces.
+iluminacion	articulos-para-el-hogar	Iluminación	Lámparas, focos, tiras LED y linternas.
+jardin-exteriores	articulos-para-el-hogar	Jardín y Exteriores	Muebles de jardín, macetas, piscinas, asadores y herramientas de jardín.
+electrodomesticos		Electrodomésticos	Línea blanca y pequeños electrodomésticos.
+refrigeracion	electrodomesticos	Refrigeradoras y Congeladores	Refrigeradoras, freezers, dispensadores de agua y vineras.
+lavado-secado	electrodomesticos	Lavadoras y Secadoras	Lavadoras, secadoras, centros de lavado y planchas.
+estufas-hornos	electrodomesticos	Estufas y Hornos	Estufas, hornos, cooktops, campanas y lavavajillas.
+climatizacion	electrodomesticos	Aires y Ventiladores	Aires acondicionados, ventiladores, calentadores y humidificadores.
+electrodomesticos-cocina	electrodomesticos	Electrodomésticos de Cocina	Licuadoras, cafeteras, freidoras, microondas, tostadoras y batidoras.
+aspiradoras	electrodomesticos	Aspiradoras y Cuidado de Pisos	Aspiradoras, hidrolavadoras y limpieza de pisos.
+cuidado-personal-electrico	electrodomesticos	Cuidado Personal Eléctrico	Secadoras, planchas de cabello, afeitadoras, masajeadores y cepillos eléctricos.
+tecnologia		Tecnología	Celulares, computación, audio, video, gaming y redes.
+telefonos-celulares	tecnologia	Teléfonos y Celulares	Smartphones y teléfonos.
+accesorios-celular	tecnologia	Accesorios para Celular	Fundas, cargadores, cables, power banks y soportes.
+tablets	tecnologia	Tablets	Tablets y accesorios.
+computadoras	tecnologia	Computadoras	Laptops, computadoras de escritorio y all-in-one.
+componentes-pc	tecnologia	Componentes de PC	Procesadores, memorias RAM, placas madre, tarjetas gráficas, fuentes y refrigeración.
+perifericos	tecnologia	Periféricos y Monitores	Mouse, teclados, monitores, cámaras web y mouse pads.
+almacenamiento-datos	tecnologia	Almacenamiento de Datos	Discos duros, SSD, memorias USB y tarjetas SD.
+impresoras	tecnologia	Impresoras y Consumibles	Impresoras, multifuncionales, escáneres, tintas y tóner.
+redes	tecnologia	Redes y Conectividad	Routers, repetidores, switches y cables de red.
+audio	tecnologia	Audio	Audífonos, parlantes, barras de sonido y equipos de sonido.
+tv-video	tecnologia	TV y Video	Televisores, proyectores, soportes, streaming y controles.
+videojuegos	tecnologia	Videojuegos	Juegos y accesorios gaming.
+consolas-de-videojuegos	tecnologia	Consolas de Videojuegos	Consolas y controles.
+playstation	tecnologia	PlayStation	Consolas, juegos y accesorios PlayStation.
+xbox	tecnologia	Xbox	Consolas, juegos y accesorios Xbox.
+nintendo	tecnologia	Nintendo	Consolas, juegos y accesorios Nintendo.
+codigos-digitales	tecnologia	Códigos Digitales	Tarjetas y códigos de recarga y contenido digital.
+camaras-drones	tecnologia	Cámaras y Drones	Cámaras, drones, acción y accesorios de foto.
+bandas-actividad-y-smartwatches	tecnologia	Bandas de Actividad y Smartwatches	Relojes inteligentes y bandas de actividad.
+hogar-inteligente	tecnologia	Hogar Inteligente	Focos, enchufes, asistentes y dispositivos smart home.
+seguridad-vigilancia	tecnologia	Seguridad y Vigilancia	Cámaras de seguridad, DVR, alarmas, timbres y control de acceso.
+energia-respaldo	tecnologia	Energía y Respaldo	UPS, reguladores, protectores de voltaje y energía solar.
+cables-adaptadores	tecnologia	Cables y Adaptadores	HDMI, USB, adaptadores, hubs y conectores de audio y video.
+componentes-electronicos	tecnologia	Electrónica y Proyectos	Componentes, protoboards, placas de desarrollo, sensores y módulos.
+software	tecnologia	Software	Antivirus, licencias y programas.
+radios-comunicacion	tecnologia	Radios y Comunicación	Radios de dos vías, intercomunicadores y antenas.
+instrumentos-musicales	tecnologia	Instrumentos Musicales	Instrumentos y equipo para músicos.
+jugueteria-y-juegos		Juguetería y Juegos	Juguetes y juegos para todas las edades.
+juguetes-bebes-estimulacion	jugueteria-y-juegos	Juguetes de Bebés y Estimulación	Juguetes de bebé, sonajeros y estimulación temprana.
+juguetes-educativos	jugueteria-y-juegos	Juguetes Educativos	Didácticos, Montessori, ciencia y aprendizaje.
+munecas-figuras-vehiculos	jugueteria-y-juegos	Muñecas, Figuras y Vehículos	Muñecas, peluches, figuras de acción, carritos y pistas.
+coleccionables-tcg	jugueteria-y-juegos	Coleccionables y TCG	Cartas coleccionables, álbumes, minifiguras y coleccionables.
+bloques-construccion	jugueteria-y-juegos	Bloques y Construcción	LEGO, bloques y sets para armar.
+juegos-de-mesa-rompecabezas	jugueteria-y-juegos	Juegos de Mesa y Rompecabezas	Juegos familiares, cartas y rompecabezas.
+juguetes-exterior-aire-libre	jugueteria-y-juegos	Juguetes Exterior y Aire Libre	Juguetes de exterior, montables, triciclos y patinetas.
+juegos-imitacion	jugueteria-y-juegos	Imitación y Roles	Cocinitas, casitas y sets de juego.
+ferreteria		Ferretería y Construcción	Herramientas, electricidad, plomería, pintura y materiales.
+herramientas-manuales	ferreteria	Herramientas Manuales	Martillos, desarmadores, llaves, alicates y juegos de herramientas.
+herramientas-electricas	ferreteria	Herramientas Eléctricas	Taladros, sierras, lijadoras, esmeriles y accesorios.
+electricidad	ferreteria	Electricidad	Cable eléctrico, breakers, interruptores, tomas, extensiones y pilas.
+plomeria	ferreteria	Plomería	Tubería, grifos, válvulas, inodoros, lavamanos y bombas de agua.
+materiales-construccion	ferreteria	Materiales de Construcción	Cemento, varilla, láminas, pisos, azulejos, puertas y ventanas.
+pintura-brochas	ferreteria	Pintura y Brochas	Pinturas, brochas, rodillos, selladores y solventes.
+fijacion-herrajes	ferreteria	Fijación y Herrajes	Tornillos, clavos, anclajes, bisagras, candados y cerraduras.
+seguridad-industrial	ferreteria	Seguridad Industrial	Guantes, calzado de seguridad, protección personal y extintores.
+soldadura	ferreteria	Soldadura y Gas	Soldadoras, electrodos, sopletes y cilindros de gas.
+medicion	ferreteria	Medición y Trazado	Cintas métricas, niveles, multímetros y escuadras.
+maquinaria	ferreteria	Maquinaria y Equipo	Compresores, generadores, motores, hidrolavadoras y bombas.
+almacenamiento-taller	ferreteria	Almacenamiento y Taller	Cajas de herramientas, gabinetes, estanterías y escaleras.
+automotriz		Automotriz	Accesorios, repuestos y mantenimiento para vehículos.
+accesorios-cuidado-autos	automotriz	Accesorios y Cuidado para Autos	Tapetes, fundas, organizadores, soportes y limpieza.
+repuestos-y-mantenimiento	automotriz	Repuestos y Mantenimiento	Aceites, baterías, fusibles, llantas y herramientas de mecánica.
+audio-auto	automotriz	Audio y Electrónica para Auto	Audio, cargadores, inversores y transmisores para vehículo.
+motos-y-cuatrimotos	automotriz	Motos y Cuatrimotos	Motos, cuatrimotos, mototaxis y scooters eléctricos.
+mascotas		Mascotas	Alimento y accesorios para perros, gatos y otras mascotas.
+alimento-para-perros	mascotas	Alimento para Perros	Alimento seco, húmedo y snacks para perros.
+alimento-para-gatos	mascotas	Alimento para Gatos	Alimento seco, húmedo y arena para gatos.
+otras-mascotas	mascotas	Otras Mascotas	Aves, peces, conejos, tortugas y roedores.
+juguetes-accesorios-mascotas	mascotas	Juguetes y Accesorios para Mascotas	Camas, correas, collares, comederos y juguetes.
+higiene-cuidado-mascotas	mascotas	Higiene y Cuidado de Mascotas	Shampoo, antiparasitarios, salud y grooming.
+libreria-y-papelera		Librería y Papelería	Escritura, papel, útiles, arte, libros y muebles de oficina.
+escritura-correccion	libreria-y-papelera	Escritura y Corrección	Bolígrafos, lápices, marcadores, resaltadores y correctores.
+cuadernos-libretas-hojas	libreria-y-papelera	Cuadernos, Libretas y Hojas	Cuadernos, libretas, papel, cartulinas y agendas.
+archivo	libreria-y-papelera	Archivo y Organización	Folders, archivadores, binders, sobres y separadores.
+utiles-escolares-oficina	libreria-y-papelera	Útiles Escolares y de Oficina	Mochilas, loncheras, kits, tijeras, engrapadoras y calculadoras.
+arte-manualidades	libreria-y-papelera	Arte y Manualidades	Pinturas, pinceles, lienzos, plastilina y materiales creativos.
+muebles-oficina	libreria-y-papelera	Muebles de Oficina	Escritorios, sillas de oficina y gaming.
+libros	libreria-y-papelera	Libros y Revistas	Libros, cuentos, manga, diccionarios y textos.
+ropa-y-moda		Ropa y Moda	Ropa para mujer, hombre y niños.
+ropa-femenina	ropa-y-moda	Ropa Femenina	Blusas, pantalones, vestidos y ropa de mujer.
+ropa-masculina	ropa-y-moda	Ropa Masculina	Camisas, pantalones, jeans y ropa de hombre.
+ropa-infantil	ropa-y-moda	Ropa Infantil	Ropa de niños y niñas.
+ropa-deportiva	ropa-y-moda	Ropa Deportiva	Ropa y calzado deportivo, camisetas de fútbol.
+ropa-interior-y-pijamas	ropa-y-moda	Ropa Interior y Pijamas	Ropa interior, pijamas, medias y calcetines.
+trajes-de-bano	ropa-y-moda	Trajes de Baño	Trajes de baño y playa.
+basicos-y-algodon	ropa-y-moda	Básicos y Algodón	Básicos de algodón y camisetas.
+calzado		Calzado	Zapatos, tenis y pantuflas.
+calzado-masculino	calzado	Calzado Masculino	Zapatos y pantuflas de hombre.
+calzado-femenino	calzado	Calzado Femenino	Zapatos y sandalias de mujer.
+calzado-infantil	calzado	Calzado Infantil	Zapatos de niños y niñas.
+tenis-y-deportivo	calzado	Tenis y Deportivo	Tenis y calzado deportivo.
+accesorios-de-moda		Accesorios de Moda	Carteras, relojes, gorras, lentes, joyería y sombreros.
+bolsos-mochilas-y-billeteras	accesorios-de-moda	Bolsos, Mochilas y Billeteras	Carteras, bolsos y billeteras.
+relojes-y-joyeria	accesorios-de-moda	Relojes y Joyería	Relojes y joyería.
+lentes-y-gorras	accesorios-de-moda	Lentes y Gorras	Lentes de sol, de lectura, gorras y sombreros.
+deportes-y-fitness		Deportes y Fitness	Ejercicio, deportes, ciclismo y camping.
+maquinas-cardio-gimnasio	deportes-y-fitness	Máquinas de Cardio y Gimnasio	Caminadoras, elípticas, bicicletas fijas y máquinas de ejercicio.
+pesas-y-equipos-de-fuerza	deportes-y-fitness	Pesas y Equipos de Fuerza	Mancuernas, pesas, barras y equipo de fuerza.
+accesorios-fitness-y-ejercicio	deportes-y-fitness	Accesorios Fitness y Ejercicio	Colchonetas, bandas, yoga y accesorios de entrenamiento.
+disciplinas-deportivas	deportes-y-fitness	Disciplinas Deportivas	Fútbol, básquet, volleyball, boxeo, tenis, natación y más.
+ciclismo-y-bicicletas	deportes-y-fitness	Ciclismo y Bicicletas	Bicicletas, scooters y accesorios.
+camping	deportes-y-fitness	Camping y Aire Libre	Carpas, hieleras, pesca y equipo de campamento.
+nutricion-deportiva	deportes-y-fitness	Nutrición Deportiva	Proteínas, creatina y suplementos deportivos.
+equipaje-y-viaje		Equipaje y Viaje	Maletas, maletines y kits de viaje.
+maletas-y-equipaje	equipaje-y-viaje	Maletas y Equipaje	Maletas, sets de equipaje y kits de viaje.
+bolsos-deportivos-y-maletines	equipaje-y-viaje	Bolsos Deportivos y Maletines	Maletines, bolsos deportivos y mochilas de viaje.
+de-temporada		De Temporada	Navidad, Halloween, liquidación y curiosidades.
+navidad	de-temporada	Navidad	Árboles, adornos, luces y decoración navideña.
+halloween	de-temporada	Halloween	Decoración y dulces de Halloween.
+liquidacion	de-temporada	Liquidación	Outlet, remates y liquidación.
+curiosidades	de-temporada	Curiosidades	Curiosidades, gadgets y regalos.
+publicidad-y-comercio		Publicidad y Comercio	Rotulación, promocionales y punto de venta.
+rotulacion-y-exhibicion	publicidad-y-comercio	Rotulación y Exhibición	Rótulos, soportes publicitarios y exhibición.
+articulos-promocionales-e-impulso	publicidad-y-comercio	Artículos Promocionales e Impulso	Promocionales y productos de impulso.
+punto-de-venta	publicidad-y-comercio	Punto de Venta	Impresoras POS, lectores de código, básculas y contadoras de billetes.

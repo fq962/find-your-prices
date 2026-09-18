@@ -27,6 +27,9 @@ SQL Editor de Supabase. Son idempotentes: volver a correrlos no rompe nada.
 | 0012 | `0012_rls_hardening.sql` | **RLS en todas las tablas**, `security_invoker` en las vistas y `search_path` fijo en las funciones. Deja un reporte al final. |
 | 0013 | `0013_catalog_facets.sql` | Vistas de facetas: las opciones de filtro que de verdad devuelven resultados, con su conteo. |
 | 0024 | `0024_canonical_category_facets.sql` | El filtro de categorías pasa al árbol canónico (`categories` vía `store_categories.category_id`). Publica `category_name` y la raíz en `v_store_products_current`, crea `v_catalog_canonical_category_facets` y hace que `v_catalog_summary.total_categories` cuente nodos canónicos. Lo sin mapear cae en "Sin categorizar aún". |
+| 0034 | `0034_ez_ids.sql` | `ez_id` (entero secuencial, único) en `stores`, `categories` y `store_categories`: un identificador corto para nombrar filas a mano. No reemplaza al `uuid`. |
+| 0035 | `0035_categories_tree.sql` | Árbol canónico completo (25 raíces, 207 nodos, dos niveles) que cubre todos los rubros rastreados. **Generado** desde `src/db/seeds/categories/tree.tsv`; upsert por slug, conserva imagen y destacado. Después: `node scripts/seed-category-content.mjs` para recolgar el contenido SEO. |
+| 0036 | `0036_map_store_categories.sql` | Mapea `store_categories.category_id` por nombre normalizado (2.710 nombres distintos de tienda → nodo canónico). **Generado** desde `src/db/seeds/categories/mapping-*.tsv`. Solo toca filas con `category_id null`. Deja un reporte de lo que quedó sin mapear por tienda. |
 
 > **Paso obligatorio después de 0010:** en Supabase, `Settings → API → Exposed
 > schemas`, agregar `find_your_prices` junto a `public`. Sin eso PostgREST
@@ -80,6 +83,7 @@ Una fila por sitio web que se rastrea. Se da de alta una vez.
 
 | Columna | Propósito |
 |---|---|
+| `ez_id` | Entero corto y único para referirse a la tienda a mano ("la 3"). Solo etiqueta: las FKs y el código usan `id`. |
 | `slug` | Identificador estable en código y URLs (`diunsa`). |
 | `base_url` | Dominio del comercio. |
 | `default_currency` | Moneda por defecto (`HNL`) cuando el scraper no la reporta. |
@@ -131,6 +135,22 @@ Cada tienda escribe la marca a su manera (`X- SHOT`, `X-Shot`, `XSHOT`).
 
 El árbol que ve el usuario final, independiente de cómo categorice cada tienda.
 Jerarquía por `parent_id` más un `path` legible (`jugueteria/munecas`).
+`ez_id` es el número corto con el que se nombra un nodo a mano desde el panel
+o el SQL Editor; `parent_id` y todo lo demás siguen apuntando al `uuid`.
+
+**Dónde vive el árbol.** La fuente de verdad del contenido inicial es
+`src/db/seeds/categories/`:
+
+| Archivo | Qué es |
+|---|---|
+| `tree.tsv` | Un nodo por línea: `slug`, `parent`, `name`, `description`. Raíces sin `parent`. Máximo dos niveles (lo exige el filtro de 0024). |
+| `mapping-*.tsv` | Nombre crudo de tienda → `slug` canónico. `-` = sin mapear a propósito (promos, marcas, "Otros"). |
+| `build.mjs` | Valida (`--check`) y genera `0035_categories_tree.sql` y `0036_map_store_categories.sql`. No editar los `.sql` a mano. |
+
+Para agregar un nodo o corregir un mapeo: editar el TSV, `node
+src/db/seeds/categories/build.mjs`, correr los SQL en Supabase. Lo que se
+cambie desde el panel `/admin/categorias` gana sobre el mapeo generado,
+porque 0036 solo toca filas con `category_id null`.
 
 ### 3.6 `store_categories` — el árbol crudo de cada tienda
 
@@ -142,7 +162,8 @@ razones:
 2. Permite remapear a `categories` sin volver a scrapear.
 
 `external_id` + `store_id` es único. `category_id` apunta al árbol canónico y
-queda `null` mientras la categoría no esté clasificada.
+queda `null` mientras la categoría no esté clasificada. `ez_id` da un número
+corto para señalar una fila concreta al mapearla ("la 118 va a Juguetería").
 
 ### 3.7 `products` — el producto canónico
 
@@ -352,6 +373,10 @@ filas**; las públicas muestran 1 política y las operativas 0.
 - **Identificadores externos** siempre `text`, aunque parezcan números: los
   ceros a la izquierda importan (`000000001-0000134963`).
 - **`updated_at`** lo mantiene el trigger `set_updated_at()`, no la aplicación.
+- **`ez_id`** es un entero legible para humanos, nunca una llave. Las FKs, las
+  URLs y el código referencian siempre el `uuid` de `id`. Solo lo tienen las
+  tablas que una persona toca a mano (`stores`, `categories`,
+  `store_categories`); no se agrega a tablas de volumen.
 - **Los enums** se amplían con `alter type ... add value`, por eso viven aislados
   en su propia migración.
 - Todo lo que una tienda publica y no tiene columna propia va a `raw`, `specs` o
