@@ -16,6 +16,7 @@ import { okashiStrategy } from './strategies/okashi';
 import { pcbuildsStrategy } from './strategies/pcbuilds';
 import { meykoStrategy } from './strategies/meyko';
 import { kielsaStrategy } from './strategies/kielsa';
+import { metromediaStrategy } from './strategies/metromedia';
 
 /**
  * Registro de estrategias.
@@ -45,6 +46,7 @@ const STRATEGIES: ScrapeStrategy[] = [
   pcbuildsStrategy,
   meykoStrategy,
   kielsaStrategy,
+  metromediaStrategy,
   // Proximas: lacuracao, supermercados...
 ];
 

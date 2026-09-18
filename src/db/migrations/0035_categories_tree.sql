@@ -1,18 +1,18 @@
 -- =============================================================================
 -- 0035_categories_tree.sql
--- Árbol canónico de categorías: 25 raíces y 182 hijas.
+-- Árbol canónico de categorías: 25 raíces y 183 hijas.
 --
 -- Por qué. El árbol anterior se perdió al reconstruir las relaciones, y las
 -- tiendas publican más de 3.000 nombres de categoría distintos que en el
--- fondo son unas 207 cosas. Este árbol cubre todos los rubros que hoy se
+-- fondo son unas 208 cosas. Este árbol cubre todos los rubros que hoy se
 -- rastrean (supermercado, hogar, tecnología, ferretería, farmacia, moda,
 -- juguetería, papelería...) con dos niveles: raíz y hija, que es lo que
 -- admite el filtro del catálogo (0024). Es el que ve el usuario final al
 -- navegar y filtrar.
 --
 -- Los slugs del árbol anterior que ya tenían contenido SEO en
--- src/db/seeds/category-content se conservan tal cual (136 de 144); los 71
--- nodos nuevos tienen su contenido en los archivos 18 a 24 de esa carpeta.
+-- src/db/seeds/category-content se conservan tal cual (136 de 144); los 72
+-- nodos nuevos tienen su contenido en los archivos 18 a 25 de esa carpeta.
 -- Después de correr esto: `node scripts/seed-category-content.mjs`.
 --
 -- Origen. Generado por src/db/seeds/categories/build.mjs desde tree.tsv.
@@ -194,7 +194,8 @@ with nodes (slug, parent_slug, name, description, path, level, position) as (
     ('utiles-escolares-oficina', 'libreria-y-papelera', 'Útiles Escolares y de Oficina', 'Mochilas, loncheras, kits, tijeras, engrapadoras y calculadoras.', 'libreria-y-papelera/utiles-escolares-oficina', 1, 3),
     ('arte-manualidades', 'libreria-y-papelera', 'Arte y Manualidades', 'Pinturas, pinceles, lienzos, plastilina y materiales creativos.', 'libreria-y-papelera/arte-manualidades', 1, 4),
     ('muebles-oficina', 'libreria-y-papelera', 'Muebles de Oficina', 'Escritorios, sillas de oficina y gaming.', 'libreria-y-papelera/muebles-oficina', 1, 5),
-    ('libros', 'libreria-y-papelera', 'Libros y Revistas', 'Libros, cuentos, manga, diccionarios y textos.', 'libreria-y-papelera/libros', 1, 6),
+    ('libros', 'libreria-y-papelera', 'Libros y Revistas', 'Libros, novelas, cuentos, biblias, diccionarios y textos.', 'libreria-y-papelera/libros', 1, 6),
+    ('comics-y-manga', 'libreria-y-papelera', 'Cómics y Manga', 'Cómics, manga, novela gráfica y artbooks.', 'libreria-y-papelera/comics-y-manga', 1, 7),
     ('ropa-y-moda', null, 'Ropa y Moda', 'Ropa para mujer, hombre y niños.', 'ropa-y-moda', 0, 18),
     ('ropa-femenina', 'ropa-y-moda', 'Ropa Femenina', 'Blusas, pantalones, vestidos y ropa de mujer.', 'ropa-y-moda/ropa-femenina', 1, 0),
     ('ropa-masculina', 'ropa-y-moda', 'Ropa Masculina', 'Camisas, pantalones, jeans y ropa de hombre.', 'ropa-y-moda/ropa-masculina', 1, 1),

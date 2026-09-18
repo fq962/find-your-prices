@@ -28,8 +28,11 @@ SQL Editor de Supabase. Son idempotentes: volver a correrlos no rompe nada.
 | 0013 | `0013_catalog_facets.sql` | Vistas de facetas: las opciones de filtro que de verdad devuelven resultados, con su conteo. |
 | 0024 | `0024_canonical_category_facets.sql` | El filtro de categorías pasa al árbol canónico (`categories` vía `store_categories.category_id`). Publica `category_name` y la raíz en `v_store_products_current`, crea `v_catalog_canonical_category_facets` y hace que `v_catalog_summary.total_categories` cuente nodos canónicos. Lo sin mapear cae en "Sin categorizar aún". |
 | 0034 | `0034_ez_ids.sql` | `ez_id` (entero secuencial, único) en `stores`, `categories` y `store_categories`: un identificador corto para nombrar filas a mano. No reemplaza al `uuid`. |
-| 0035 | `0035_categories_tree.sql` | Árbol canónico completo (25 raíces, 207 nodos, dos niveles) que cubre todos los rubros rastreados. **Generado** desde `src/db/seeds/categories/tree.tsv`; upsert por slug, conserva imagen y destacado. Después: `node scripts/seed-category-content.mjs` para recolgar el contenido SEO. |
+| 0035 | `0035_categories_tree.sql` | Árbol canónico completo (25 raíces, 208 nodos, dos niveles) que cubre todos los rubros rastreados. **Generado** desde `src/db/seeds/categories/tree.tsv`; upsert por slug, conserva imagen y destacado. Después: `node scripts/seed-category-content.mjs` para recolgar el contenido SEO. |
 | 0036 | `0036_map_store_categories.sql` | Mapea `store_categories.category_id` por nombre normalizado (2.710 nombres distintos de tienda → nodo canónico). **Generado** desde `src/db/seeds/categories/mapping-*.tsv`. Solo toca filas con `category_id null`. Deja un reporte de lo que quedó sin mapear por tienda. |
+| 0037 | `0037_seed_metromedia.sql` | Alta de Metromedia (librería, Odoo v13) y 13 targets, uno por categoría raíz. Sin `full_catalog`: el catálogo (12.9k) no cabe en una corrida. |
+| 0038 | `0038_map_metromedia.sql` | Mapeo **por tienda** de las categorías de Metromedia: los 52 géneros → `libros`, Entretenimiento → `juegos-de-mesa-rompecabezas`. Aparte de 0036 porque sus nombres ("Cocina", "Arte", "Salud") son genéricos y chocarían con otras tiendas. |
+| 0039 | `0039_protect_categories.sql` | Candado: `BEFORE DELETE/TRUNCATE` en `categories` y `category_content` aborta salvo que la transacción ponga `find_your_prices.allow_delete = on`. El panel borra vía `delete_category(uuid)`, que abre el candado solo en su transacción. |
 
 > **Paso obligatorio después de 0010:** en Supabase, `Settings → API → Exposed
 > schemas`, agregar `find_your_prices` junto a `public`. Sin eso PostgREST
@@ -151,6 +154,13 @@ Para agregar un nodo o corregir un mapeo: editar el TSV, `node
 src/db/seeds/categories/build.mjs`, correr los SQL en Supabase. Lo que se
 cambie desde el panel `/admin/categorias` gana sobre el mapeo generado,
 porque 0036 solo toca filas con `category_id null`.
+
+**Candado de borrado (0039).** `delete` o `truncate` sobre `categories` o
+`category_content` falla con "Borrado bloqueado" salvo que la misma
+transacción haya hecho `select set_config('find_your_prices.allow_delete',
+'on', true)`. Es a propósito: el árbol ya se perdió una vez por un delete
+suelto en el editor SQL. El botón Eliminar del panel sigue funcionando (usa
+`delete_category(uuid)`).
 
 ### 3.6 `store_categories` — el árbol crudo de cada tienda
 

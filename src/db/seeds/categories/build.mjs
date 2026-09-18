@@ -114,8 +114,8 @@ const treeSql = `-- ============================================================
 -- navegar y filtrar.
 --
 -- Los slugs del árbol anterior que ya tenían contenido SEO en
--- src/db/seeds/category-content se conservan tal cual (136 de 144); los 71
--- nodos nuevos tienen su contenido en los archivos 18 a 24 de esa carpeta.
+-- src/db/seeds/category-content se conservan tal cual (136 de 144); los 72
+-- nodos nuevos tienen su contenido en los archivos 18 a 25 de esa carpeta.
 -- Después de correr esto: \`node scripts/seed-category-content.mjs\`.
 --
 -- Origen. Generado por src/db/seeds/categories/build.mjs desde tree.tsv.

@@ -434,6 +434,8 @@ primera corrida contra 6 s la segunda**.
 | `full_catalog` que no cubre todo el catálogo | `markDelisted` da de baja productos vivos | Si el barrido queda incompleto, devolvé un error no fatal: el runner ya se salta el delisting cuando `errors` no está vacío. |
 | Ordenar las colecciones del menú "como aparecen" | Una categoría queda en 0 y otra se la come | La deduplicación se queda con la **primera** aparición, así que las colecciones contenedoras van al final. En Okashi, `coleccionable` incluye a `cd-dvd` y `artbooks`: con ese orden CD/DVD quedó en 0 y Artbooks en 41 de 62. Mirá `perCollection` en `stats` de la primera corrida y compará contra lo que entrega cada colección sola. |
 | Dar por perdido el código de barras porque la API no lo trae | `barcode_raw` en null en toda la tienda, cruce por nombre | Buscá el número en la descripción antes de resignarte. Shopify no expone `barcode` en `products.json`, pero Okashi escribe "ISBN: 978…" y "JAN Code: 458…" en `body_html`: un ISBN-13 o un JAN **es** un EAN-13. Validá el dígito verificador: la tienda tenía ~80 mal tipeados que habrían emparejado con basura. |
+| Targets por categoria que se solapan | Un articulo en dos categorias cambia de `store_category_id` en cada corrida y cuenta como "actualizado" | La ingesta pisa la categoria con lo que manda el ultimo target. Si la tienda pone un articulo en varias categorias y no cabe en un solo target, hace falta una regla estable entre corridas: en Metromedia cada target excluye lo que aparece en raices de mayor prioridad (las chicas, baratas de leer). Medí el solape antes de decidir: Novelas ∩ Novela contemporanea era 337 de 703. |
+| Contar el catalogo por la ultima pagina del paginador | Un total inflado (19 900 en vez de 12 899) y un plan de targets de mas | Odoo devuelve la **ultima pagina otra vez** cuando pedis una que no existe, no una vacia. Contá ids distintos; el bucle de paginacion corta cuando una pagina no trae ids nuevos. |
 
 ### El corte que parte un emoji por la mitad
 
@@ -480,6 +482,7 @@ resuelto en `truncate` y `stripLoneSurrogates` de
 | Un ejemplo terminado (Odoo eCommerce, html SSR sin JSON publico; categoria atribuida recorriendo el arbol de la hoja a la raiz) | [`strategies/pcbuilds.ts`](./strategies/pcbuilds.ts) |
 | Otra tienda Odoo (v15: tarjeta `<form class="card oe_product_cart">` con microdatos, `?ppg=` honrado, precios float sin redondear) que **reusa** los helpers de pcbuilds | [`strategies/meyko.ts`](./strategies/meyko.ts) |
 | Un sitio **Meteor** sin http para el catalogo: cliente DDP minimo (`ddp.ts`) sobre WebSocket, paginacion que devuelve 0 al pasarse del total y se resuelve bajando de tamano (500, 100, 10, 1) | [`strategies/kielsa.ts`](./strategies/kielsa.ts) |
+| Una tienda **Odoo v13** cuyo catalogo NO cabe en una corrida (12 899 tarjetas a ~50/s): un target por raiz, y cada uno **excluye** lo que ya aparece en raices de mayor prioridad para que un articulo en varias categorias no cambie de categoria segun que target corrio ultimo | [`strategies/metromedia.ts`](./strategies/metromedia.ts) |
 | Cómo se orquesta una corrida | [`runner.ts`](./runner.ts) |
 | El cliente HTTP | [`http.ts`](./http.ts) |
 | Cómo se escribe en la base | [`repository.ts`](./repository.ts) |

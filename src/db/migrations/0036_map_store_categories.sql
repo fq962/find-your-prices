@@ -5,7 +5,7 @@
 --
 -- Por qué. Al perder el árbol, todas las store_categories quedaron con
 -- category_id null (la FK es on delete set null). Este archivo repone el
--- mapeo para 2710 nombres distintos, que cubren las 2860 categorías
+-- mapeo para 2718 nombres distintos, que cubren las 2860 categorías
 -- distintas que las tiendas publican hoy. Los 150 nombres restantes son
 -- promociones, marcas o cajones sin contenido ("Ofertas", "Samsung",
 -- "Otros") y se dejan sin mapear a propósito: caen en "Sin categorizar aún".
@@ -2735,7 +2735,15 @@ with pairs (name, slug) as (
     ('Zocalo', 'materiales-construccion'),
     ('Desinfectantes', 'limpiadores-desinfectantes'),
     ('Piletas de cocina', 'plomeria'),
-    ('Piletas y Lavatrastos', 'plomeria')
+    ('Piletas y Lavatrastos', 'plomeria'),
+    ('Comics', 'comics-y-manga'),
+    ('Libros en Español', 'libros'),
+    ('Libros en Ingles', 'libros'),
+    ('Biblia', 'libros'),
+    ('Literatura Hondureña', 'libros'),
+    ('Coffee Table Books', 'libros'),
+    ('Libros para colorear', 'libros'),
+    ('Calendarios', 'cuadernos-libretas-hojas')
 ),
 resolved as (
   select find_your_prices.normalize_text(p.name) as key, c.id as category_id

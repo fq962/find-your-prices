@@ -1,0 +1,13 @@
+# Metromedia (libreria). Nombres que no estaban en el CSV original; el resto
+# de sus raices (Agendas, Libretas, Separadores) ya estaba en mapping-1..3.
+# Los 52 generos y "Entretenimiento"/"Accesorios" son nombres genericos que
+# chocarian con otras tiendas: se mapean por tienda en 0038, no aqui.
+# name	slug
+Comics	comics-y-manga
+Libros en Español	libros
+Libros en Ingles	libros
+Biblia	libros
+Literatura Hondureña	libros
+Coffee Table Books	libros
+Libros para colorear	libros
+Calendarios	cuadernos-libretas-hojas

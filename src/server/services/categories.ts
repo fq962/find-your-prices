@@ -404,6 +404,8 @@ export async function deleteCategory(id: string): Promise<void> {
     );
   }
 
-  const { error } = await db.from('categories').delete().eq('id', id);
+  // Un delete directo lo bloquea el candado de 0039; la función abre el
+  // candado solo dentro de su propia transacción.
+  const { error } = await db.rpc('delete_category', { p_id: id });
   if (error) throw new Error(error.message);
 }
