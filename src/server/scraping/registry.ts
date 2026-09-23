@@ -19,6 +19,7 @@ import { kielsaStrategy } from './strategies/kielsa';
 import { metromediaStrategy } from './strategies/metromedia';
 import { officedepotStrategy } from './strategies/officedepot';
 import { paperdepotStrategy } from './strategies/paperdepot';
+import { priveStrategy } from './strategies/prive';
 
 /**
  * Registro de estrategias.
@@ -51,6 +52,7 @@ const STRATEGIES: ScrapeStrategy[] = [
   metromediaStrategy,
   officedepotStrategy,
   paperdepotStrategy,
+  priveStrategy,
   // Proximas: lacuracao, supermercados...
 ];
 

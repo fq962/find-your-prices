@@ -243,8 +243,11 @@ export interface ShopifyStrategyOptions {
    * manga es "todo lo que no es figura ni TCG"). Solo aplica en `full_catalog`.
    */
   uncategorizedCategory?: { external_id: string; name: string };
-  /** Ajustes propios de la tienda sobre el producto ya mapeado (ISBN, ficha...). */
-  enrich?: (mapped: NormalizedProduct, product: ShopifyProduct) => NormalizedProduct;
+  /**
+   * Ajustes propios de la tienda sobre el producto ya mapeado (ISBN, ficha...).
+   * Devolver null descarta el articulo (Prive: fichas agrupadoras y gift cards).
+   */
+  enrich?: (mapped: NormalizedProduct, product: ShopifyProduct) => NormalizedProduct | null;
 }
 
 // -----------------------------------------------------------------------------
