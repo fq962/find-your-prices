@@ -217,10 +217,12 @@ describe.each(ROUTES)("Home $name", ({ Page, dict }) => {
         expect(section).toHaveAttribute("aria-controls");
       }
 
-      // Dos desplegables: el buscador (con sugerencias) y el orden. El orden
-      // está dos veces en el DOM —barra lateral y hoja de teléfono— pero la
-      // hoja sólo se monta al abrirla, así que acá hay uno.
+      // Tres desplegables: el alcance del buscador (categoría, como el de
+      // departamentos de Amazon), el buscador (con sugerencias) y el orden. El
+      // orden está dos veces en el DOM —barra lateral y hoja de teléfono— pero
+      // la hoja sólo se monta al abrirla, así que acá hay uno.
       const comboboxes = [
+        screen.getByRole("combobox", { name: dict.searchScopeLabel }),
         screen.getByRole("combobox", { name: dict.searchPlaceholder }),
         screen.getByRole("combobox", { name: dict.sortLabel }),
       ];

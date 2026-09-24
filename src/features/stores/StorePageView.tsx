@@ -263,6 +263,8 @@ export function StorePageView({ locale, data }: StorePageViewProps) {
               locale={locale}
               scopeStore={store.slug}
               scopeCategory={category?.slug}
+              widenHref={category ? storePaths(store.slug)[locale] : undefined}
+              scopeCategoryLabel={category?.name}
             />
           </div>
         </section>

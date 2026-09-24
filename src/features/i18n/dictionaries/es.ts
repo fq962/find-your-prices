@@ -65,6 +65,12 @@ export const es: Dictionary = {
   suggestStoresLabel: "Tiendas",
   suggestCategoriesLabel: "Categorías",
   suggestItemsLabel: "Artículos",
+  searchScopeLabel: "Buscar en",
+  searchScopeAllCategories: "Todas las categorías",
+  searchScopeAllStores: "Todas las tiendas",
+  searchScopeWholeStore: "Todo en {store}",
+  searchWidenedNotice: "No encontramos «{query}» en {scope}. Te mostramos los resultados de todas las categorías.",
+  searchWidenedDismiss: "Cerrar aviso",
   clearSearchLabel: "Borrar búsqueda",
 
   // --- Bandeja de comparación de productos ---

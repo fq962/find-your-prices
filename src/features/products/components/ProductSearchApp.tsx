@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { Product } from "@/types";
 import type { FacetOption } from "@/features/products/categoryFacets";
 import { useLocale } from "@/features/i18n/LocaleContext";
@@ -27,6 +27,14 @@ import {
   type CatalogFilterState,
 } from "@/features/products/catalogFilters";
 import {
+  RESULTS_ANCHOR,
+  saveWidenedNotice,
+  takeWidenedNotice,
+  type WidenedNotice,
+} from "@/features/products/searchScope";
+import {
+  catalogUrlSearch,
+  EMPTY_CATALOG_URL_STATE,
   getCatalogUrlServerSnapshot,
   getCatalogUrlSnapshot,
   subscribeToCatalogUrl,
@@ -80,6 +88,14 @@ export interface ProductSearchAppProps {
    * barra no.
    */
   showSearch?: boolean;
+  /**
+   * Adónde ampliar cuando una búsqueda dentro de `scopeCategory` no encuentra
+   * nada: la página sin esa categoría (la tienda sola, o la portada). Sin
+   * esto la búsqueda vacía se queda vacía.
+   */
+  widenHref?: string;
+  /** Nombre de `scopeCategory`, para el aviso de que se amplió. */
+  scopeCategoryLabel?: string;
 }
 
 /**
@@ -106,6 +122,8 @@ export function ProductSearchApp({
   scopeCategory,
   scopeStore,
   showSearch = true,
+  widenHref,
+  scopeCategoryLabel,
 }: ProductSearchAppProps) {
   const { t } = useLocale();
 
@@ -340,6 +358,56 @@ export function ProductSearchApp({
 
   const hasActiveFilters = store.length > 0 || category.length > 0 || activeExtraFilters > 0;
 
+  // ---------------------------------------------------------------------------
+  // Nunca dejar a nadie sin resultados por la categoría
+  //
+  // Una búsqueda que no encuentra nada en la categoría elegida se amplía a
+  // todas: se quita la faceta y, si la categoría es la de la propia página,
+  // se va a la página sin ella. Un aviso dice qué pasó, para que no parezca
+  // que el filtro se ignoró. Solo con un total ya asentado para ESTA consulta:
+  // mientras llega la nueva sigue en pantalla la anterior, y su 0 no dice nada.
+  // ---------------------------------------------------------------------------
+
+  const [widened, setWidened] = useState<WidenedNotice | null>(null);
+
+  // El aviso que dejó la página anterior al ampliar hacia esta.
+  useEffect(() => {
+    const notice = takeWidenedNotice();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sessionStorage solo existe en el cliente
+    if (notice) setWidened(notice);
+  }, []);
+
+  const trimmedQuery = query.trim();
+  const shouldWiden =
+    remoteSearch &&
+    trimmedQuery !== "" &&
+    feed.isSettled &&
+    !feed.isSearching &&
+    !feed.hasError &&
+    feed.total === 0 &&
+    (category.length > 0 || Boolean(scopeCategory && widenHref));
+
+  useEffect(() => {
+    if (!shouldWiden) return;
+    if (category.length > 0) {
+      const names = category.map((slug) => facetLabel(categoryOptions, slug) ?? slug);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- responde a una consulta ya resuelta
+      setWidened({ query: trimmedQuery, from: names.join(", ") });
+      updateCatalog({ category: [] });
+      return;
+    }
+    if (widenHref) {
+      saveWidenedNotice({ query: trimmedQuery, from: scopeCategoryLabel ?? scopeCategory ?? "" });
+      const search = catalogUrlSearch({ ...EMPTY_CATALOG_URL_STATE, query: trimmedQuery });
+      // Navegación completa y no el router, por lo mismo que en
+      // `onSelectSuggestion`: este componente también se monta sin router.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign(`${widenHref}${search}#${RESULTS_ANCHOR}`);
+    }
+  }, [shouldWiden, category, categoryOptions, trimmedQuery, updateCatalog, widenHref, scopeCategory, scopeCategoryLabel]);
+
+  const showWidened = widened !== null && widened.query === trimmedQuery && category.length === 0;
+
   const resultsLabel = totalCount === 1 ? t("resultsCountOne") : t("resultsCountMany");
   const numberFormat = useMemo(() => new Intl.NumberFormat(priceLocale ?? "es-HN"), [priceLocale]);
 
@@ -427,7 +495,7 @@ export function ProductSearchApp({
   );
 
   return (
-    <div className="flex flex-col gap-5">
+    <div id={RESULTS_ANCHOR} className="flex scroll-mt-20 flex-col gap-5">
       {/* La caja de búsqueda de la página, sólo donde la barra de navegación
           no la cubre (ver `showSearch`). */}
       {showSearch && (
@@ -566,6 +634,51 @@ export function ProductSearchApp({
             </div>
           </div>
 
+          {showWidened && (
+            <div
+              role="status"
+              className="flex items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-subtle)] px-4 py-3 text-[0.9375rem] leading-[1.45] text-[var(--text)]"
+              style={{ animation: "fyp-fade 260ms var(--ease-out-quart) both" }}
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]"
+              >
+                <circle cx="12" cy="12" r="8.5" />
+                <path d="M12 11v5M12 7.8v.2" />
+              </svg>
+              <p className="min-w-0 flex-1">
+                {t("searchWidenedNotice")
+                  .replace("{query}", widened.query)
+                  .replace("{scope}", widened.from)}
+              </p>
+              <button
+                type="button"
+                aria-label={t("searchWidenedDismiss")}
+                onClick={() => setWidened(null)}
+                className="-m-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--text-tertiary)] outline-none transition-colors duration-[var(--dur-fast)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              >
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                >
+                  <path d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+
           <ProductGrid
             products={visibleProducts}
             locale={priceLocale}
@@ -683,4 +796,14 @@ export function ProductSearchApp({
       )}
     </div>
   );
+}
+
+/** Nombre de una categoría entre las opciones del panel (raíces e hijas). */
+function facetLabel(options: FacetOption[], slug: string): string | null {
+  for (const option of options) {
+    if (option.value === slug) return option.label ?? option.value;
+    const child = option.children ? facetLabel(option.children, slug) : null;
+    if (child) return child;
+  }
+  return null;
 }

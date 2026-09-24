@@ -427,3 +427,62 @@ export async function listStorePathsForSitemap(): Promise<StoreSitemapEntry[]> {
   }
   return entries;
 }
+
+// -----------------------------------------------------------------------------
+// Alcances del buscador de la barra
+// -----------------------------------------------------------------------------
+
+export interface SearchScopeCategory {
+  slug: string;
+  name: string;
+  children: { slug: string; name: string }[];
+}
+
+export interface SearchScope {
+  /** La tienda del alcance, o `null` si se pidió el catálogo entero. */
+  store: { slug: string; name: string } | null;
+  /** Raíces con artículos (en la tienda, si hay tienda) y sus hijas. */
+  categories: SearchScopeCategory[];
+}
+
+/**
+ * Las categorías que ofrece el selector del buscador: las del catálogo
+ * entero o, con tienda, solo las que esa tienda vende. Mismo árbol y mismo
+ * orden que las landings, así el selector y la página dicen lo mismo.
+ */
+export async function getSearchScope(storeSlug: string | null, locale: Locale): Promise<SearchScope> {
+  if (!hasDatabase()) return { store: null, categories: [] };
+
+  const [stores, counts, tree] = await Promise.all([
+    storeSlug ? loadStores() : Promise.resolve(null),
+    storeSlug ? loadStoreCategoryCounts() : Promise.resolve(null),
+    loadCategoryTree(locale),
+  ]);
+
+  const store = storeSlug ? (stores?.get(storeSlug) ?? null) : null;
+  const nodes =
+    store && counts
+      ? scopeTreeToStore(tree.nodes, counts.get(store.slug) ?? new Map()).nodes
+      : tree.nodes.filter((node) => node.productCount > 0);
+
+  const childrenOf = new Map<string, CategoryNode[]>();
+  for (const node of nodes) {
+    if (!node.parentId) continue;
+    const list = childrenOf.get(node.parentId) ?? [];
+    list.push(node);
+    childrenOf.set(node.parentId, list);
+  }
+
+  const categories = nodes
+    .filter((node) => node.parentId === null)
+    .sort(byEditorialOrder)
+    .map((root) => ({
+      slug: root.slug,
+      name: root.name,
+      children: (childrenOf.get(root.id) ?? [])
+        .sort(byEditorialOrder)
+        .map((child) => ({ slug: child.slug, name: child.name })),
+    }));
+
+  return { store: store ? { slug: store.slug, name: store.name } : null, categories };
+}

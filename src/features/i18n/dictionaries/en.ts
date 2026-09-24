@@ -64,6 +64,12 @@ export const en: Dictionary = {
   suggestStoresLabel: "Stores",
   suggestCategoriesLabel: "Categories",
   suggestItemsLabel: "Items",
+  searchScopeLabel: "Search in",
+  searchScopeAllCategories: "All categories",
+  searchScopeAllStores: "All stores",
+  searchScopeWholeStore: "All of {store}",
+  searchWidenedNotice: "No results for “{query}” in {scope}. Showing results from all categories instead.",
+  searchWidenedDismiss: "Dismiss",
   clearSearchLabel: "Clear search",
 
   // --- Product comparison tray ---

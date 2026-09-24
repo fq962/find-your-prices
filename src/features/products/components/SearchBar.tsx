@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useLocale } from "@/features/i18n/LocaleContext";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
@@ -37,6 +37,12 @@ export interface SearchBarProps {
   onSelectSuggestion?: (suggestion: Suggestion) => void;
   /** Enter sin sugerencia marcada. Recibe el texto tal cual está en la caja. */
   onSubmit?: (query: string) => void;
+  /**
+   * Control pegado a la izquierda de la caja, dentro de la misma píldora: el
+   * selector de alcance de la barra. La caja pierde su borde izquierdo
+   * redondeado y ese lado lo cierra este control.
+   */
+  leading?: ReactNode;
 }
 
 const HEIGHT = { sm: "h-10", md: "h-12" } as const;
@@ -49,6 +55,7 @@ export function SearchBar({
   suggest = false,
   onSelectSuggestion,
   onSubmit,
+  leading,
 }: SearchBarProps) {
   const { t } = useLocale();
   const [query, setQuery] = useState(value);
@@ -155,7 +162,12 @@ export function SearchBar({
   const optionId = (index: number) => `${listboxId}-${index}`;
 
   return (
-    <div className="group relative">
+    // Con `leading` la píldora son dos piezas en fila; la caja y sus iconos
+    // van en su propio contenedor para que se posicionen contra ella y no
+    // contra el conjunto. Sin él, ese contenedor no existe para el layout.
+    <div className={leading ? "relative flex min-w-0" : "group relative"}>
+      {leading}
+      <div className={leading ? "group relative min-w-0 flex-1" : "contents"}>
       <svg
         aria-hidden="true"
         viewBox="0 0 24 24"
@@ -194,7 +206,7 @@ export function SearchBar({
         // click, y cerrar de inmediato desmontaría la opción bajo el puntero.
         onBlur={() => window.setTimeout(() => setIsOpen(false), 120)}
         onKeyDown={onKeyDown}
-        className={`${HEIGHT[size]} ${FIELD_TEXT[size]} w-full rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] pr-10 tracking-[-0.01em] text-[var(--text)] shadow-[var(--shadow-sm)] transition-[border-color,box-shadow,background-color] duration-[var(--dur-base)] ease-[var(--ease-out-expo)] outline-none placeholder:text-[var(--text-tertiary)] hover:border-[var(--border-strong)] focus:border-[var(--accent)] focus:shadow-[0_0_0_4px_var(--accent-soft)] focus-visible:outline-none [&::-webkit-search-cancel-button]:hidden ${
+        className={`${HEIGHT[size]} ${FIELD_TEXT[size]} w-full ${leading ? "rounded-l-none rounded-r-full" : "rounded-full"} border border-[var(--border)] bg-[var(--bg-elevated)] pr-10 tracking-[-0.01em] text-[var(--text)] shadow-[var(--shadow-sm)] transition-[border-color,box-shadow,background-color] duration-[var(--dur-base)] ease-[var(--ease-out-expo)] outline-none placeholder:text-[var(--text-tertiary)] hover:border-[var(--border-strong)] focus:border-[var(--accent)] focus:shadow-[0_0_0_4px_var(--accent-soft)] focus-visible:outline-none [&::-webkit-search-cancel-button]:hidden ${
           size === "sm" ? "pl-10" : "pl-11"
         }`}
       />
@@ -226,6 +238,7 @@ export function SearchBar({
           </svg>
         </button>
       )}
+      </div>
 
       {showList && (
         <SuggestionList

@@ -4,6 +4,7 @@ import { SHELL } from "@/components/layout/shell";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 import { ImagePlate } from "@/components/shared/ImagePlate";
 import { Reveal } from "@/components/shared/Reveal";
+import { routeFor } from "@/features/i18n/routes";
 import type { Locale } from "@/features/i18n/translate";
 import type { FacetOption } from "@/features/products/categoryFacets";
 import { ProductSearchApp } from "@/features/products/components/ProductSearchApp";
@@ -215,6 +216,8 @@ export function CategoryPageView({ locale, data }: CategoryPageViewProps) {
               remoteSearch
               locale={locale}
               scopeCategory={category.slug}
+              widenHref={routeFor("home", locale)}
+              scopeCategoryLabel={category.name}
             />
           </div>
         </section>

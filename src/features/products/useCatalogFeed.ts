@@ -85,6 +85,12 @@ export interface UseCatalogFeedOptions {
 export interface CatalogFeed {
   products: Product[];
   total: number;
+  /**
+   * Lo que se ve es la respuesta a la consulta actual y no la anterior, que
+   * sigue en pantalla mientras llega la nueva. Solo con esto un total de 0
+   * significa "esta búsqueda no tiene resultados".
+   */
+  isSettled: boolean;
   /** Hay una primera página en vuelo para una consulta nueva. */
   isSearching: boolean;
   /** Hay una página siguiente en vuelo. */
@@ -302,6 +308,7 @@ export function useCatalogFeed({
   return {
     products,
     total,
+    isSettled: settled !== null,
     isSearching: status === "searching",
     isLoadingMore: status === "loadingMore",
     hasError: status === "error",
