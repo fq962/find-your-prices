@@ -1,0 +1,642 @@
+{
+ "categories": [
+  {
+   "id": 1881757,
+   "key": "I2024-MUJER",
+   "name": "MUJER",
+   "sectionName": "WOMAN",
+   "layout": "marketing-content-view",
+   "seo": {
+    "seoCategoryId": 1000,
+    "keyword": "mujer",
+    "isHiddenInMenu": false
+   },
+   "subcategories": [
+    {
+     "id": 2721382,
+     "key": "I2024-MUJER-CREATIVIDADES_NEW_IN",
+     "name": "THE NEW",
+     "sectionName": "WOMAN",
+     "seo": {
+      "seoCategoryId": 18378,
+      "keyword": "woman-creativity-newin",
+      "isHiddenInMenu": false
+     },
+     "subcategories": []
+    },
+    {
+     "id": 2642765,
+     "key": "I2024-MUJER-DESTACADA_NOVEDADES",
+     "name": "NOVEDADES",
+     "sectionName": "WOMAN",
+     "layout": "products-category-view",
+     "seo": {
+      "seoCategoryId": 17359,
+      "keyword": "woman-highlight-new",
+      "isHiddenInMenu": false
+     },
+     "subcategories": [
+      {
+       "id": 2546081,
+       "key": "I2024-MUJER-ULTIMA_SEMANA",
+       "name": "THE NEW",
+       "sectionName": "WOMAN",
+       "layout": "products-category-view",
+       "seo": {
+        "seoCategoryId": 1180,
+        "keyword": "mujer-nuevo",
+        "isHiddenInMenu": false
+       },
+       "subcategories": []
+      },
+      {
+       "id": 2730487,
+       "key": "I2024-MUJER-BACK_OFFICE",
+       "name": "BACK TO WORK",
+       "sectionName": "WOMAN",
+       "layout": "products-category-view",
+       "redirectCategoryId": 2735932,
+       "seo": {
+        "seoCategoryId": 19161,
+        "keyword": "mujer-vuelta-oficina",
+        "isHiddenInMenu": false
+       },
+       "subcategories": []
+      }
+     ]
+    },
+    {
+     "id": 2724986,
+     "key": "I2024-MUJER-ESPACIO_BLANO",
+     "name": "",
+     "sectionName": "WOMAN",
+     "layout": "products-category-view",
+     "seo": {
+      "seoCategoryId": 19473,
+      "keyword": "woman-exp-13",
+      "isHiddenInMenu": false
+     },
+     "subcategories": [
+      {
+       "id": 2419724,
+       "key": "I2024-MUJER-SPECIAL_PRICES_GENERAL",
+       "name": "SPECIAL PRICES",
+       "sectionName": "WOMAN",
+       "layout": "products-category-view",
+       "redirectCategoryId": 2419737,
+       "seo": {
+        "seoCategoryId": 1314,
+        "keyword": "mujer-precios-especiales",
+        "isHiddenInMenu": false
+       },
+       "subcategories": [
+        {
+         "id": 2419737,
+         "key": "I2024-MUJER-SPECIAL_PRICES_GENERAL-VER_TODO",
+         "name": "VER TODO",
+         "sectionName": "WOMAN",
+         "layout": "products-category-view",
+         "seo": {
+          "seoCategoryId": 1314,
+          "keyword": "mujer-precios-especiales",
+          "isHiddenInMenu": true
+         },
+         "subcategories": []
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": 2643249,
+     "key": "I2024-MUJER-DESTACADA_COLECCION",
+     "name": "COLECCIÓN",
+     "sectionName": "WOMAN",
+     "layout": "products-category-view",
+     "seo": {
+      "seoCategoryId": 2158,
+      "keyword": "mujer-colecciones",
+      "isHiddenInMenu": false
+     },
+     "subcategories": [
+      {
+       "id": 2420794,
+       "key": "I2024-MUJER-PANTALONES",
+       "name": "PANTALONES",
+       "sectionName": "WOMAN",
+       "layout": "products-category-view",
+       "redirectCategoryId": 2420795,
+       "seo": {
+        "seoCategoryId": 1335,
+        "keyword": "mujer-pantalones",
+        "isHiddenInMenu": false
+       },
+       "subcategories": [
+        {
+         "id": 2420795,
+         "key": "I2024-MUJER-PANTALONES-VER_TODO",
+         "name": "VER TODO",
+         "sectionName": "WOMAN",
+         "layout": "products-category-view",
+         "seo": {
+          "seoCategoryId": 1335,
+          "keyword": "mujer-pantalones",
+          "isHiddenInMenu": true
+         },
+         "subcategories": []
+        },
+        {
+         "id": 2420787,
+         "key": "I2024-MUJER-PANTALONES-HIGH_WAIST",
+         "name": "TIRO ALTO",
+         "sectionName": "WOMAN",
+         "layout": "products-category-view",
+         "seo": {
+          "seoCategoryId": 1779,
+          "keyword": "mujer-vaqueros-tiro-alto",
+          "isHiddenInMenu": true
+         },
+         "subcategories": []
+        }
+       ]
+      },
+      {
+       "id": 2419242,
+       "key": "I2024-MUJER-JEANS",
+       "name": "JEANS",
+       "sectionName": "WOMAN",
+       "layout": "products-category-view",
+       "redirectCategoryId": 2419185,
+       "seo": {
+        "seoCategoryId": 1119,
+        "keyword": "mujer-jeans",
+        "isHiddenInMenu": false
+       },
+       "subcategories": [
+        {
+         "id": 2419185,
+         "key": "I2024-MUJER-JEANS-VER_TODO",
+         "name": "VER TODO",
+         "sectionName": "WOMAN",
+         "layout": "products-category-view",
+         "seo": {
+          "seoCategoryId": 1119,
+          "keyword": "mujer-jeans",
+          "isHiddenInMenu": true
+         },
+         "subcategories": []
+        },
+        {
+         "id": 2419216,
+         "key": "I2024-MUJER-JEANS-BALLOON",
+         "name": "BARREL",
+         "sectionName": "WOMAN",
+         "layout": "products-category-view",
+         "seo": {
+          "seoCategoryId": 7964,
+          "keyword": "mujer-jeans-balloon",
+          "isHiddenInMenu": true
+         },
+         "subcategories": []
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": 2642760,
+     "key": "I2024-MUJER-DESTACADA_ZAPATOS_ACCESORIOS",
+     "name": "ZAPATOS | ACCESORIOS",
+     "sectionName": "WOMAN",
+     "layout": "products-category-view",
+     "seo": {
+      "seoCategoryId": 17360,
+      "keyword": "woman-highlight-shoes-accessories",
+      "isHiddenInMenu": false
+     },
+     "subcategories": [
+      {
+       "id": 2419159,
+       "key": "I2024-MUJER-ZAPATOS",
+       "name": "ZAPATOS",
+       "sectionName": "WOMAN",
+       "layout": "products-category-view",
+       "redirectCategoryId": 2419160,
+       "seo": {
+        "seoCategoryId": 1251,
+        "keyword": "mujer-zapatos",
+        "isHiddenInMenu": false
+       },
+       "subcategories": [
+        {
+         "id": 2419160,
+         "key": "I2024-MUJER-ZAPATOS-VER_TODO",
+         "name": "VER TODO",
+         "sectionName": "WOMAN",
+         "layout": "products-category-view",
+         "seo": {
+          "seoCategoryId": 1251,
+          "keyword": "mujer-zapatos",
+          "isHiddenInMenu": true
+         },
+         "subcategories": []
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": 2572981,
+     "key": "I2024-MUJER-TRAVEL",
+     "name": "TRAVEL MODE",
+     "sectionName": "WOMAN",
+     "layout": "marketing-content-view",
+     "seo": {
+      "seoCategoryId": 15659,
+      "keyword": "zara-travel",
+      "isHiddenInMenu": false
+     },
+     "subcategories": []
+    },
+    {
+     "id": 2418845,
+     "key": "I2024-MUJER-TIENDA_APP",
+     "name": "TIENDAS",
+     "sectionName": "WOMAN",
+     "layout": "store-locator-view",
+     "seo": {
+      "seoCategoryId": 1404,
+      "keyword": "z-tiendas",
+      "isHiddenInMenu": false
+     },
+     "subcategories": []
+    }
+   ]
+  },
+  {
+   "id": 1885841,
+   "key": "I2024-HOMBRE",
+   "name": "HOMBRE",
+   "sectionName": "MAN",
+   "layout": "products-category-view",
+   "seo": {
+    "seoCategoryId": 534,
+    "keyword": "hombre",
+    "isHiddenInMenu": false
+   },
+   "subcategories": [
+    {
+     "id": 2643753,
+     "key": "I2024-HOMBRE-COLECCION",
+     "name": "COLECCIÓN",
+     "sectionName": "MAN",
+     "layout": "products-category-view",
+     "seo": {
+      "seoCategoryId": 622,
+      "keyword": "hombre-coleccion",
+      "isHiddenInMenu": false
+     },
+     "subcategories": [
+      {
+       "id": 2431932,
+       "key": "I2024-HOMBRE-VIEW_ALL_PRODUCTS",
+       "name": "VER TODO",
+       "sectionName": "MAN",
+       "layout": "products-category-view",
+       "redirectCategoryId": 2443335,
+       "seo": {
+        "seoCategoryId": 7465,
+        "keyword": "hombre-todos-productos",
+        "isHiddenInMenu": false
+       },
+       "subcategories": [
+        {
+         "id": 2443335,
+         "key": "I2024-HOMBRE-VIEW_ALL_PRODUCTS-VER_TODO",
+         "name": "VER TODO",
+         "sectionName": "MAN",
+         "layout": "products-category-view",
+         "seo": {
+          "seoCategoryId": 7465,
+          "keyword": "hombre-todos-productos",
+          "isHiddenInMenu": true
+         },
+         "subcategories": []
+        }
+       ]
+      },
+      {
+       "id": 2432095,
+       "key": "I2024-HOMBRE-PANTALONES",
+       "name": "PANTALONES",
+       "sectionName": "MAN",
+       "layout": "products-category-view",
+       "redirectCategoryId": 2432096,
+       "seo": {
+        "seoCategoryId": 838,
+        "keyword": "hombre-pantalones",
+        "isHiddenInMenu": false
+       },
+       "subcategories": [
+        {
+         "id": 2432096,
+         "key": "I2024-HOMBRE-PANTALONES-VER_TODO",
+         "name": "VER TODO",
+         "sectionName": "MAN",
+         "layout": "products-category-view",
+         "seo": {
+          "seoCategoryId": 838,
+          "keyword": "hombre-pantalones",
+          "isHiddenInMenu": true
+         },
+         "subcategories": []
+        }
+       ]
+      },
+      {
+       "id": 2436824,
+       "key": "I2024-HOMBRE-PVP_GENERAL",
+       "name": "SPECIAL PRICES",
+       "sectionName": "MAN",
+       "layout": "products-category-view",
+       "redirectCategoryId": 2436823,
+       "seo": {
+        "seoCategoryId": 806,
+        "keyword": "hombre-precios-especiales",
+        "isHiddenInMenu": false
+       },
+       "subcategories": [
+        {
+         "id": 2436823,
+         "key": "I2024-HOMBRE-PVP_GENERAL-VIEW_ALL",
+         "name": "VIEW ALL",
+         "sectionName": "MAN",
+         "layout": "products-category-view",
+         "seo": {
+          "seoCategoryId": 806,
+          "keyword": "hombre-precios-especiales",
+          "isHiddenInMenu": true
+         },
+         "subcategories": []
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": 2572981,
+     "key": "I2024-MUJER-TRAVEL",
+     "name": "TRAVEL MODE",
+     "sectionName": "MAN",
+     "layout": "marketing-content-view",
+     "seo": {
+      "seoCategoryId": 15659,
+      "keyword": "zara-travel",
+      "isHiddenInMenu": false
+     },
+     "subcategories": []
+    }
+   ]
+  },
+  {
+   "id": 2112261,
+   "key": "I2024-NINOS",
+   "name": "NIÑOS",
+   "sectionName": "KID",
+   "layout": "marketing-content-view",
+   "seo": {
+    "seoCategoryId": 1,
+    "keyword": "ninos",
+    "isHiddenInMenu": false
+   },
+   "subcategories": [
+    {
+     "id": 2425905,
+     "key": "I2024-NINOS-NINA",
+     "name": "NIÑA",
+     "sectionName": "KID",
+     "layout": "products-category-view",
+     "seo": {
+      "seoCategoryId": 323,
+      "keyword": "ninos-nina",
+      "isHiddenInMenu": false
+     },
+     "subcategories": [
+      {
+       "id": 1881559,
+       "key": "DIVIDER_MENU_KIDS1",
+       "name": "DIVIDER_MENU_KIDS1",
+       "sectionName": "KID",
+       "layout": "divider-category-view",
+       "attributes": {
+        "isDivider": true
+       },
+       "subcategories": []
+      },
+      {
+       "id": 2643261,
+       "key": "I2024-NINOS-NINA-COLECCION",
+       "name": "COLECCIÓN",
+       "sectionName": "KID",
+       "layout": "products-category-view",
+       "seo": {
+        "seoCategoryId": 7782,
+        "keyword": "ninos-coleccion",
+        "isHiddenInMenu": false
+       },
+       "subcategories": [
+        {
+         "id": 2427327,
+         "key": "I2024-NINOS-NINA-PANTALONES",
+         "name": "PANTALONES",
+         "sectionName": "KID",
+         "layout": "products-category-view",
+         "redirectCategoryId": 2427342,
+         "seo": {
+          "seoCategoryId": 439,
+          "keyword": "ninos-nina-pantalones",
+          "isHiddenInMenu": false
+         },
+         "subcategories": [
+          {
+           "id": 2427342,
+           "key": "I2024-NINOS-NINA-PANTALONES-VER_TODO",
+           "name": "VER TODO",
+           "sectionName": "KID",
+           "layout": "products-category-view",
+           "seo": {
+            "seoCategoryId": 439,
+            "keyword": "ninos-nina-pantalones",
+            "isHiddenInMenu": true
+           },
+           "subcategories": []
+          }
+         ]
+        },
+        {
+         "id": 2427563,
+         "key": "I2024-NINOS-NINA-ZAPATOS",
+         "name": "ZAPATOS",
+         "sectionName": "KID",
+         "layout": "products-category-view",
+         "redirectCategoryId": 2427602,
+         "seo": {
+          "seoCategoryId": 404,
+          "keyword": "ninos-nina-zapatos",
+          "isHiddenInMenu": false
+         },
+         "subcategories": [
+          {
+           "id": 2427602,
+           "key": "I2024-NINOS-NINA-ZAPATOS-VER_TODO",
+           "name": "VER TODO",
+           "sectionName": "KID",
+           "layout": "products-category-view",
+           "seo": {
+            "seoCategoryId": 404,
+            "keyword": "ninos-nina-zapatos",
+            "isHiddenInMenu": true
+           },
+           "subcategories": []
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": 1881559,
+     "key": "DIVIDER_MENU_KIDS1",
+     "name": "DIVIDER_MENU_KIDS1",
+     "sectionName": "KID",
+     "layout": "divider-category-view",
+     "attributes": {
+      "isDivider": true
+     },
+     "subcategories": []
+    },
+    {
+     "id": 2421860,
+     "key": "I2024-NINOS-BEBENINA",
+     "name": "NIÑA",
+     "sectionName": "KID",
+     "layout": "products-category-view",
+     "seo": {
+      "seoCategoryId": 87,
+      "keyword": "ninos-bebe-nina",
+      "isHiddenInMenu": false
+     },
+     "subcategories": [
+      {
+       "id": 1881559,
+       "key": "DIVIDER_MENU_KIDS1",
+       "name": "DIVIDER_MENU_KIDS1",
+       "sectionName": "KID",
+       "layout": "divider-category-view",
+       "attributes": {
+        "isDivider": true
+       },
+       "subcategories": []
+      },
+      {
+       "id": 2642270,
+       "key": "I2024-NINOS-BEBENINA-COLECCION",
+       "name": "COLECCIÓN",
+       "sectionName": "KID",
+       "layout": "products-category-view",
+       "seo": {
+        "seoCategoryId": 7782,
+        "keyword": "ninos-coleccion",
+        "isHiddenInMenu": false
+       },
+       "subcategories": []
+      }
+     ]
+    },
+    {
+     "id": 2435024,
+     "key": "I2024-NINOS-ACCESORIOS",
+     "name": "ACCESORIOS | ZAPATOS",
+     "sectionName": "KID",
+     "layout": "products-category-view",
+     "seo": {
+      "seoCategoryId": 3,
+      "keyword": "ninos-accesorios",
+      "isHiddenInMenu": false
+     },
+     "subcategories": [
+      {
+       "id": 2644251,
+       "key": "I2024-NINOS-ACCESORIOS-COLECCION",
+       "name": "COLECCIÓN",
+       "sectionName": "KID",
+       "layout": "products-category-view",
+       "seo": {
+        "seoCategoryId": 7782,
+        "keyword": "ninos-coleccion",
+        "isHiddenInMenu": false
+       },
+       "subcategories": []
+      }
+     ]
+    },
+    {
+     "id": 2645264,
+     "key": "I2024-NINOS-WONDER",
+     "name": "KDPT Goods | BÁSICOS",
+     "sectionName": "KID",
+     "layout": "products-category-view",
+     "redirectCategoryId": 2644781,
+     "seo": {
+      "seoCategoryId": 17384,
+      "keyword": "kids-kdptgoods-club",
+      "isHiddenInMenu": false
+     },
+     "subcategories": [
+      {
+       "id": 2644781,
+       "key": "I2024-NINOS-WONDER-LOOKS",
+       "name": "LOOKS",
+       "sectionName": "KID",
+       "layout": "products-category-view",
+       "redirectCategoryId": 2645769,
+       "seo": {
+        "seoCategoryId": 17386,
+        "keyword": "kids-kdptgoods-looks",
+        "isHiddenInMenu": true
+       },
+       "subcategories": []
+      }
+     ]
+    },
+    {
+     "id": 2572981,
+     "key": "I2024-MUJER-TRAVEL",
+     "name": "TRAVEL MODE",
+     "sectionName": "KID",
+     "layout": "marketing-content-view",
+     "seo": {
+      "seoCategoryId": 15659,
+      "keyword": "zara-travel",
+      "isHiddenInMenu": false
+     },
+     "subcategories": []
+    }
+   ]
+  },
+  {
+   "id": 2572981,
+   "key": "I2024-MUJER-TRAVEL",
+   "name": "TRAVEL MODE",
+   "sectionName": "TRAVEL",
+   "layout": "marketing-content-view",
+   "seo": {
+    "seoCategoryId": 15659,
+    "keyword": "zara-travel",
+    "isHiddenInMenu": false
+   },
+   "subcategories": []
+  }
+ ]
+}

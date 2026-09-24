@@ -1,0 +1,580 @@
+{
+ "productGroups": [
+  {
+   "id": "g1",
+   "type": "main",
+   "elements": [
+    {
+     "id": "e1",
+     "type": "editorial",
+     "commercialComponents": [
+      {
+       "id": 545490615,
+       "reference": "04344241-I2026",
+       "type": "Product",
+       "kind": "Wear",
+       "brand": {
+        "brandId": 1,
+        "brandGroupId": 1,
+        "brandGroupCode": "zara"
+       },
+       "xmedia": [],
+       "name": "PANTALÓN CROPPED ZW COLLECTION",
+       "description": "",
+       "price": 159500,
+       "section": 1,
+       "sectionName": "WOMAN",
+       "familyName": "PANTALON",
+       "subfamilyName": "W.PANTALON",
+       "detail": {
+        "reference": "04344241-I2026",
+        "displayReference": "4344/241",
+        "colors": [
+         {
+          "id": "800",
+          "productId": 545490615,
+          "name": "Negro",
+          "stylingId": "0",
+          "outfitId": "BASESTYLE",
+          "xmedia": [
+           {
+            "type": "image",
+            "path": "/assets/public/762c/4eff/8a5042e19bd5/aece15607ae5/05344260800-a2",
+            "name": "05344260800-a2",
+            "width": 2048,
+            "height": 3072
+           },
+           {
+            "type": "image",
+            "path": "/assets/public/818f/c9b4/407d4d97bcbe/d7f862fda195/05344260800-a1",
+            "name": "05344260800-a1",
+            "width": 2048,
+            "height": 3072
+           }
+          ],
+          "price": 159500,
+          "availability": "in_stock",
+          "reference": "C04344241800000-I2026",
+          "extraInfo": {
+           "highlightPrice": false
+          },
+          "canonicalReference": "04344241800-I2026"
+         }
+        ]
+       },
+       "seo": {
+        "keyword": "pantalon-cropped-zw-collection",
+        "seoProductId": "04344241",
+        "discernProductId": 545490615
+       },
+       "availability": "in_stock",
+       "tagTypes": [],
+       "extraInfo": {
+        "highlightPrice": false,
+        "hideProductInfo": false,
+        "duplicateReference": false
+       },
+       "availableColors": [
+        {
+         "colorName": "Negro",
+         "hexColor": "#0A0A0A"
+        },
+        {
+         "colorName": "Amarillo pastel",
+         "hexColor": "#E0DABA"
+        },
+        {
+         "colorName": "Crudo",
+         "hexColor": "#E6D4AB"
+        }
+       ],
+       "colorInfo": {
+        "mainColorHexCode": "#0A0A0A",
+        "numAdditionalColors": 2,
+        "shouldUseColorcutInColorLabel": false
+       },
+       "isPinned": true,
+       "gridPosition": 1,
+       "zoomedGridPosition": 1,
+       "preservedBlockPosition": 1,
+       "athleticzPosition": 1,
+       "productTag": [],
+       "colorList": "",
+       "isDivider": false,
+       "hasXmediaDouble": false,
+       "showExtraImageOnHover": false,
+       "showAvailability": false,
+       "priceUnavailable": false
+      },
+      {
+       "id": 9884231341,
+       "reference": "M9884231341",
+       "type": "Bundle",
+       "kind": "Marketing",
+       "xmedia": [],
+       "name": "",
+       "description": "",
+       "section": 0,
+       "detail": {
+        "reference": "M9884231341",
+        "displayReference": "9884/231",
+        "colors": [
+         {
+          "id": "",
+          "productId": 9884231341,
+          "name": "",
+          "stylingId": "0",
+          "xmedia": [
+           {
+            "type": "image",
+            "path": "/assets/public/8491/cfe5/950e44e79b98/7c4f6b0f3bd1/",
+            "name": "9262eb17c0319a5cd4cc29c037ceb5fc",
+            "width": 7211,
+            "height": 638
+           },
+           {
+            "type": "image",
+            "path": "/assets/public/8491/cfe5/950e44e79b98/7c4f6b0f3bd1/",
+            "name": "9262eb17c0319a5cd4cc29c037ceb5fc",
+            "width": 7211,
+            "height": 638
+           }
+          ],
+          "extraInfo": {},
+          "canonicalReference": "9884231341"
+         }
+        ]
+       },
+       "seo": {
+        "keyword": "",
+        "seoProductId": "",
+        "discernProductId": 9884231341,
+        "irrelevant": true
+       },
+       "tagTypes": [],
+       "extraInfo": {
+        "isDivider": false,
+        "highlightPrice": false,
+        "hideProductInfo": false,
+        "isAddToCartInGridDisabled": true,
+        "duplicateReference": false
+       },
+       "availableColors": [],
+       "gridPosition": 1,
+       "zoomedGridPosition": 2,
+       "preservedBlockPosition": 1,
+       "athleticzPosition": 2,
+       "productTag": [],
+       "isBannerWithoutLink": false,
+       "basicInfoMissing": true,
+       "omitProductInfo": false,
+       "colorList": "",
+       "isDivider": false,
+       "hasXmediaDouble": true,
+       "showExtraImageOnHover": false,
+       "showAvailability": false,
+       "priceUnavailable": true,
+       "isOnSale": false
+      },
+      {
+       "id": 545490615,
+       "reference": "04344241-I2026",
+       "type": "Product",
+       "kind": "Wear",
+       "brand": {
+        "brandId": 1,
+        "brandGroupId": 1,
+        "brandGroupCode": "zara"
+       },
+       "xmedia": [],
+       "name": "PANTALÓN CROPPED ZW COLLECTION",
+       "description": "",
+       "price": 159500,
+       "section": 1,
+       "sectionName": "WOMAN",
+       "familyName": "PANTALON",
+       "subfamilyName": "W.PANTALON",
+       "detail": {
+        "reference": "04344241-I2026",
+        "displayReference": "4344/241",
+        "colors": [
+         {
+          "id": "800",
+          "productId": 545490615,
+          "name": "Negro",
+          "stylingId": "0",
+          "outfitId": "BASESTYLE",
+          "xmedia": [
+           {
+            "type": "image",
+            "path": "/assets/public/762c/4eff/8a5042e19bd5/aece15607ae5/05344260800-a2",
+            "name": "05344260800-a2",
+            "width": 2048,
+            "height": 3072
+           },
+           {
+            "type": "image",
+            "path": "/assets/public/818f/c9b4/407d4d97bcbe/d7f862fda195/05344260800-a1",
+            "name": "05344260800-a1",
+            "width": 2048,
+            "height": 3072
+           }
+          ],
+          "price": 159500,
+          "availability": "in_stock",
+          "reference": "C04344241800000-I2026",
+          "extraInfo": {
+           "highlightPrice": false
+          },
+          "canonicalReference": "04344241800-I2026"
+         }
+        ]
+       },
+       "seo": {
+        "keyword": "pantalon-cropped-zw-collection",
+        "seoProductId": "04344241",
+        "discernProductId": 545490615
+       },
+       "availability": "in_stock",
+       "tagTypes": [],
+       "extraInfo": {
+        "highlightPrice": false,
+        "hideProductInfo": false,
+        "duplicateReference": false
+       },
+       "availableColors": [
+        {
+         "colorName": "Negro",
+         "hexColor": "#0A0A0A"
+        },
+        {
+         "colorName": "Amarillo pastel",
+         "hexColor": "#E0DABA"
+        },
+        {
+         "colorName": "Crudo",
+         "hexColor": "#E6D4AB"
+        }
+       ],
+       "colorInfo": {
+        "mainColorHexCode": "#0A0A0A",
+        "numAdditionalColors": 2,
+        "shouldUseColorcutInColorLabel": false
+       },
+       "isPinned": true,
+       "gridPosition": 1,
+       "zoomedGridPosition": 1,
+       "preservedBlockPosition": 1,
+       "athleticzPosition": 1,
+       "productTag": [],
+       "colorList": "",
+       "isDivider": false,
+       "hasXmediaDouble": false,
+       "showExtraImageOnHover": false,
+       "showAvailability": false,
+       "priceUnavailable": false
+      }
+     ]
+    },
+    {
+     "id": "e2",
+     "type": "editorial",
+     "commercialComponents": [
+      {
+       "id": 557419608,
+       "reference": "02770151-I2026",
+       "type": "Product",
+       "kind": "Wear",
+       "brand": {
+        "brandId": 1,
+        "brandGroupId": 1,
+        "brandGroupCode": "zara"
+       },
+       "xmedia": [],
+       "name": "PANTALÓN CULOTTE RAYAS",
+       "description": "",
+       "price": 79500,
+       "oldPrice": 129500,
+       "displayDiscountPercentage": 38,
+       "discountPercentage": "38%",
+       "discountLabel": "-38%",
+       "section": 1,
+       "sectionName": "WOMAN",
+       "familyName": "PANTALON",
+       "subfamilyName": "B.PANTALON",
+       "detail": {
+        "reference": "02770151-I2026",
+        "displayReference": "2770/151",
+        "colors": [
+         {
+          "id": "330",
+          "productId": 557419608,
+          "name": "Multicolor",
+          "stylingId": "0",
+          "outfitId": "BASESTYLE",
+          "xmedia": [
+           {
+            "type": "image",
+            "path": "/assets/public/ff62/cf62/da144a159090/c10fc34e1fa8/02770151330-p",
+            "name": "02770151330-p",
+            "width": 2048,
+            "height": 3072
+           },
+           {
+            "type": "image",
+            "path": "/assets/public/fd48/52c8/f5514432a26b/f98895ab34ab/02770151330-a1",
+            "name": "02770151330-a1",
+            "width": 2048,
+            "height": 3072
+           }
+          ],
+          "price": 79500,
+          "oldPrice": 129500,
+          "displayDiscountPercentage": 38,
+          "discountPercentage": "38%",
+          "discountLabel": "-38%",
+          "availability": "in_stock",
+          "reference": "C02770151330000-I2026",
+          "extraInfo": {
+           "highlightPrice": true
+          },
+          "canonicalReference": "02770151330-I2026"
+         }
+        ]
+       },
+       "seo": {
+        "keyword": "pantalon-culotte-rayas",
+        "seoProductId": "02770151",
+        "discernProductId": 557419608
+       },
+       "availability": "in_stock",
+       "tagTypes": [],
+       "extraInfo": {
+        "highlightPrice": true,
+        "hideProductInfo": false,
+        "duplicateReference": false
+       },
+       "availableColors": [
+        {
+         "colorName": "Multicolor",
+         "hexColor": "#006843"
+        }
+       ],
+       "gridPosition": 2,
+       "zoomedGridPosition": 724,
+       "preservedBlockPosition": 603,
+       "athleticzPosition": 725,
+       "productTag": [],
+       "colorList": "",
+       "isDivider": false,
+       "hasXmediaDouble": false,
+       "showExtraImageOnHover": false,
+       "showAvailability": false,
+       "priceUnavailable": false,
+       "isOnSale": true
+      },
+      {
+       "id": 594772472,
+       "reference": "01478534-I2026",
+       "type": "Product",
+       "kind": "Wear",
+       "brand": {
+        "brandId": 1,
+        "brandGroupId": 1,
+        "brandGroupCode": "zara"
+       },
+       "xmedia": [],
+       "name": "PANTALÓN CINTURÓN BAJO VUELTA",
+       "description": "",
+       "price": 149500,
+       "section": 1,
+       "sectionName": "WOMAN",
+       "familyName": "PANTALON",
+       "subfamilyName": "B.PANTALON",
+       "detail": {
+        "reference": "01478534-I2026",
+        "displayReference": "1478/534",
+        "colors": [
+         {
+          "id": "405",
+          "productId": 594772472,
+          "name": "Índigo",
+          "stylingId": "740",
+          "outfitId": "THE-MUST",
+          "xmedia": [
+           {
+            "type": "image",
+            "path": "/assets/public/1faf/a897/b92e4bb7a4a7/aa312f0bd9be/01478534405-p",
+            "name": "01478534405-p",
+            "width": 2048,
+            "height": 3072
+           },
+           {
+            "type": "image",
+            "path": "/assets/public/1bed/4bd1/922541ffb91d/27ff5a0dc89f/01478534405-a1",
+            "name": "01478534405-a1",
+            "width": 2048,
+            "height": 3072
+           }
+          ],
+          "price": 149500,
+          "availability": "coming_soon",
+          "reference": "C01478534405740-I2026",
+          "extraInfo": {
+           "highlightPrice": false
+          },
+          "canonicalReference": "01478534405-I2026"
+         }
+        ]
+       },
+       "seo": {
+        "keyword": "pantalon-cinturon-bajo-vuelta",
+        "seoProductId": "01478534",
+        "discernProductId": 594772472
+       },
+       "availability": "coming_soon",
+       "tagTypes": [],
+       "extraInfo": {
+        "highlightPrice": false,
+        "hideProductInfo": false,
+        "duplicateReference": false
+       },
+       "availableColors": [
+        {
+         "colorName": "Índigo",
+         "hexColor": "#d2dbde"
+        },
+        {
+         "colorName": "Camel claro",
+         "hexColor": "#B7A08D"
+        },
+        {
+         "colorName": "Negro",
+         "hexColor": "#080A0E"
+        },
+        {
+         "colorName": "Blanco",
+         "hexColor": "#F9F6F0"
+        }
+       ],
+       "colorInfo": {
+        "mainColorHexCode": "#d2dbde",
+        "numAdditionalColors": 3,
+        "shouldUseColorcutInColorLabel": false
+       },
+       "isPinned": true,
+       "gridPosition": 2,
+       "zoomedGridPosition": 14,
+       "preservedBlockPosition": 2,
+       "athleticzPosition": 14,
+       "productTag": [],
+       "colorList": "",
+       "isDivider": false,
+       "hasXmediaDouble": false,
+       "showExtraImageOnHover": false,
+       "showAvailability": false,
+       "priceUnavailable": false
+      },
+      {
+       "id": 545490614,
+       "reference": "04344241-I2026",
+       "type": "Product",
+       "kind": "Wear",
+       "brand": {
+        "brandId": 1,
+        "brandGroupId": 1,
+        "brandGroupCode": "zara"
+       },
+       "xmedia": [],
+       "name": "PANTALÓN CROPPED ZW COLLECTION",
+       "description": "",
+       "price": 159500,
+       "section": 1,
+       "sectionName": "WOMAN",
+       "familyName": "PANTALON",
+       "subfamilyName": "W.PANTALON",
+       "detail": {
+        "reference": "04344241-I2026",
+        "displayReference": "4344/241",
+        "colors": [
+         {
+          "id": "321",
+          "productId": 545490614,
+          "name": "Amarillo pastel",
+          "stylingId": "0",
+          "outfitId": "BASESTYLE",
+          "xmedia": [
+           {
+            "type": "image",
+            "path": "/assets/public/476d/e8b6/3e4449e580ea/c858d9285b87/04344241321-a1",
+            "name": "04344241321-a1",
+            "width": 2048,
+            "height": 3072
+           },
+           {
+            "type": "image",
+            "path": "/assets/public/2ec0/b264/d94c467f8dcc/b76e56922195/04344241321-p",
+            "name": "04344241321-p",
+            "width": 2048,
+            "height": 3072
+           }
+          ],
+          "price": 159500,
+          "availability": "in_stock",
+          "reference": "C04344241321000-I2026",
+          "extraInfo": {
+           "highlightPrice": false
+          },
+          "canonicalReference": "04344241321-I2026"
+         }
+        ]
+       },
+       "seo": {
+        "keyword": "pantalon-cropped-zw-collection",
+        "seoProductId": "04344241",
+        "discernProductId": 545490614
+       },
+       "availability": "in_stock",
+       "tagTypes": [],
+       "extraInfo": {
+        "highlightPrice": false,
+        "hideProductInfo": false,
+        "duplicateReference": false
+       },
+       "availableColors": [
+        {
+         "colorName": "Amarillo pastel",
+         "hexColor": "#E0DABA"
+        },
+        {
+         "colorName": "Negro",
+         "hexColor": "#0A0A0A"
+        },
+        {
+         "colorName": "Crudo",
+         "hexColor": "#E6D4AB"
+        }
+       ],
+       "colorInfo": {
+        "mainColorHexCode": "#E0DABA",
+        "numAdditionalColors": 2,
+        "shouldUseColorcutInColorLabel": false
+       },
+       "gridPosition": 1,
+       "zoomedGridPosition": 444,
+       "preservedBlockPosition": 323,
+       "athleticzPosition": 444,
+       "productTag": [],
+       "colorList": "",
+       "isDivider": false,
+       "hasXmediaDouble": false,
+       "showExtraImageOnHover": false,
+       "showAvailability": false,
+       "priceUnavailable": false
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

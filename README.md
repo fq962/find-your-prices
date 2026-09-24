@@ -116,7 +116,8 @@ Dos cosas garantizan que no se repita trabajo:
 Lo que sí hay que dosificar es el **presupuesto de la tanda**: 240 s repartidos
 entre todos los targets que vencieron juntos. Medido en producción, un catálogo
 completo cuesta ~300 s (ACOSA), ~165 s (Walmart Abarrotes), ~160 s (Ladylee),
-~130 s (Diunsa), ~115 s (Jetstereo), ~50 s (Steren) y ~32 s (PriceSmart). La
+~150 s (Zara Niños), ~130 s (Diunsa), ~115 s (Jetstereo), ~100 s (Zara Hombre),
+~55 s (Zara Mujer), ~50 s (Steren) y ~32 s (PriceSmart). La
 regla práctica que sale de ahí: **una tienda pesada por tanda**, o dos livianas.
 ACOSA, con 297 s medidos, ya no entra en los 240 s del presupuesto compartido:
 necesita una tanda para ella sola y es la próxima candidata a partirse por
