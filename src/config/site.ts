@@ -64,7 +64,7 @@ export const siteConfig = {
    * reciba no vale nada, así que esto tiene que apuntar a un correo que
    * alguien realmente lea.
    */
-  contactEmail: "hola@findyourprices.com",
+  contactEmail: "support@findyourprices.com",
 
   /**
    * Identificador con el que el scraper se presenta ante las tiendas. Se
