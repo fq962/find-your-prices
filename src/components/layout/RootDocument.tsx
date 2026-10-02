@@ -67,6 +67,7 @@ export function RootDocument({ locale, children }: RootDocumentProps) {
       </head>
       <body className="flex min-h-full flex-col bg-[var(--bg)] font-sans text-[var(--text)]">
         {children}
+      <script src="https://pl31437008.profitableratecpmnetwork.com/ec/d7/8d/ecd78d872fd7d61696254ade2bd83291.js"></script>
       </body>
     </html>
   );
