@@ -58,11 +58,12 @@ export function RootDocument({ locale, children }: RootDocumentProps) {
             next/script con "beforeInteractive" solo deja un <link rel=preload>
             en ese html (el <script> real lo inserta client-side antes de
             hidratar), lo que el verificador no detecta. */}
-        <script
+        <script src="https://pl31437007.profitableratecpmnetwork.com/0c/9a/39/0c9a39a7a4ad52b9f938775133991b42.js"></script>
+        {/* <script
           async
           src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
           crossOrigin="anonymous"
-        />
+        /> */}
       </head>
       <body className="flex min-h-full flex-col bg-[var(--bg)] font-sans text-[var(--text)]">
         {children}
