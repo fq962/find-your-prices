@@ -3,6 +3,7 @@ import type { Product } from "@/types";
 import type { ProductDetail } from "@/server/services/catalog";
 import { formatPrice } from "@/lib/format";
 import { productPath } from "@/features/products/productPath";
+import { NativeAd } from "@/components/shared/NativeAd";
 import { ProductGallery } from "./ProductGallery";
 import { PriceHistoryChart } from "./PriceHistoryChart";
 import { ProductTile } from "./ProductTile";
@@ -29,6 +30,7 @@ const COPY = {
     specs: "Ficha técnica",
     identifiers: "Identificadores",
     related: "Artículos parecidos",
+    ad: "Publicidad",
     lastChecked: "Último chequeo",
     unchangedFor: "Sin cambio de precio hace",
     days: "días",
@@ -64,6 +66,7 @@ const COPY = {
     specs: "Specifications",
     identifiers: "Identifiers",
     related: "Similar items",
+    ad: "Advertisement",
     lastChecked: "Last checked",
     unchangedFor: "Price unchanged for",
     days: "days",
@@ -362,6 +365,8 @@ export function ProductDetailView({ product, related, locale }: ProductDetailVie
           </div>
         )}
       </section>
+
+      <NativeAd label={copy.ad} className="mt-16" />
 
       {/* Relacionados ------------------------------------------------------- */}
       {related.length > 0 && (

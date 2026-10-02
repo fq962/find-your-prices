@@ -14,6 +14,7 @@ import { SearchBar } from "./SearchBar";
 import { SortFilter } from "./SortFilter";
 import { FilterSidebar } from "./FilterSidebar";
 import { FilterSheet } from "./FilterSheet";
+import { NativeAd } from "@/components/shared/NativeAd";
 import { ProductGrid } from "./ProductGrid";
 import { CatalogFeedFooter } from "./CatalogFeedFooter";
 import { CompareTrayDock } from "./CompareTrayDock";
@@ -684,6 +685,7 @@ export function ProductSearchApp({
             locale={priceLocale}
             productHref={productHref}
             label={t("resultsListLabel")}
+            inlineAd={<NativeAd label={t("adLabel")} />}
             /* Una búsqueda que falló no es una búsqueda sin resultados: decir
                "no hay productos" cuando lo que pasó es que se cayó la red manda a
                la gente a cambiar los filtros para arreglar algo que no está roto

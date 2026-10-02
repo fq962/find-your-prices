@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import type { Product } from "@/types";
 import { ProductTile } from "./ProductTile";
 import type { CompareToggleLabels } from "./CompareToggle";
@@ -27,6 +27,13 @@ export interface ProductGridProps {
    * de saltar a los resultados.
    */
   label?: string;
+  /**
+   * Bloque a intercalar a todo lo ancho de la retícula, después del producto
+   * número `inlineAdAfter`. Sin suficientes productos no se muestra: un anuncio
+   * como único contenido de una búsqueda corta no es lo que la persona vino a ver.
+   */
+  inlineAd?: ReactNode;
+  inlineAdAfter?: number;
 }
 
 /** Tope del escalonado: pasado el 8º elemento el retardo deja de crecer. */
@@ -66,30 +73,37 @@ export function ProductGrid({
   compareLabels,
   favoriteLabels,
   label,
+  inlineAd,
+  inlineAdAfter = 6,
 }: ProductGridProps) {
   const hasProducts = products.length > 0;
+  const showInlineAd = inlineAd != null && products.length >= inlineAdAfter;
 
   return (
     <>
       <ul aria-label={label} className={hasProducts ? GRID_CLASSES[columns] : ""}>
         {products.map((product, index) => (
-          <li
-            key={product.id}
-            className="enter"
-            style={
-              {
-                "--enter-delay": `${Math.min(index, MAX_STAGGERED_ITEMS) * 55}ms`,
-              } as CSSProperties
-            }
-          >
-            <ProductTile
-              product={product}
-              href={productHref?.(product) ?? product.url ?? "#"}
-              locale={locale}
-              compareLabels={compareLabels}
-              favoriteLabels={favoriteLabels}
-            />
-          </li>
+          <Fragment key={product.id}>
+            <li
+              className="enter"
+              style={
+                {
+                  "--enter-delay": `${Math.min(index, MAX_STAGGERED_ITEMS) * 55}ms`,
+                } as CSSProperties
+              }
+            >
+              <ProductTile
+                product={product}
+                href={productHref?.(product) ?? product.url ?? "#"}
+                locale={locale}
+                compareLabels={compareLabels}
+                favoriteLabels={favoriteLabels}
+              />
+            </li>
+            {showInlineAd && index === inlineAdAfter - 1 && (
+              <li className="col-span-full">{inlineAd}</li>
+            )}
+          </Fragment>
         ))}
       </ul>
 

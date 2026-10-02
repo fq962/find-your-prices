@@ -104,6 +104,7 @@ export type DictionaryKey =
   | "compareAttrAvailability"
   | "compareAttrRating"
   | "resultsListLabel"
+  | "adLabel"
   | "loadingMoreLabel"
   | "feedErrorLabel"
   | "searchErrorLabel"

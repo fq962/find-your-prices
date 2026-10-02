@@ -109,6 +109,7 @@ export const es: Dictionary = {
   compareAttrAvailability: "Disponibilidad",
   compareAttrRating: "Calificación",
   resultsListLabel: "Resultados",
+  adLabel: "Publicidad",
 
   // --- Desplazamiento del catálogo ---
   loadingMoreLabel: "Cargando más productos…",
