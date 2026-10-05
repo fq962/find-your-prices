@@ -123,6 +123,10 @@ ACOSA, con 297 s medidos, ya no entra en los 240 s del presupuesto compartido:
 necesita una tanda para ella sola y es la próxima candidata a partirse por
 categorías, como se hizo con Walmart en la migración 0019.
 
+**Agenda vigente:** migración `0046_weekly_scrape_schedule.sql`, con el
+calendario legible en [`src/db/docs/scrape-schedule.md`](src/db/docs/scrape-schedule.md).
+Cron horario (`0 * * * *`, hora de Honduras) con `limit=2&timeBudgetMs=270000`.
+
 ### Agregar una tienda
 
 > **Manual completo: [`src/server/scraping/README.md`](src/server/scraping/README.md).**
