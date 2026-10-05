@@ -66,6 +66,7 @@ Parámetros que importan:
 |---|---|---|
 | `limit` | 5 | **Casi siempre.** Es cuántos targets como máximo atiende una tanda. Con 20 targets registrados, el default deja trabajo sin hacer sin avisar más que con `remaining > 0` en la respuesta. |
 | `timeBudgetMs` | 240 000 | Presupuesto **total** de la tanda, no por target. El runner deja de arrancar targets nuevos cuando quedan menos de 15 s. |
+| `waitMs` | 20 000 | Cuánto espera el endpoint el resultado. Si la tanda termina antes responde **200** con el resumen; si no, responde **202** y la tanda sigue corriendo después de la respuesta (`after`). Existe porque cron-job.org corta a los 30 s y marcaría como fallida cada tanda larga. |
 
 ### Programación: ancla + intervalo
 
