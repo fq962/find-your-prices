@@ -94,6 +94,9 @@ export const es: Dictionary = {
   favoritesClearLabel: "Vaciar favoritos",
   favoritesPriceNote:
     "El precio es el que tenía el producto cuando lo guardaste; abrí la ficha para ver el vigente.",
+  // --- Carrito / cotización ---
+  cartAddLabel: "Agregar a la cotización",
+  cartRemoveLabel: "Quitar de la cotización",
   compareTrayTitle: "Listos para comparar",
   compareTrayHint: "Agregá hasta 4 productos",
   compareOpenLabel: "Comparar",

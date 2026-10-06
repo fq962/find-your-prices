@@ -93,6 +93,9 @@ export const en: Dictionary = {
   favoritesClearLabel: "Clear favorites",
   favoritesPriceNote:
     "The price is the one the product had when you saved it; open its page for the current one.",
+  // --- Cart / quote ---
+  cartAddLabel: "Add to quote",
+  cartRemoveLabel: "Remove from quote",
   compareTrayTitle: "Ready to compare",
   compareTrayHint: "Add up to 4 products",
   compareOpenLabel: "Compare",

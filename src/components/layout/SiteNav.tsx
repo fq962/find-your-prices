@@ -11,6 +11,7 @@ import { routeFor } from "@/features/i18n/routes";
 import type { Locale } from "@/features/i18n/translate";
 import { SiteSearch } from "@/features/products/components/SiteSearch";
 import { useFavorites } from "@/features/products/useFavorites";
+import { useCart } from "@/features/cart/useCart";
 
 const HOME_LABEL: Record<string, string> = {
   en: "Find Your Prices — home",
@@ -32,6 +33,11 @@ const FAVORITES_LABEL: Record<string, string> = {
   es: "Favoritos",
 };
 
+const QUOTE_LABEL: Record<string, string> = {
+  en: "Quote",
+  es: "Cotización",
+};
+
 /**
  * Barra fija translúcida. La hairline inferior sólo aparece cuando la página
  * ya se desplazó: en reposo la navegación se funde con el fondo.
@@ -45,6 +51,7 @@ export function SiteNav({ localePaths }: SiteNavProps = {}) {
   const { locale } = useLocale();
   const [isScrolled, setIsScrolled] = useState(false);
   const { count: favoritesCount } = useFavorites();
+  const { count: cartCount } = useCart();
 
   useScrollProgress();
 
@@ -57,7 +64,7 @@ export function SiteNav({ localePaths }: SiteNavProps = {}) {
 
   return (
     <nav
-      className={`enter-fade sticky top-0 z-40 h-14 bg-[var(--glass)] backdrop-blur-xl transition-[border-color,box-shadow] duration-[var(--dur-base)] ease-[var(--ease-out-quart)] ${
+      className={`enter-fade sticky top-0 z-40 print:hidden h-14 bg-[var(--glass)] backdrop-blur-xl transition-[border-color,box-shadow] duration-[var(--dur-base)] ease-[var(--ease-out-quart)] ${
         isScrolled
           ? "border-b border-[var(--border)] shadow-[var(--shadow-sm)]"
           : "border-b border-transparent"
@@ -155,9 +162,47 @@ export function SiteNav({ localePaths }: SiteNavProps = {}) {
             )}
           </Link>
 
+          {/* El carrito: la puerta a la cotización, con el número de
+              artículos distintos. En tinta y no en color: es la herramienta
+              de trabajo de la barra, no un estado. */}
+          <Link
+            href={routeFor("quote", locale)}
+            aria-label={
+              cartCount > 0
+                ? `${QUOTE_LABEL[locale] ?? QUOTE_LABEL.en} (${cartCount})`
+                : (QUOTE_LABEL[locale] ?? QUOTE_LABEL.en)
+            }
+            title={QUOTE_LABEL[locale] ?? QUOTE_LABEL.en}
+            className="relative -m-1 flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-secondary)] outline-none transition-colors duration-[var(--dur-fast)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className={`h-[20px] w-[20px] ${cartCount > 0 ? "text-[var(--text)]" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M3 4h2.2l2.2 11.1a1.6 1.6 0 0 0 1.6 1.3h8.4a1.6 1.6 0 0 0 1.6-1.2L20.6 8H6.1" />
+              <circle cx="9.5" cy="20" r="1.1" fill="currentColor" stroke="none" />
+              <circle cx="17" cy="20" r="1.1" fill="currentColor" stroke="none" />
+            </svg>
+            {cartCount > 0 && (
+              <span
+                key={cartCount}
+                aria-hidden="true"
+                className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--text)] px-1 text-[0.625rem] font-semibold tabular-nums text-[var(--text-inverted)] shadow-[var(--shadow-sm)] [animation:fyp-heartbeat_420ms_var(--ease-spring)_both]"
+              >
+                {cartCount > 99 ? "99+" : cartCount}
+              </span>
+            )}
+          </Link>
+
           <PreferencesMenu localePaths={localePaths} />
 
-          {/* Último en teléfono: favoritos, preferencias, menú. */}
+          {/* Último en teléfono: favoritos, cotización, preferencias, menú. */}
           <div className="lg:hidden">
             <MobileMenu />
           </div>

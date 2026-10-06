@@ -37,6 +37,10 @@ export function PopularProducts({ products, locale, label }: PopularProductsProp
     () => ({ add: t("favoriteAddLabel"), remove: t("favoriteRemoveLabel") }),
     [t],
   );
+  const cartLabels = useMemo(
+    () => ({ add: t("cartAddLabel"), remove: t("cartRemoveLabel") }),
+    [t],
+  );
 
   const href = (product: Product) => (product.slug ? productPath(locale, product.slug) : undefined);
 
@@ -50,6 +54,7 @@ export function PopularProducts({ products, locale, label }: PopularProductsProp
       productHref={href}
       compareLabels={compareLabels}
       favoriteLabels={favoriteLabels}
+      cartLabels={cartLabels}
       label={label}
     />
   );

@@ -89,6 +89,8 @@ export type DictionaryKey =
   | "favoritesBrowseLabel"
   | "favoritesClearLabel"
   | "favoritesPriceNote"
+  | "cartAddLabel"
+  | "cartRemoveLabel"
   | "compareTrayTitle"
   | "compareTrayHint"
   | "compareOpenLabel"

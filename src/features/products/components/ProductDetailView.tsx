@@ -8,6 +8,8 @@ import { ProductGallery } from "./ProductGallery";
 import { PriceHistoryChart } from "./PriceHistoryChart";
 import { ProductTile } from "./ProductTile";
 import { FavoriteToggle } from "./FavoriteToggle";
+import { CartButton } from "@/features/cart/components/CartButton";
+import { routeFor } from "@/features/i18n/routes";
 import { BackToCatalogLink } from "./BackToCatalogLink";
 
 export interface ProductDetailViewProps {
@@ -52,6 +54,13 @@ const COPY = {
       "El precio lo publica la tienda y puede cambiar sin aviso. Verificá siempre en el sitio de origen antes de comprar.",
     favoriteAdd: "Agregar a favoritos",
     favoriteRemove: "Quitar de favoritos",
+    cartAdd: "Agregar a la cotización",
+    cartRemove: "Quitar de la cotización",
+    cartInQuote: "En tu cotización",
+    cartViewQuote: "Ver cotización",
+    cartDecrease: "Quitar una unidad",
+    cartIncrease: "Agregar una unidad",
+    cartQuantity: "Cantidad",
   },
   en: {
     backToCatalog: "Back to catalog",
@@ -88,6 +97,13 @@ const COPY = {
       "The price is published by the store and may change without notice. Always verify on the source site before buying.",
     favoriteAdd: "Add to favorites",
     favoriteRemove: "Remove from favorites",
+    cartAdd: "Add to quote",
+    cartRemove: "Remove from quote",
+    cartInQuote: "In your quote",
+    cartViewQuote: "View quote",
+    cartDecrease: "Remove one",
+    cartIncrease: "Add one",
+    cartQuantity: "Quantity",
   },
 } as const;
 
@@ -294,6 +310,41 @@ export function ProductDetailView({ product, related, locale }: ProductDetailVie
           />
           </div>
 
+          {/* La cotización: va bajo la compra directa porque es la otra
+              forma de "lo voy a comprar" —no ahora y aquí, sino en el
+              recorrido—. */}
+          <CartButton
+            // Solo lo que la cotización pinta: la ficha trae doscientos puntos
+            // de histórico e imágenes que no tienen por qué ir a localStorage.
+            product={{
+              id: product.id,
+              slug: product.slug,
+              name: product.name,
+              price: product.price,
+              listPrice: product.listPrice,
+              currency: product.currency,
+              store: product.store,
+              storeSlug: product.storeSlug,
+              category: product.category,
+              categorySlug: product.categorySlug,
+              storeCategory: product.storeCategory,
+              imageUrl: product.imageUrl,
+              url: product.url,
+              brand: product.brand,
+              description: product.brand,
+              inStock: product.inStock,
+            }}
+            quoteHref={routeFor("quote", locale)}
+            labels={{
+              add: copy.cartAdd,
+              inQuote: copy.cartInQuote,
+              viewQuote: copy.cartViewQuote,
+              decrease: copy.cartDecrease,
+              increase: copy.cartIncrease,
+              quantity: copy.cartQuantity,
+            }}
+          />
+
           {product.description && product.description !== product.name && (
             <p className="text-[0.9375rem] leading-relaxed text-[var(--text-secondary)]">
               {product.description}
@@ -382,6 +433,7 @@ export function ProductDetailView({ product, related, locale }: ProductDetailVie
                   href={item.slug ? productPath(locale, item.slug) : (item.url ?? "#")}
                   locale={priceLocale}
                   favoriteLabels={{ add: copy.favoriteAdd, remove: copy.favoriteRemove }}
+                  cartLabels={{ add: copy.cartAdd, remove: copy.cartRemove }}
                 />
               </li>
             ))}

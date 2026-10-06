@@ -16,6 +16,7 @@ export type SitePage =
   | "categories"
   | "stores"
   | "favorites"
+  | "quote"
   | "about"
   | "terms"
   | "privacy"
@@ -23,16 +24,17 @@ export type SitePage =
 
 /**
  * Páginas que no van al sitemap ni se indexan: su contenido vive en el
- * navegador de cada visitante (favoritos), así que para un buscador están
+ * navegador de cada visitante (favoritos, cotización), así que para un buscador están
  * siempre vacías.
  */
-export const PRIVATE_PAGES = ["favorites"] as const satisfies readonly SitePage[];
+export const PRIVATE_PAGES = ["favorites", "quote"] as const satisfies readonly SitePage[];
 
 export const SITE_ROUTES: Record<SitePage, Record<Locale, string>> = {
   home: { es: "/", en: "/en" },
   categories: { es: "/categorias", en: "/en/categories" },
   stores: { es: "/tiendas", en: "/en/stores" },
   favorites: { es: "/favoritos", en: "/en/favorites" },
+  quote: { es: "/cotizacion", en: "/en/quote" },
   about: { es: "/acerca", en: "/en/about" },
   terms: { es: "/terminos", en: "/en/terms" },
   privacy: { es: "/privacidad", en: "/en/privacy" },

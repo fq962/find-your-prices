@@ -3,6 +3,7 @@ import type { Product } from "@/types";
 import { ProductTile } from "./ProductTile";
 import type { CompareToggleLabels } from "./CompareToggle";
 import type { FavoriteToggleLabels } from "./FavoriteToggle";
+import type { CartToggleLabels } from "@/features/cart/components/CartToggle";
 
 export interface ProductGridProps {
   products: Product[];
@@ -20,6 +21,8 @@ export interface ProductGridProps {
   compareLabels?: CompareToggleLabels;
   /** Textos del corazón de favoritos. */
   favoriteLabels?: FavoriteToggleLabels;
+  /** Textos del botón que agrega el producto a la cotización. */
+  cartLabels?: CartToggleLabels;
   /**
    * Nombre accesible de la lista. Desde que el pie de página tiene su propia
    * lista de enlaces, "la lista" dejó de ser una sola en el documento: sin
@@ -72,6 +75,7 @@ export function ProductGrid({
   productHref,
   compareLabels,
   favoriteLabels,
+  cartLabels,
   label,
   inlineAd,
   inlineAdAfter = 6,
@@ -98,6 +102,7 @@ export function ProductGrid({
                 locale={locale}
                 compareLabels={compareLabels}
                 favoriteLabels={favoriteLabels}
+                cartLabels={cartLabels}
               />
             </li>
             {showInlineAd && index === inlineAdAfter - 1 && (

@@ -392,6 +392,14 @@ select option {
   100% { transform: scale(1); }
 }
 
+/* El carrito "cae" un poco al recibir algo: baja, rebota y vuelve. */
+@keyframes fyp-cart-drop {
+  0% { transform: translate3d(0, 0, 0); }
+  35% { transform: translate3d(0, 3px, 0) scale(1.18); }
+  65% { transform: translate3d(0, -1px, 0) scale(0.96); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
 @keyframes fyp-scale-in {
   from {
     opacity: 0;
@@ -507,5 +515,52 @@ select option {
   50% {
     opacity: 0.35;
     transform: scale(0.72);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Impresión — la cotización se exporta a PDF con el diálogo del navegador.
+ * ---------------------------------------------------------------------------
+ * El papel es claro siempre: un PDF con fondo casi negro gasta tinta y se lee
+ * mal impreso. Se fuerzan los valores claros aunque el tema activo sea el
+ * oscuro, y se apagan las animaciones de entrada para que nada quede a medio
+ * camino (transparente o desplazado) en la captura.
+ * ------------------------------------------------------------------------ */
+@media print {
+  @page {
+    margin: 14mm 12mm;
+  }
+
+  :root,
+  [data-theme="dark"] {
+    --bg: #ffffff;
+    --bg-elevated: #ffffff;
+    --bg-subtle: #f2f2f5;
+    --bg-inset: #ececf0;
+    --text: #1d1d1f;
+    --text-secondary: #56565b;
+    --text-tertiary: #6a6a6f;
+    --text-inverted: #fbfbfd;
+    --border: rgb(0 0 0 / 0.12);
+    --border-strong: rgb(0 0 0 / 0.2);
+    --price-win: #146c43;
+    --price-win-soft: rgb(20 108 67 / 0.1);
+    --critical: #b3261e;
+    --critical-soft: rgb(179 38 30 / 0.1);
+    color-scheme: light;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .enter,
+  .enter-fade,
+  .reveal {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
   }
 }

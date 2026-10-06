@@ -5,6 +5,7 @@ import type { Product } from "@/types";
 import { formatPrice } from "@/lib/format";
 import type { CompareToggleLabels } from "./CompareToggle";
 import { FavoriteToggle, type FavoriteToggleLabels } from "./FavoriteToggle";
+import { CartToggle, type CartToggleLabels } from "@/features/cart/components/CartToggle";
 
 export interface ProductTileProps {
   product: Product;
@@ -13,6 +14,7 @@ export interface ProductTileProps {
   /** Se acepta pero no se usa mientras el control de comparar esté apagado. */
   compareLabels?: CompareToggleLabels;
   favoriteLabels?: FavoriteToggleLabels;
+  cartLabels?: CartToggleLabels;
 }
 
 /**
@@ -41,6 +43,7 @@ export function ProductTile({
   href,
   locale,
   favoriteLabels,
+  cartLabels,
 }: ProductTileProps) {
   const { name, price, currency, store, imageUrl, brand, availability, inStock } = product;
   const { listPrice, discountPercent, ratingAverage, ratingCount } = product;
@@ -162,11 +165,12 @@ export function ProductTile({
         </div>
       </Link>
 
-      {/* Sólo el corazón en la esquina. El control de comparar queda apagado
+      {/* El corazón y el carrito en la esquina. El control de comparar queda apagado
           por ahora —la bandeja sigue existiendo, pero no se alimenta desde la
           ficha—; se reactiva descomentando el bloque. */}
       <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5">
         <FavoriteToggle product={product} labels={favoriteLabels} />
+        <CartToggle product={product} labels={cartLabels} />
         {/* <CompareToggle product={product} labels={compareLabels} /> */}
       </div>
     </div>

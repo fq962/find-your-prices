@@ -54,6 +54,10 @@ export function FavoritesView({ locale }: FavoritesViewProps) {
     () => ({ add: t("favoriteAddLabel"), remove: t("favoriteRemoveLabel") }),
     [t],
   );
+  const cartLabels = useMemo(
+    () => ({ add: t("cartAddLabel"), remove: t("cartRemoveLabel") }),
+    [t],
+  );
   const compareLabels = useMemo(
     () => ({
       add: t("compareAddLabel"),
@@ -167,6 +171,7 @@ export function FavoritesView({ locale }: FavoritesViewProps) {
             productHref={href}
             compareLabels={compareLabels}
             favoriteLabels={favoriteLabels}
+            cartLabels={cartLabels}
             label={t("favoritesTitle")}
           />
           <p className="mt-6 text-[0.75rem] leading-relaxed text-[var(--text-tertiary)]">

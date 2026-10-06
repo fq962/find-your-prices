@@ -44,6 +44,13 @@ export interface Product {
    * que usa el filtro; `category` es solo el texto que se muestra.
    */
   categorySlug?: string;
+  /**
+   * Categoría tal cual la nombra la tienda ("Tratamiento capilar",
+   * "Portátil"). `category` prefiere el árbol canónico; la cotización
+   * necesita además la original para que quien compra la encuentre en el
+   * pasillo o en el menú de la tienda.
+   */
+  storeCategory?: string;
 }
 
 export interface PricePoint {

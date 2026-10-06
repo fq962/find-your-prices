@@ -16,7 +16,7 @@ import type { Locale } from "@/features/i18n/translate";
  * ofrece: una tienda que no encuentra a quién escribirle no escribe, reclama.
  */
 
-const FOOTER_PAGES: SitePage[] = ["home", "categories", "stores", "favorites", "about", "terms", "privacy", "content"];
+const FOOTER_PAGES: SitePage[] = ["home", "categories", "stores", "favorites", "quote", "about", "terms", "privacy", "content"];
 
 const LABELS: Record<Locale, Record<SitePage, string>> = {
   es: {
@@ -24,6 +24,7 @@ const LABELS: Record<Locale, Record<SitePage, string>> = {
     categories: "Categorías",
     stores: "Tiendas",
     favorites: "Favoritos",
+    quote: "Cotización",
     about: "Acerca de",
     terms: "Términos de uso",
     privacy: "Privacidad",
@@ -34,6 +35,7 @@ const LABELS: Record<Locale, Record<SitePage, string>> = {
     categories: "Categories",
     stores: "Stores",
     favorites: "Favorites",
+    quote: "Quote",
     about: "About",
     terms: "Terms of use",
     privacy: "Privacy",
@@ -50,7 +52,7 @@ export function SiteFooter() {
   const { locale } = useLocale();
 
   return (
-    <footer className="mt-24 border-t border-[var(--border)]">
+    <footer className="mt-24 print:hidden border-t border-[var(--border)]">
       <div className={`${SHELL} flex flex-col gap-8 py-10 sm:flex-row sm:justify-between sm:gap-12`}>
         <div className="flex flex-col gap-1">
           <p className="text-[0.9375rem] font-medium tracking-[-0.01em] text-[var(--text)]">

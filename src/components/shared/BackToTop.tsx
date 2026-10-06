@@ -69,7 +69,7 @@ export function BackToTop({ label }: BackToTopProps) {
         bottom: "calc(1.25rem + max(var(--fyp-dock, 0px), env(safe-area-inset-bottom)))",
         animation: "fyp-scale-in 320ms var(--ease-out-expo) both",
       }}
-      className="fixed right-4 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--glass)] text-[var(--text-secondary)] shadow-[var(--shadow-md)] backdrop-blur-xl outline-none transition-[color,border-color,transform] duration-[var(--dur-base)] ease-[var(--ease-spring)] hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:text-[var(--text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] sm:right-6"
+      className="fixed right-4 z-30 print:hidden flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--glass)] text-[var(--text-secondary)] shadow-[var(--shadow-md)] backdrop-blur-xl outline-none transition-[color,border-color,transform] duration-[var(--dur-base)] ease-[var(--ease-spring)] hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:text-[var(--text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] sm:right-6"
     >
       <svg
         aria-hidden="true"

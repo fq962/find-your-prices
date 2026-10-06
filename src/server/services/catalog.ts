@@ -188,6 +188,7 @@ function toProduct(row: CatalogRow, locale: CatalogLocale): Product {
     category:
       row.category_name ?? row.store_category_name ?? row.category_raw ?? 'Sin categoría',
     categorySlug: row.category_slug ?? undefined,
+    storeCategory: row.store_category_name ?? row.category_raw ?? undefined,
     imageUrl: row.primary_image_url ?? undefined,
     availability: AVAILABILITY_LABELS[locale][row.availability],
     // La marca es el subtítulo natural: los nombres de Diunsa vienen truncados
@@ -228,7 +229,7 @@ export function hasDatabase(): boolean {
  * artículos de mentira. Ahora se reintenta, y si aun así falla, se lanza:
  * Next conserva la última versión buena en vez de reemplazarla por una mala.
  */
-async function withRetry<T>(label: string, action: () => Promise<T>, attempts = 3): Promise<T> {
+export async function withRetry<T>(label: string, action: () => Promise<T>, attempts = 3): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {

@@ -286,6 +286,11 @@ export function ProductSearchApp({
     [t],
   );
 
+  const cartLabels = useMemo(
+    () => ({ add: t("cartAddLabel"), remove: t("cartRemoveLabel") }),
+    [t],
+  );
+
   // Vaciar la bandeja con el diálogo abierto lo deja sin nada que mostrar: se
   // cierra, que es lo que esperaría cualquiera que acaba de vaciarla.
   function clearTray() {
@@ -695,6 +700,7 @@ export function ProductSearchApp({
             }
             compareLabels={compareToggleLabels}
             favoriteLabels={favoriteToggleLabels}
+            cartLabels={cartLabels}
           />
 
           {remoteSearch && (
