@@ -110,6 +110,37 @@ export async function createRun(params: {
   return { runId: data.id as string };
 }
 
+/**
+ * Cierra como 'failed' las corridas que llevan en 'running' mas de `maxAgeMs`.
+ *
+ * Una corrida solo queda asi cuando la funcion murio antes de llegar a
+ * `finishRun` (la plataforma la corto por `maxDuration`). Ademas de mentir en
+ * la bitacora, el huerfano deja tomado el lock de `scrape_runs_one_active_per_target`
+ * y su target nunca se reprograma: queda vencido para siempre, encabeza la
+ * cola de `getDueTargets` y cada disparo del cron lo intenta, choca con el lock
+ * y sale 'skipped' sin dejar rastro. Con dos o tres huerfanos el cron entero
+ * se queda dando 200 sin hacer nada.
+ *
+ * Devuelve los targets afectados para que el runner los reprograme como fallo.
+ */
+export async function reapStaleRuns(maxAgeMs: number): Promise<string[]> {
+  const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
+  const { data, error } = await getSupabaseAdmin()
+    .from('scrape_runs')
+    .update({
+      status: 'failed',
+      finished_at: new Date().toISOString(),
+      error_message:
+        'Corrida abandonada: la funcion se corto (limite de tiempo de la plataforma) antes de cerrar la bitacora',
+    })
+    .eq('status', 'running')
+    .lt('started_at', cutoff)
+    .select('target_id');
+
+  if (error) throw new Error(`No se pudieron cerrar las corridas colgadas: ${error.message}`);
+  return [...new Set((data ?? []).map((row) => row.target_id as string).filter(Boolean))];
+}
+
 export async function finishRun(
   runId: string,
   patch: Record<string, unknown>,

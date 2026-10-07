@@ -198,6 +198,12 @@ export function ScrapingDashboard({
     return { failing, paused, lastRun, active: targets.filter((t) => t.is_active).length };
   }, [targets, recentRuns]);
 
+  // La bitacora trae solo target_id: sin el nombre no se sabe que corrio.
+  const targetNames = useMemo(
+    () => new Map(targets.map((t) => [t.target_id, t.target_name])),
+    [targets],
+  );
+
   /**
    * Activos y archivados van en listas separadas.
    *
@@ -648,10 +654,13 @@ export function ScrapingDashboard({
               {recentRuns.map((run) => (
                 <li
                   key={run.id}
-                  className="grid grid-cols-2 items-baseline gap-x-6 gap-y-1 border-b border-[var(--border)] py-4 text-[0.875rem] sm:grid-cols-6"
+                  className="grid grid-cols-2 items-baseline gap-x-6 gap-y-1 border-b border-[var(--border)] py-4 text-[0.875rem] sm:grid-cols-[9rem_minmax(0,1fr)_6rem_4rem_5rem_6rem_6rem]"
                 >
                   <span className="text-[var(--text-secondary)] tabular-nums">
                     {formatDateTime(run.started_at)}
+                  </span>
+                  <span className="truncate text-[var(--text)]" title={targetNames.get(run.target_id ?? '')}>
+                    {targetNames.get(run.target_id ?? '') ?? '—'}
                   </span>
                   <span className={`flex items-center gap-2 ${STATUS_TEXT[run.status] ?? ''}`}>
                     <span
@@ -670,6 +679,11 @@ export function ScrapingDashboard({
                   <span className="text-[var(--text-secondary)] tabular-nums">
                     {run.price_changes} precios
                   </span>
+                  {run.error_message && run.status !== 'success' ? (
+                    <span className="col-span-full text-[0.8125rem] text-[var(--text-tertiary)]">
+                      {run.error_message}
+                    </span>
+                  ) : null}
                 </li>
               ))}
             </ul>

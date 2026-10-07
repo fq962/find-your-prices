@@ -13,7 +13,7 @@ import { runDueTargets, runTargetById } from '@/server/scraping/runner';
  *
  * Parametros opcionales:
  *   limit           cuantos targets como maximo en esta tanda (default 5)
- *   timeBudgetMs    presupuesto de tiempo total (default 240000)
+ *   timeBudgetMs    presupuesto de tiempo total (default 210000, tope 210000)
  *   waitMs          cuanto esperar el resultado antes de soltar la conexion
  *                   (default 20000)
  *
@@ -25,7 +25,7 @@ import { runDueTargets, runTargetById } from '@/server/scraping/runner';
  * de una tanda que respondio 202 queda en scrape_runs (/admin/scraping).
  *
  * Ejemplo de cron-job.org / Vercel Cron, cada hora:
- *   https://tu-dominio.com/api/scraping/run?secret=EL_SECRETO&limit=2&timeBudgetMs=270000
+ *   https://tu-dominio.com/api/scraping/run?secret=EL_SECRETO&limit=2&timeBudgetMs=210000
  */
 
 // El scraping toca la red y la base: nunca se cachea.
@@ -33,6 +33,15 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 // Techo de ejecucion en Vercel; el runner corta antes por su cuenta.
 export const maxDuration = 300;
+
+/**
+ * Tope del presupuesto de scraping. El presupuesto solo corta la descarga: la
+ * ingesta, las bajas, el cierre de la bitacora y el refresco del catalogo van
+ * despues. Con 270 s de presupuesto sobre un techo de 300 s, un catalogo grande
+ * no alcanzaba a cerrar y la plataforma mataba la funcion dejando la corrida
+ * en 'running' para siempre. Se reservan ~90 s para todo lo de despues.
+ */
+const MAX_TIME_BUDGET_MS = 210_000;
 
 async function handle(request: Request): Promise<Response> {
   try {
@@ -42,13 +51,22 @@ async function handle(request: Request): Promise<Response> {
     const targetId = url.searchParams.get('targetId');
     // Ojo con `Number(x) || default`: convertiria un limit=0 explicito en 5.
     const limit = numericParam(url.searchParams.get('limit'), 5);
-    const timeBudgetMs = numericParam(url.searchParams.get('timeBudgetMs'), 240_000);
+    const timeBudgetMs = Math.min(
+      numericParam(url.searchParams.get('timeBudgetMs'), MAX_TIME_BUDGET_MS),
+      MAX_TIME_BUDGET_MS,
+    );
     const waitMs = numericParam(url.searchParams.get('waitMs'), 20_000);
 
     const startedAt = new Date().toISOString();
+    // Que se intento correr, para que la respuesta 202 no salga a ciegas.
+    let planned: Array<{ id: string; name: string }> | null = null;
     // Arranca ya: el temporizador de abajo no la frena, solo decide como se
     // responde.
-    const work = targetId ? runOne(targetId) : runBatch(limit, timeBudgetMs);
+    const work = targetId
+      ? runOne(targetId)
+      : runBatch(limit, timeBudgetMs, (targets) => {
+          planned = targets;
+        });
 
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timedOut = new Promise<'timeout'>((resolve) => {
@@ -77,6 +95,7 @@ async function handle(request: Request): Promise<Response> {
         ok: true,
         accepted: true,
         startedAt,
+        targets: targetId ? [{ id: targetId }] : planned,
         message: `La tanda sigue corriendo; tardo mas de ${waitMs} ms. Ver resultado en /admin/scraping.`,
       },
       { status: 202 },
@@ -91,8 +110,17 @@ async function runOne(targetId: string) {
   return { ok: result.status !== 'failed', processed: [result], remaining: 0 };
 }
 
-async function runBatch(limit: number, timeBudgetMs: number) {
-  const { processed, remaining } = await runDueTargets({ limit, timeBudgetMs, trigger: 'cron' });
+async function runBatch(
+  limit: number,
+  timeBudgetMs: number,
+  onPlanned: (targets: Array<{ id: string; name: string }>) => void,
+) {
+  const { processed, remaining } = await runDueTargets({
+    limit,
+    timeBudgetMs,
+    trigger: 'cron',
+    onPlanned,
+  });
 
   return {
     ok: processed.every((run) => run.status !== 'failed'),

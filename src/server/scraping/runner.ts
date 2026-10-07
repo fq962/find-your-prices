@@ -10,6 +10,7 @@ import {
   getTargetById,
   ingestProducts,
   markDelistedProducts,
+  reapStaleRuns,
   refreshCatalog,
   updateTargetAfterRun,
   upsertStoreCategories,
@@ -36,6 +37,38 @@ import type {
  * medias y dejar la corrida colgada en estado 'running'.
  */
 const DEFAULT_TIME_BUDGET_MS = 240_000;
+
+/**
+ * Desde cuando una corrida en 'running' se da por muerta. Holgadamente mas que
+ * el `maxDuration` (300 s) de las rutas que corren scraping: pasado eso la
+ * funcion ya no existe y nadie va a cerrar esa fila.
+ */
+const STALE_RUN_MS = 10 * 60_000;
+
+/**
+ * Cierra las corridas huerfanas y reprograma sus targets como fallo (backoff y,
+ * tras `failure_threshold` seguidos, pausa automatica: un target que siempre
+ * muere por tiempo no debe seguir ahogando la cola). Nunca tumba la tanda.
+ */
+async function recoverStaleRuns(): Promise<void> {
+  try {
+    const targetIds = await reapStaleRuns(STALE_RUN_MS);
+    for (const targetId of targetIds) {
+      const target = await getTargetById(targetId);
+      await updateTargetAfterRun({
+        target,
+        status: 'failed',
+        errorMessage: 'La corrida anterior se corto por limite de tiempo de la plataforma',
+      });
+    }
+  } catch (error) {
+    console.error(
+      `[scraping] No se pudieron recuperar corridas colgadas: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+}
 
 export interface RunResult {
   targetId: string;
@@ -291,6 +324,7 @@ export async function runTargetById(
   targetId: string,
   trigger: ScrapeTrigger = 'manual',
 ): Promise<RunResult> {
+  await recoverStaleRuns();
   const target = await getTargetById(targetId);
   const result = await runTarget({ target, trigger });
   await publishCatalog([result], trigger);
@@ -308,13 +342,19 @@ export async function runDueTargets(options?: {
   limit?: number;
   timeBudgetMs?: number;
   trigger?: ScrapeTrigger;
+  /** Avisa que targets se van a correr antes de empezar (para responder 202). */
+  onPlanned?: (targets: Array<{ id: string; name: string }>) => void;
 }): Promise<{ processed: RunResult[]; remaining: number }> {
   const limit = options?.limit ?? 5;
   const totalBudget = options?.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS;
   const deadline = Date.now() + totalBudget;
 
+  // Antes de mirar la cola: un huerfano la encabezaria para siempre.
+  await recoverStaleRuns();
+
   const targets = await getDueTargets(limit + 1);
   const toRun = targets.slice(0, limit);
+  options?.onPlanned?.(toRun.map((target) => ({ id: target.id, name: target.name })));
   const processed: RunResult[] = [];
 
   // Cache de tiendas: varios targets suelen compartir la misma.
