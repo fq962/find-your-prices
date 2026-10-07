@@ -1,0 +1,84 @@
+# Disparo horario del scraping.
+#
+# Reemplaza a cron-job.org, que corta la peticion a los 30 s. El sitio corre en
+# Cloudflare Workers y ahi el trabajo solo vive mientras el cliente siga
+# conectado: este job espera la respuesta hasta 15 min, asi que cada tanda
+# termina entera y su resultado queda en el resumen de la ejecucion.
+#
+# Requiere el secreto de repositorio CRON_SECRET (el mismo del sitio).
+#
+# Ponerse al dia: Actions > Scraping > Run workflow con "until_empty" marcado
+# repite tandas hasta que no queden targets vencidos.
+
+name: Scraping
+
+on:
+  schedule:
+    # UTC. Honduras es UTC-6 todo el año, asi que la hora en punto coincide.
+    # GitHub puede atrasar el disparo unos minutos; las anclas de la agenda
+    # van 5 min antes de la hora, asi que no se pierde nada.
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: Targets por tanda
+        default: '2'
+      until_empty:
+        description: Repetir tandas hasta que no queden vencidos
+        type: boolean
+        default: false
+
+# Dos tandas a la vez solo pelearian por el mismo lock de targets.
+concurrency:
+  group: scraping
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      ENDPOINT: https://findyourprices.com/api/scraping/run
+      LIMIT: ${{ inputs.limit || '2' }}
+      UNTIL_EMPTY: ${{ inputs.until_empty || false }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Correr tandas
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "| Target | Estado | Duración | Artículos | Precios | Error |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+
+          failed=0
+          for round in $(seq 1 40); do
+            # El secreto va en la cabecera, no en la url, para que no quede en logs.
+            status=$(curl -sS --max-time 900 -o body.json -w '%{http_code}' \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              "${ENDPOINT}?limit=${LIMIT}")
+
+            if [ "$status" != "200" ]; then
+              echo "::error::Tanda ${round}: HTTP ${status}"
+              cat body.json || true
+              exit 1
+            fi
+
+            jq -r '.processed[] | "| \(.targetName) | \(.status) | \(.durationMs / 1000 | floor) s | \(.itemsFound) | \(.priceChanges) | \(.errorMessage // "" | gsub("\\|"; "/")) |"' body.json >> "$GITHUB_STEP_SUMMARY"
+            jq -r '.processed[] | "\(.status)\t\(.targetName)\t\(.errorMessage // "")"' body.json
+            jq -r '.processed[] | select(.status == "failed") | "::warning::\(.targetName): \(.errorMessage // "fallo")"' body.json
+
+            failed=$((failed + $(jq '[.processed[] | select(.status == "failed")] | length' body.json)))
+            # `remaining` no es un conteo: > 0 solo dice que quedaron mas vencidos.
+            remaining=$(jq '.remaining' body.json)
+            ran=$(jq '.processed | length' body.json)
+            echo "Tanda ${round}: ${ran} targets; quedan mas vencidos: $([ "$remaining" = "0" ] && echo no || echo si)"
+
+            if [ "$UNTIL_EMPTY" != "true" ] || [ "$remaining" = "0" ] || [ "$ran" = "0" ]; then
+              break
+            fi
+          done
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Quedan más vencidos: $([ "$remaining" = "0" ] && echo no || echo sí)" >> "$GITHUB_STEP_SUMMARY"
+          # Un target fallido marca el job en rojo: GitHub avisa por correo.
+          [ "$failed" = "0" ]

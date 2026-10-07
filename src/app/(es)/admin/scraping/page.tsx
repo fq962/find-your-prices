@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { NO_INDEX_ROBOTS } from '@/lib/seo/metadata';
 import { getSupabaseAdmin } from '@/server/db/supabase';
 import { listStrategies } from '@/server/scraping/registry';
+import { recoverStaleRuns } from '@/server/scraping/runner';
 import { ScrapingDashboard } from '@/features/admin-scraping/ScrapingDashboard';
 import type { RunSummary, StoreOption, TargetHealth } from '@/features/admin-scraping/types';
 
@@ -48,6 +49,10 @@ export interface DashboardMetrics {
 async function loadDashboardData(): Promise<LoadResult> {
   try {
     const db = getSupabaseAdmin();
+
+    // Abrir el panel cierra las corridas que dejaron de latir: si no, se verian
+    // en 'running' hasta el proximo disparo del cron.
+    await recoverStaleRuns();
 
     const [targetsResult, storesResult, runsResult, productsCount, pricesCount] = await Promise.all([
       db

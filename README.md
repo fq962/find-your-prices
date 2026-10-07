@@ -65,8 +65,7 @@ Parámetros que importan:
 | | Default | Cuándo tocarlo |
 |---|---|---|
 | `limit` | 5 | **Casi siempre.** Es cuántos targets como máximo atiende una tanda. Con 20 targets registrados, el default deja trabajo sin hacer sin avisar más que con `remaining > 0` en la respuesta. |
-| `timeBudgetMs` | 210 000 (tope) | Presupuesto **total** de la tanda, no por target. El runner deja de arrancar targets nuevos cuando quedan menos de 15 s. Se recorta a 210 s: el presupuesto solo corta la descarga, y la ingesta y el cierre de la bitácora necesitan el resto de los 300 s de `maxDuration`. |
-| `waitMs` | 20 000 | Cuánto espera el endpoint el resultado. Si la tanda termina antes responde **200** con el resumen; si no, responde **202** y la tanda sigue corriendo después de la respuesta (`after`). Existe porque cron-job.org corta a los 30 s y marcaría como fallida cada tanda larga. |
+| `timeBudgetMs` | 210 000 (tope) | Presupuesto **total** de la tanda, no por target. El runner deja de arrancar targets nuevos cuando quedan menos de 15 s. Se recorta a 210 s: el presupuesto solo corta la descarga, y la ingesta y el cierre de la bitácora necesitan su propio margen. |
 
 ### Programación: ancla + intervalo
 
@@ -126,9 +125,11 @@ categorías, como se hizo con Walmart en la migración 0019.
 
 **Agenda vigente:** migración `0046_weekly_scrape_schedule.sql`, con el
 calendario legible en [`src/db/docs/scrape-schedule.md`](src/db/docs/scrape-schedule.md).
-Cron horario (`0 * * * *`, hora de Honduras) con `limit=2&timeBudgetMs=270000` (el endpoint lo recorta a 210 000).
+Cron horario (`0 * * * *`) en GitHub Actions: [`.github/workflows/scrape-cron.yml`](.github/workflows/scrape-cron.yml), `limit=2`.
 
-**Corridas colgadas.** Si la plataforma mata la función antes de `finishRun`, la corrida queda en `running`, retiene el lock de su target y el target nunca se reprograma. Cada tanda (y el botón Ejecutar) cierra primero como `failed` las corridas con más de 10 min en `running` y reprograma su target como fallo (backoff, y pausa tras `failure_threshold`).
+**Por qué GitHub Actions y no cron-job.org.** El sitio corre en Cloudflare Workers: el trabajo vive mientras el cliente siga conectado, y después de responder (o de que el cliente corte) solo quedan 30 s de `waitUntil`. cron-job.org corta a los 30 s, así que toda tanda larga moría a medias. El endpoint responde cuando la tanda termina y el workflow espera hasta 15 min; el resultado de cada tanda queda en el resumen de la ejecución en Actions. Para ponerse al día: *Run workflow* con `until_empty`.
+
+**Corridas colgadas.** Mientras corre, cada corrida escribe un latido cada 10 s en `scrape_runs.stats.progress` (etapa, requests, último mensaje) junto con su log parcial en `error_log`; el panel lo muestra en las filas `running`. Si el proceso muere antes de `finishRun`, la corrida retendría el lock de su target y el target nunca se reprogramaría. Por eso cada tanda, el botón Ejecutar y la carga del panel cierran como `failed` las corridas con más de 2 min sin latir —con el motivo: dónde iba y cuándo dio la última señal— y reprograman su target como fallo (backoff, y pausa tras `failure_threshold`). Cada etapa también sale en el log del servidor como `[scraping] <target> (<runId>): ...`.
 
 ### Agregar una tienda
 

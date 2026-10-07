@@ -71,4 +71,13 @@ export interface RunSummary {
   items_delisted: number;
   price_changes: number;
   error_message: string | null;
+  /** Mientras corre trae `progress`, el latido (ver recordHeartbeat). */
+  stats: { progress?: RunProgressSummary } | null;
+}
+
+export interface RunProgressSummary {
+  at: string;
+  stage: string;
+  httpRequests: number;
+  lastMessage?: string;
 }

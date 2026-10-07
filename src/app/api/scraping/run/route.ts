@@ -1,4 +1,3 @@
-import { after } from 'next/server';
 import { assertCronAuthorized, toErrorResponse } from '@/server/scraping/api-guard';
 import { runDueTargets, runTargetById } from '@/server/scraping/runner';
 
@@ -14,32 +13,29 @@ import { runDueTargets, runTargetById } from '@/server/scraping/runner';
  * Parametros opcionales:
  *   limit           cuantos targets como maximo en esta tanda (default 5)
  *   timeBudgetMs    presupuesto de tiempo total (default 210000, tope 210000)
- *   waitMs          cuanto esperar el resultado antes de soltar la conexion
- *                   (default 20000)
  *
- * Respuesta hibrida: si la tanda termina antes de `waitMs` se responde 200 con
- * el resumen completo. Si no, se responde 202 y la tanda sigue corriendo tras
- * la respuesta (`after`), con el mismo techo de `maxDuration`. Existe porque
- * los servicios de cron externos cortan la peticion a los ~30 s y marcarian
- * como fallida cada tanda larga, aunque en realidad termine bien. El resultado
- * de una tanda que respondio 202 queda en scrape_runs (/admin/scraping).
+ * La respuesta llega cuando la tanda termina, nunca antes. El sitio corre en
+ * Cloudflare Workers: el trabajo vive mientras el cliente siga conectado, y
+ * despues de responder (o de que el cliente corte) solo quedan 30 s de
+ * `waitUntil` antes de que se cancele sin aviso. Entre el 05-oct y el 07-oct
+ * el endpoint respondia 202 a los 20 s y seguia con `after()`: toda tanda de
+ * mas de ~50 s moria a medias y dejaba la corrida en 'running'.
  *
- * Ejemplo de cron-job.org / Vercel Cron, cada hora:
- *   https://tu-dominio.com/api/scraping/run?secret=EL_SECRETO&limit=2&timeBudgetMs=210000
+ * Por eso quien llame tiene que esperar varios minutos. cron-job.org corta a
+ * los 30 s y no sirve; el disparo horario lo hace
+ * .github/workflows/scrape-cron.yml con un timeout de 15 min.
  */
 
 // El scraping toca la red y la base: nunca se cachea.
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-// Techo de ejecucion en Vercel; el runner corta antes por su cuenta.
+// Sin efecto en Cloudflare; queda por si el sitio vuelve a un host que lo use.
 export const maxDuration = 300;
 
 /**
  * Tope del presupuesto de scraping. El presupuesto solo corta la descarga: la
  * ingesta, las bajas, el cierre de la bitacora y el refresco del catalogo van
- * despues. Con 270 s de presupuesto sobre un techo de 300 s, un catalogo grande
- * no alcanzaba a cerrar y la plataforma mataba la funcion dejando la corrida
- * en 'running' para siempre. Se reservan ~90 s para todo lo de despues.
+ * despues, y necesitan su propio margen.
  */
 const MAX_TIME_BUDGET_MS = 210_000;
 
@@ -55,51 +51,8 @@ async function handle(request: Request): Promise<Response> {
       numericParam(url.searchParams.get('timeBudgetMs'), MAX_TIME_BUDGET_MS),
       MAX_TIME_BUDGET_MS,
     );
-    const waitMs = numericParam(url.searchParams.get('waitMs'), 20_000);
 
-    const startedAt = new Date().toISOString();
-    // Que se intento correr, para que la respuesta 202 no salga a ciegas.
-    let planned: Array<{ id: string; name: string }> | null = null;
-    // Arranca ya: el temporizador de abajo no la frena, solo decide como se
-    // responde.
-    const work = targetId
-      ? runOne(targetId)
-      : runBatch(limit, timeBudgetMs, (targets) => {
-          planned = targets;
-        });
-
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const timedOut = new Promise<'timeout'>((resolve) => {
-      timer = setTimeout(() => resolve('timeout'), waitMs);
-    });
-    const first = await Promise.race([work, timedOut]);
-    clearTimeout(timer);
-
-    if (first !== 'timeout') return Response.json(first);
-
-    // Un error a esta altura ya no tiene a quien responderle: se deja en el
-    // log. El catch se engancha ya y no dentro del callback de `after`, que
-    // corre recien al cerrar la respuesta y dejaria un rechazo sin manejar.
-    const background = work.catch((error) => {
-      console.error(
-        `[scraping] La tanda iniciada a las ${startedAt} fallo tras responder 202: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    });
-    // Mantiene viva la funcion hasta que la tanda termine.
-    after(() => background);
-
-    return Response.json(
-      {
-        ok: true,
-        accepted: true,
-        startedAt,
-        targets: targetId ? [{ id: targetId }] : planned,
-        message: `La tanda sigue corriendo; tardo mas de ${waitMs} ms. Ver resultado en /admin/scraping.`,
-      },
-      { status: 202 },
-    );
+    return Response.json(targetId ? await runOne(targetId) : await runBatch(limit, timeBudgetMs));
   } catch (error) {
     return toErrorResponse(error);
   }
@@ -110,17 +63,8 @@ async function runOne(targetId: string) {
   return { ok: result.status !== 'failed', processed: [result], remaining: 0 };
 }
 
-async function runBatch(
-  limit: number,
-  timeBudgetMs: number,
-  onPlanned: (targets: Array<{ id: string; name: string }>) => void,
-) {
-  const { processed, remaining } = await runDueTargets({
-    limit,
-    timeBudgetMs,
-    trigger: 'cron',
-    onPlanned,
-  });
+async function runBatch(limit: number, timeBudgetMs: number) {
+  const { processed, remaining } = await runDueTargets({ limit, timeBudgetMs, trigger: 'cron' });
 
   return {
     ok: processed.every((run) => run.status !== 'failed'),

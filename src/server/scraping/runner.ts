@@ -11,10 +11,12 @@ import {
   ingestProducts,
   markDelistedProducts,
   reapStaleRuns,
+  recordHeartbeat,
   refreshCatalog,
   updateTargetAfterRun,
   upsertStoreCategories,
 } from './repository';
+import type { RunProgress } from './repository';
 import type {
   NormalizedProduct,
   ScrapeRunStatus,
@@ -38,19 +40,22 @@ import type {
  */
 const DEFAULT_TIME_BUDGET_MS = 240_000;
 
+/** Cada cuanto una corrida viva escribe su latido en `scrape_runs`. */
+const HEARTBEAT_MS = 10_000;
+
 /**
- * Desde cuando una corrida en 'running' se da por muerta. Holgadamente mas que
- * el `maxDuration` (300 s) de las rutas que corren scraping: pasado eso la
- * funcion ya no existe y nadie va a cerrar esa fila.
+ * Silencio tras el cual una corrida en 'running' se da por muerta. Son doce
+ * latidos perdidos: el temporizador del latido corre aunque la estrategia este
+ * esperando la red, asi que solo se calla si el proceso murio o lo congelaron.
  */
-const STALE_RUN_MS = 10 * 60_000;
+const STALE_RUN_MS = 2 * 60_000;
 
 /**
  * Cierra las corridas huerfanas y reprograma sus targets como fallo (backoff y,
  * tras `failure_threshold` seguidos, pausa automatica: un target que siempre
  * muere por tiempo no debe seguir ahogando la cola). Nunca tumba la tanda.
  */
-async function recoverStaleRuns(): Promise<void> {
+export async function recoverStaleRuns(): Promise<void> {
   try {
     const targetIds = await reapStaleRuns(STALE_RUN_MS);
     for (const targetId of targetIds) {
@@ -58,7 +63,7 @@ async function recoverStaleRuns(): Promise<void> {
       await updateTargetAfterRun({
         target,
         status: 'failed',
-        errorMessage: 'La corrida anterior se corto por limite de tiempo de la plataforma',
+        errorMessage: 'La corrida anterior dejo de responder antes de cerrarse',
       });
     }
   } catch (error) {
@@ -118,8 +123,10 @@ export async function runTarget(options: {
 
   const warnings: string[] = [];
   const logEntries: Array<Record<string, unknown>> = [];
+  let lastMessage: string | undefined;
   const log = (level: 'info' | 'warn' | 'error', message: string, meta?: Record<string, unknown>) => {
     logEntries.push({ level, message, at: new Date().toISOString(), ...(meta ? { meta } : {}) });
+    lastMessage = message;
     if (level !== 'info') warnings.push(message);
   };
 
@@ -165,6 +172,8 @@ export async function runTarget(options: {
   }
 
   const runId = created.runId;
+  const tag = `[scraping] ${target.name} (${runId})`;
+  console.info(`${tag}: arranca (${trigger})`);
   const abortController = new AbortController();
   const budgetTimer = setTimeout(() => abortController.abort(), timeBudgetMs);
 
@@ -189,6 +198,29 @@ export async function runTarget(options: {
   };
   let strategyStats: Record<string, unknown> = {};
 
+  /**
+   * Latido. Si el proceso muere a mitad de camino, lo ultimo que escribio queda
+   * en la fila: etapa, requests y log hasta ese momento. Sin esto una corrida
+   * muerta es indistinguible de una lenta.
+   */
+  let stage = 'descarga';
+  const progress = (): RunProgress => ({
+    at: new Date().toISOString(),
+    stage,
+    httpRequests: http.stats.requests,
+    httpErrors: http.stats.errors,
+    bytes: http.stats.bytes,
+    ...(lastMessage ? { lastMessage } : {}),
+  });
+  const beat = () => void recordHeartbeat(runId, progress(), logEntries);
+  const setStage = (next: string) => {
+    stage = next;
+    console.info(`${tag}: ${next} (${http.stats.requests} requests)`);
+    beat();
+  };
+  const heartbeatTimer = setInterval(beat, HEARTBEAT_MS);
+  beat();
+
   try {
     // stores.config es la base; scrape_targets.config la especializa.
     const config = { ...(store.config ?? {}), ...(target.config ?? {}) };
@@ -196,6 +228,7 @@ export async function runTarget(options: {
     const result = await strategy.run({ store, target, config, http, signal: abortController.signal, log });
     pagesFetched = result.pagesFetched;
     strategyStats = result.stats ?? {};
+    setStage(`categorias (${result.products.length} productos descargados en ${pagesFetched} paginas)`);
 
     for (const error of result.errors ?? []) {
       log('error', error.message, { stage: error.stage, ...(error.meta ?? {}) });
@@ -230,12 +263,14 @@ export async function runTarget(options: {
 
     // 3) Ingesta.
     if (products.length > 0) {
+      setStage(`ingesta de ${products.length} productos`);
       counters = await ingestProducts(store.id, runId, products);
     }
 
     // 4) Bajas: solo cuando el barrido cubrio toda la tienda.
     const markDelisted = target.kind === 'full_catalog' && config.markDelisted !== false;
     if (markDelisted && products.length > 0 && (result.errors ?? []).length === 0) {
+      setStage('bajas');
       itemsDelisted = await markDelistedProducts(store.id, runId);
     }
 
@@ -258,6 +293,7 @@ export async function runTarget(options: {
     log('error', errorMessage);
   } finally {
     clearTimeout(budgetTimer);
+    clearInterval(heartbeatTimer);
   }
 
   const durationMs = Date.now() - startedAt;
@@ -279,6 +315,7 @@ export async function runTarget(options: {
     error_log: logEntries.filter((entry) => entry.level !== 'info'),
     stats: strategyStats,
   });
+  console.info(`${tag}: ${status} en ${(durationMs / 1000).toFixed(1)} s${errorMessage ? ` - ${errorMessage}` : ''}`);
 
   await updateTargetAfterRun({ target, status, errorMessage });
 
@@ -342,8 +379,6 @@ export async function runDueTargets(options?: {
   limit?: number;
   timeBudgetMs?: number;
   trigger?: ScrapeTrigger;
-  /** Avisa que targets se van a correr antes de empezar (para responder 202). */
-  onPlanned?: (targets: Array<{ id: string; name: string }>) => void;
 }): Promise<{ processed: RunResult[]; remaining: number }> {
   const limit = options?.limit ?? 5;
   const totalBudget = options?.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS;
@@ -354,7 +389,6 @@ export async function runDueTargets(options?: {
 
   const targets = await getDueTargets(limit + 1);
   const toRun = targets.slice(0, limit);
-  options?.onPlanned?.(toRun.map((target) => ({ id: target.id, name: target.name })));
   const processed: RunResult[] = [];
 
   // Cache de tiendas: varios targets suelen compartir la misma.

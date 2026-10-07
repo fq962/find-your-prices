@@ -109,6 +109,18 @@ function formatRelative(value: string | null): string {
   return `hace ${Math.round(hours / 24)} d`;
 }
 
+function formatClock(value: string): string {
+  return new Date(value).toLocaleTimeString('es-HN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZone: TIME_ZONE,
+  });
+}
+
+/** Igual que STALE_RUN_MS en el runner: sin latido por más que esto, murió. */
+const SILENT_RUN_MS = 2 * 60_000;
+
 function formatDuration(ms: number | null): string {
   if (ms === null) return '—';
   if (ms < 1000) return `${ms} ms`;
@@ -679,6 +691,7 @@ export function ScrapingDashboard({
                   <span className="text-[var(--text-secondary)] tabular-nums">
                     {run.price_changes} precios
                   </span>
+                  {run.status === 'running' ? <RunPulse run={run} /> : null}
                   {run.error_message && run.status !== 'success' ? (
                     <span className="col-span-full text-[0.8125rem] text-[var(--text-tertiary)]">
                       {run.error_message}
@@ -700,6 +713,33 @@ export function ScrapingDashboard({
 
 const inputClass =
   'w-full border-0 border-b border-[var(--border-strong)] bg-transparent px-0 py-2 text-[0.9375rem] text-[var(--text)] outline-none transition-colors duration-[var(--dur-base)] ease-[var(--ease-out-quart)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent)]';
+
+/**
+ * Latido de una corrida en curso. Distingue "lenta" de "muerta": sin esto una
+ * fila en 'running' no dice nada.
+ */
+function RunPulse({ run }: { run: RunSummary }) {
+  const progress = run.stats?.progress;
+  const lastSignal = progress?.at ?? run.started_at;
+  // Se mide al montar: el panel se recarga tras cada acción y al recargar ya
+  // cierra las muertas, así que no hace falta un reloj en vivo.
+  const [renderedAt] = useState(() => Date.now());
+  const silent = renderedAt - new Date(lastSignal).getTime() > SILENT_RUN_MS;
+
+  return (
+    <span
+      className={`col-span-full text-[0.8125rem] ${
+        silent ? 'text-red-600 dark:text-red-400' : 'text-[var(--text-tertiary)]'
+      }`}
+    >
+      {progress
+        ? `Última señal ${formatClock(progress.at)} · ${progress.stage} · ${progress.httpRequests} requests`
+        : `Sin señales desde que arrancó (${formatClock(run.started_at)})`}
+      {progress?.lastMessage ? ` · ${progress.lastMessage}` : ''}
+      {silent ? ' — dejó de responder; se cierra como fallida al recargar el panel o en la próxima tanda' : ''}
+    </span>
+  );
+}
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: 'alert' }) {
   return (

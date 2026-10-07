@@ -111,34 +111,98 @@ export async function createRun(params: {
 }
 
 /**
- * Cierra como 'failed' las corridas que llevan en 'running' mas de `maxAgeMs`.
+ * Latido de una corrida en curso: donde va y cuando dio senal por ultima vez.
+ * Vive en `stats.progress` para no necesitar columnas nuevas.
+ */
+export interface RunProgress {
+  /** Ultima senal de vida (ISO). */
+  at: string;
+  stage: string;
+  httpRequests: number;
+  httpErrors: number;
+  bytes: number;
+  lastMessage?: string;
+}
+
+/**
+ * Escribe el latido. Nunca lanza: perder un latido no debe tumbar la corrida,
+ * el siguiente lo repone.
+ */
+export async function recordHeartbeat(
+  runId: string,
+  progress: RunProgress,
+  log: Array<Record<string, unknown>>,
+): Promise<void> {
+  const { error } = await getSupabaseAdmin()
+    .from('scrape_runs')
+    .update({
+      stats: { progress },
+      http_requests: progress.httpRequests,
+      http_errors: progress.httpErrors,
+      bytes_downloaded: progress.bytes,
+      // Las ultimas entradas: si la funcion muere, esto es lo que queda.
+      error_log: log.slice(-40),
+    })
+    .eq('id', runId)
+    .eq('status', 'running');
+
+  if (error) console.error(`[scraping] No se pudo registrar el latido de ${runId}: ${error.message}`);
+}
+
+/**
+ * Cierra como 'failed' las corridas en 'running' que dejaron de dar senal.
  *
- * Una corrida solo queda asi cuando la funcion murio antes de llegar a
- * `finishRun` (la plataforma la corto por `maxDuration`). Ademas de mentir en
- * la bitacora, el huerfano deja tomado el lock de `scrape_runs_one_active_per_target`
- * y su target nunca se reprograma: queda vencido para siempre, encabeza la
- * cola de `getDueTargets` y cada disparo del cron lo intenta, choca con el lock
- * y sale 'skipped' sin dejar rastro. Con dos o tres huerfanos el cron entero
- * se queda dando 200 sin hacer nada.
+ * Una corrida solo queda asi cuando el proceso murio (o el host lo congelo)
+ * antes de llegar a `finishRun`. Ademas de mentir en la bitacora, el huerfano
+ * deja tomado el lock de `scrape_runs_one_active_per_target` y su target nunca
+ * se reprograma: queda vencido para siempre, encabeza la cola de
+ * `getDueTargets` y cada disparo del cron choca con el lock sin dejar rastro.
+ *
+ * Una corrida viva late cada pocos segundos (`recordHeartbeat`); se da por
+ * muerta cuando su ultima senal (o su arranque, si nunca latio) tiene mas de
+ * `silenceMs`. El motivo que queda escrito dice donde iba cuando se apago.
  *
  * Devuelve los targets afectados para que el runner los reprograme como fallo.
  */
-export async function reapStaleRuns(maxAgeMs: number): Promise<string[]> {
-  const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
-  const { data, error } = await getSupabaseAdmin()
+export async function reapStaleRuns(silenceMs: number): Promise<string[]> {
+  const db = getSupabaseAdmin();
+  const { data, error } = await db
     .from('scrape_runs')
-    .update({
-      status: 'failed',
-      finished_at: new Date().toISOString(),
-      error_message:
-        'Corrida abandonada: la funcion se corto (limite de tiempo de la plataforma) antes de cerrar la bitacora',
-    })
-    .eq('status', 'running')
-    .lt('started_at', cutoff)
-    .select('target_id');
+    .select('id, target_id, started_at, stats')
+    .eq('status', 'running');
 
-  if (error) throw new Error(`No se pudieron cerrar las corridas colgadas: ${error.message}`);
-  return [...new Set((data ?? []).map((row) => row.target_id as string).filter(Boolean))];
+  if (error) throw new Error(`No se pudieron leer las corridas en curso: ${error.message}`);
+
+  const now = Date.now();
+  const reaped: string[] = [];
+
+  for (const run of data ?? []) {
+    const progress = (run.stats as { progress?: RunProgress } | null)?.progress;
+    const lastSignal = progress?.at ?? (run.started_at as string);
+    if (now - new Date(lastSignal).getTime() < silenceMs) continue;
+
+    const aliveFor = Math.round((new Date(lastSignal).getTime() - new Date(run.started_at as string).getTime()) / 1000);
+    const detail = progress
+      ? `Ultima senal ${aliveFor} s despues de arrancar, en la etapa "${progress.stage}" ` +
+        `(${progress.httpRequests} requests${progress.lastMessage ? `; ultimo mensaje: ${progress.lastMessage}` : ''})`
+      : 'No llego a dar ninguna senal despues de arrancar';
+
+    const { error: updateError } = await db
+      .from('scrape_runs')
+      .update({
+        status: 'failed',
+        finished_at: new Date().toISOString(),
+        duration_ms: aliveFor * 1000,
+        error_message: `Corrida abandonada: el proceso dejo de responder antes de cerrarla. ${detail}`,
+      })
+      .eq('id', run.id)
+      .eq('status', 'running');
+
+    if (updateError) throw new Error(`No se pudo cerrar la corrida colgada ${run.id}: ${updateError.message}`);
+    if (run.target_id) reaped.push(run.target_id as string);
+  }
+
+  return [...new Set(reaped)];
 }
 
 export async function finishRun(
