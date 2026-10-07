@@ -60,3 +60,5 @@ next-env.d.ts
 
 # Traza del barrido local (scripts/scrape-all-local.ts)
 /scrape-logs/
+# Descargas crudas de cada estrategia, para repetir la ingesta sin scrapear
+/scrape-data/

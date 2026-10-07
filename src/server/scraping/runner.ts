@@ -19,6 +19,7 @@ import {
 import type { RunProgress } from './repository';
 import type {
   NormalizedProduct,
+  ScrapeResult,
   ScrapeRunStatus,
   ScrapeTargetRow,
   ScrapeTrigger,
@@ -110,6 +111,21 @@ function computeContentHash(product: NormalizedProduct): string {
   return createHash('sha1').update(stable).digest('hex');
 }
 
+/**
+ * Lo que devolvio la estrategia, tal cual, antes de tocar la base. Permite
+ * repetir la ingesta sin volver a golpear la tienda (ver `runTarget.replay`).
+ */
+export interface ScrapeSnapshot {
+  version: 1;
+  targetId: string;
+  targetName: string;
+  storeSlug: string;
+  scrapedAt: string;
+  /** La descarga se corto por presupuesto: el resultado es parcial. */
+  aborted: boolean;
+  result: ScrapeResult;
+}
+
 /** Ejecuta un target concreto de punta a punta. */
 export async function runTarget(options: {
   target: ScrapeTargetRow;
@@ -121,6 +137,17 @@ export async function runTarget(options: {
    * warnings y errores). Lo usa scripts/scrape-all-local.ts para la traza.
    */
   onLog?: (entry: Record<string, unknown>) => void;
+  /**
+   * Recibe lo descargado apenas termina la estrategia, antes de cualquier
+   * escritura en la base. Se espera a que resuelva: si guarda a disco, el
+   * archivo existe aunque la ingesta falle despues.
+   */
+  onScraped?: (snapshot: ScrapeSnapshot) => void | Promise<void>;
+  /**
+   * Repite la ingesta de un snapshot en vez de descargar. Todo lo demas
+   * (bitacora, categorias, ingesta, bajas, reprogramacion) es identico.
+   */
+  replay?: ScrapeSnapshot;
 }): Promise<RunResult> {
   const startedAt = Date.now();
   const { target, trigger = 'cron', timeBudgetMs = DEFAULT_TIME_BUDGET_MS } = options;
@@ -232,7 +259,30 @@ export async function runTarget(options: {
     // stores.config es la base; scrape_targets.config la especializa.
     const config = { ...(store.config ?? {}), ...(target.config ?? {}) };
 
-    const result = await strategy.run({ store, target, config, http, signal: abortController.signal, log });
+    let result: ScrapeResult;
+    let aborted: boolean;
+    if (options.replay) {
+      if (options.replay.targetId !== target.id) {
+        throw new Error(
+          `El snapshot es de "${options.replay.targetName}" (${options.replay.targetId}), no de este target`,
+        );
+      }
+      result = options.replay.result;
+      aborted = options.replay.aborted;
+      log('info', `Reingesta del snapshot descargado el ${options.replay.scrapedAt}`);
+    } else {
+      result = await strategy.run({ store, target, config, http, signal: abortController.signal, log });
+      aborted = abortController.signal.aborted;
+      await options.onScraped?.({
+        version: 1,
+        targetId: target.id,
+        targetName: target.name,
+        storeSlug: store.slug,
+        scrapedAt: new Date().toISOString(),
+        aborted,
+        result,
+      });
+    }
     pagesFetched = result.pagesFetched;
     strategyStats = result.stats ?? {};
     setStage(`categorias (${result.products.length} productos descargados en ${pagesFetched} paginas)`);
@@ -271,7 +321,7 @@ export async function runTarget(options: {
     // 3) Ingesta.
     if (products.length > 0) {
       setStage(`ingesta de ${products.length} productos`);
-      counters = await ingestProducts(store.id, runId, products);
+      counters = await ingestProducts(store.id, runId, products, (message) => log('warn', message));
     }
 
     // 4) Bajas: solo cuando el barrido cubrio toda la tienda.
@@ -281,7 +331,7 @@ export async function runTarget(options: {
       itemsDelisted = await markDelistedProducts(store.id, runId);
     }
 
-    if (abortController.signal.aborted) {
+    if (aborted) {
       status = 'partial';
       errorMessage = 'La corrida se corto por limite de tiempo';
       log('warn', errorMessage);

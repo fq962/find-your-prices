@@ -362,10 +362,23 @@ async function linkCategoryParents(storeId: string): Promise<void> {
  * alta/actualizacion, historico de precios, imagenes y variantes del lado de
  * Postgres. Se manda por lotes para no armar un request gigante.
  */
+/** Lote minimo al partir: por debajo de esto el problema no es el tamaño. */
+const INGEST_MIN_CHUNK_SIZE = 10;
+
+/**
+ * Supabase corta toda sentencia que pase su `statement_timeout`. Un lote de 250
+ * con muchas imagenes o cambios de precio a veces no alcanza, y el corte hace
+ * rollback del lote entero: reintentarlo partido es seguro.
+ */
+function isStatementTimeout(message: string): boolean {
+  return /statement timeout|canceling statement/i.test(message);
+}
+
 export async function ingestProducts(
   storeId: string,
   runId: string,
   products: NormalizedProduct[],
+  onSplit?: (message: string) => void,
 ): Promise<IngestCounters> {
   const db = getSupabaseAdmin();
   const totals: IngestCounters = {
@@ -376,8 +389,7 @@ export async function ingestProducts(
     price_changes: 0,
   };
 
-  for (let offset = 0; offset < products.length; offset += INGEST_CHUNK_SIZE) {
-    const chunk = products.slice(offset, offset + INGEST_CHUNK_SIZE);
+  const ingestChunk = async (offset: number, chunk: NormalizedProduct[]): Promise<void> => {
     const { data, error } = await db.rpc('ingest_store_products', {
       p_store_id: storeId,
       p_run_id: runId,
@@ -385,6 +397,15 @@ export async function ingestProducts(
     });
 
     if (error) {
+      if (isStatementTimeout(error.message) && chunk.length > INGEST_MIN_CHUNK_SIZE) {
+        const half = Math.ceil(chunk.length / 2);
+        onSplit?.(
+          `Lote ${offset}-${offset + chunk.length} excedio el tiempo de la base; se reintenta en dos de ${half}`,
+        );
+        await ingestChunk(offset, chunk.slice(0, half));
+        await ingestChunk(offset + half, chunk.slice(half));
+        return;
+      }
       throw new Error(
         `Fallo la ingesta del lote ${offset}-${offset + chunk.length}: ${error.message}`,
       );
@@ -396,6 +417,10 @@ export async function ingestProducts(
     totals.items_updated += counters.items_updated ?? 0;
     totals.items_unchanged += counters.items_unchanged ?? 0;
     totals.price_changes += counters.price_changes ?? 0;
+  };
+
+  for (let offset = 0; offset < products.length; offset += INGEST_CHUNK_SIZE) {
+    await ingestChunk(offset, products.slice(offset, offset + INGEST_CHUNK_SIZE));
   }
 
   return totals;

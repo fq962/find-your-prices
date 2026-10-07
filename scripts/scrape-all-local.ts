@@ -14,7 +14,14 @@
  *   --due               solo los vencidos
  *   --include-paused    incluye los targets pausados
  *   --pause <seg>       espera entre targets (default 5)
+ *   --from <n>          empieza en el numero n de la lista (para retomar)
  *   --dry               lista lo que correria y sale
+ *
+ * Descargas: scrape-data/<tienda>/<fecha>-<target>.json
+ *   Lo que devolvio cada estrategia, guardado ANTES de escribir en la base.
+ *   Al terminar el barrido, todo target que fallo despues de descargar bien se
+ *   reingiere solo desde su archivo, sin volver a scrapear. A mano:
+ *     npm run reingest:local -- scrape-data/acosa/<archivo>.json
  *
  * Traza: scrape-logs/<fecha>/
  *   run.log             todo lo que sale en consola, con hora
@@ -25,8 +32,8 @@
  * Ctrl+C una vez: termina el target en curso y se detiene. Dos veces: sale ya
  * (la corrida en curso queda en 'running' y se cierra sola a los 2 min).
  */
-import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { format } from 'node:util';
 import { getSupabaseAdmin } from '@/server/db/supabase';
 import {
@@ -34,6 +41,7 @@ import {
   recoverStaleRuns,
   runTarget,
   type RunResult,
+  type ScrapeSnapshot,
 } from '@/server/scraping/runner';
 import type { ScrapeTargetRow, StoreRow } from '@/server/scraping/types';
 
@@ -58,6 +66,7 @@ const onlyDue = flag('--due');
 const includePaused = flag('--include-paused');
 const dry = flag('--dry');
 const pauseMs = (Number(values('--pause')[0]) || 5) * 1000;
+const from = Math.max(1, Number(values('--from')[0]) || 1);
 
 // -----------------------------------------------------------------------------
 // Traza: todo lo de consola tambien va a run.log
@@ -67,6 +76,7 @@ const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const logDir = join(process.cwd(), 'scrape-logs', stamp);
 mkdirSync(logDir, { recursive: true });
 const runLog = join(logDir, 'run.log');
+const dataRoot = join(process.cwd(), 'scrape-data');
 
 for (const level of ['log', 'info', 'warn', 'error'] as const) {
   const original = console[level].bind(console);
@@ -148,15 +158,20 @@ async function main(): Promise<number> {
 
   const results: RunResult[] = [];
   let pendingPublish: RunResult[] = [];
+  // Fallaron despues de descargar: se reingieren al final desde su archivo.
+  const retryQueue: Array<{ index: number; target: ScrapeTargetRow; store: StoreRow; file: string }> = [];
+  const notes = new Map<number, string>();
   const startedAll = Date.now();
 
   for (const [i, { target, store }] of queue.entries()) {
     if (stopRequested) break;
+    if (i + 1 < from) continue;
 
     const position = `${i + 1}/${queue.length}`;
     console.info(`\n=== ${position} [${store.slug}] ${target.name} ===`);
 
     const strategyLog: Array<Record<string, unknown>> = [];
+    let snapshotFile: string | null = null;
     let result: RunResult;
     try {
       result = await runTarget({
@@ -164,6 +179,16 @@ async function main(): Promise<number> {
         store,
         trigger: 'backfill',
         timeBudgetMs: TARGET_BUDGET_MS,
+        onScraped: (snapshot: ScrapeSnapshot) => {
+          const dir = join(dataRoot, store.slug);
+          mkdirSync(dir, { recursive: true });
+          const file = join(dir, `${stamp}-${slugify(target.name)}.json`);
+          writeFileSync(file, JSON.stringify(snapshot));
+          if (snapshot.result.products.length > 0) snapshotFile = file;
+          console.info(
+            `    Descarga guardada: ${relative(process.cwd(), file)} (${snapshot.result.products.length} productos)`,
+          );
+        },
         onLog: (entry) => {
           strategyLog.push(entry);
           const level = entry.level === 'error' ? 'error' : entry.level === 'warn' ? 'warn' : 'info';
@@ -195,6 +220,9 @@ async function main(): Promise<number> {
 
     results.push(result);
     pendingPublish.push(result);
+    if (result.status === 'failed' && snapshotFile) {
+      retryQueue.push({ index: results.length - 1, target, store, file: snapshotFile });
+    }
 
     console.info(
       `--> ${result.status} en ${(result.durationMs / 1000).toFixed(1)} s · ${result.itemsFound} art · ` +
@@ -219,6 +247,39 @@ async function main(): Promise<number> {
     if (i < queue.length - 1 && !stopRequested) await sleep(pauseMs);
   }
 
+  // Reingesta de lo que se descargo bien pero no se pudo guardar.
+  if (retryQueue.length > 0 && stopRequested) {
+    console.warn(`
+Detenido: ${retryQueue.length} descargas sin ingerir. Para reingerirlas:`);
+    retryQueue.forEach(({ file }) => console.warn(`  npm run reingest:local -- ${relative(process.cwd(), file)}`));
+  } else if (retryQueue.length > 0) {
+    console.info(`
+=== Reingesta de ${retryQueue.length} descargas que fallaron al guardar ===`);
+    for (const { index, target, store, file } of retryQueue) {
+      console.info(`
+--- [${store.slug}] ${target.name} (${relative(process.cwd(), file)})`);
+      // El target se relee: la corrida fallida le cambio el contador de fallos.
+      const { data: fresh } = await getSupabaseAdmin().from('scrape_targets').select('*').eq('id', target.id).single();
+      const retried = await runTarget({
+        target: (fresh as ScrapeTargetRow | null) ?? target,
+        store,
+        trigger: 'backfill',
+        timeBudgetMs: TARGET_BUDGET_MS,
+        replay: JSON.parse(readFileSync(file, 'utf8')) as ScrapeSnapshot,
+        onLog: (entry) => {
+          if (entry.level !== 'info') console.warn(`    ${entry.message}`);
+        },
+      });
+      console.info(
+        `--> ${retried.status} · ${retried.itemsFound} art · ${retried.itemsNew} nuevos · ${retried.priceChanges} precios` +
+          (retried.errorMessage ? ` · ${retried.errorMessage}` : ''),
+      );
+      notes.set(index, `reingerido desde archivo (antes: ${results[index].errorMessage ?? 'failed'})`);
+      results[index] = retried;
+      pendingPublish.push(retried);
+    }
+  }
+
   if (pendingPublish.length > 0) {
     console.info('Refrescando catalogo publico...');
     await publishCatalog(pendingPublish, 'backfill');
@@ -241,12 +302,12 @@ async function main(): Promise<number> {
         Object.entries(byStatus).map(([status, n]) => `${status}: ${n}`).join(' · ') +
         (stopRequested ? ' · **detenido con Ctrl+C**' : ''),
       '',
-      '| # | Tienda | Target | Estado | Duración | Artículos | Nuevos | Precios | Error |',
-      '|---|---|---|---|---|---|---|---|---|',
+      '| # | Tienda | Target | Estado | Duración | Artículos | Nuevos | Precios | Error | Nota |',
+      '|---|---|---|---|---|---|---|---|---|---|',
       ...results.map(
         (r, i) =>
           `| ${i + 1} | ${r.storeSlug} | ${cell(r.targetName)} | ${r.status} | ${(r.durationMs / 1000).toFixed(1)} s | ` +
-          `${r.itemsFound} | ${r.itemsNew} | ${r.priceChanges} | ${cell(r.errorMessage ?? '')} |`,
+          `${r.itemsFound} | ${r.itemsNew} | ${r.priceChanges} | ${cell(r.errorMessage ?? '')} | ${cell(notes.get(i) ?? '')} |`,
       ),
       '',
     ].join('\n'),
