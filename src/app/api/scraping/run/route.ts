@@ -21,9 +21,10 @@ import { runDueTargets, runTargetById } from '@/server/scraping/runner';
  * el endpoint respondia 202 a los 20 s y seguia con `after()`: toda tanda de
  * mas de ~50 s moria a medias y dejaba la corrida en 'running'.
  *
- * Por eso quien llame tiene que esperar varios minutos. cron-job.org corta a
- * los 30 s y no sirve; el disparo horario lo hace
- * .github/workflows/scrape-cron.yml con un timeout de 15 min.
+ * Ademas, en el plan Free cada invocacion tiene 50 subrequests (cada pagina de
+ * una tienda y cada llamada a Supabase cuentan): solo caben targets chicos.
+ * El cron horario NO usa este endpoint: corre el runner directo en GitHub
+ * Actions (.github/workflows/scrape-cron.yml, scripts/run-scrape.ts).
  */
 
 // El scraping toca la red y la base: nunca se cachea.

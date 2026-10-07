@@ -116,6 +116,11 @@ export async function runTarget(options: {
   store?: StoreRow;
   trigger?: ScrapeTrigger;
   timeBudgetMs?: number;
+  /**
+   * Recibe cada entrada del log en vivo, `info` incluida (a la base solo van
+   * warnings y errores). Lo usa scripts/scrape-all-local.ts para la traza.
+   */
+  onLog?: (entry: Record<string, unknown>) => void;
 }): Promise<RunResult> {
   const startedAt = Date.now();
   const { target, trigger = 'cron', timeBudgetMs = DEFAULT_TIME_BUDGET_MS } = options;
@@ -125,7 +130,9 @@ export async function runTarget(options: {
   const logEntries: Array<Record<string, unknown>> = [];
   let lastMessage: string | undefined;
   const log = (level: 'info' | 'warn' | 'error', message: string, meta?: Record<string, unknown>) => {
-    logEntries.push({ level, message, at: new Date().toISOString(), ...(meta ? { meta } : {}) });
+    const entry = { level, message, at: new Date().toISOString(), ...(meta ? { meta } : {}) };
+    logEntries.push(entry);
+    options.onLog?.(entry);
     lastMessage = message;
     if (level !== 'info') warnings.push(message);
   };
@@ -351,7 +358,7 @@ export function runsChangedCatalog(results: RunResult[]): boolean {
  * Va al final de la tanda y no de cada target: cinco targets seguidos son un
  * refresco, no cinco.
  */
-async function publishCatalog(results: RunResult[], trigger: ScrapeTrigger): Promise<void> {
+export async function publishCatalog(results: RunResult[], trigger: ScrapeTrigger): Promise<void> {
   if (!runsChangedCatalog(results)) return;
   await refreshCatalog(`runner:${trigger}`);
 }
@@ -401,12 +408,13 @@ export async function runDueTargets(options?: {
     if (remainingBudget < 15_000) break;
 
     let store = storeCache.get(target.store_id);
-    if (!store) {
-      store = await getStoreById(target.store_id);
-      storeCache.set(target.store_id, store);
-    }
 
     try {
+      if (!store) {
+        store = await getStoreById(target.store_id);
+        storeCache.set(target.store_id, store);
+      }
+
       processed.push(
         await runTarget({
           target,
@@ -420,7 +428,7 @@ export async function runDueTargets(options?: {
       processed.push({
         targetId: target.id,
         targetName: target.name,
-        storeSlug: store.slug,
+        storeSlug: store?.slug ?? '',
         runId: null,
         status: 'failed',
         durationMs: 0,

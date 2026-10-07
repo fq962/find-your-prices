@@ -57,3 +57,6 @@ next-env.d.ts
 # El resto de .impeccable/ SI va al repo: es contexto compartido del proyecto.
 /.impeccable/config.local.json
 /.impeccable/live/inject-journal.json
+
+# Traza del barrido local (scripts/scrape-all-local.ts)
+/scrape-logs/

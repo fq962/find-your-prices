@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "scrape:local": "npx --yes tsx@4 --conditions=react-server --env-file=.env.local scripts/scrape-all-local.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
