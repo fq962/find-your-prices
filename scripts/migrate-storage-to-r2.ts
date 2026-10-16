@@ -29,6 +29,11 @@
  *   --force        vuelve a subir aunque el archivo ya exista en R2
  *   --skip-files   no copia archivos; solo verifica y reescribe la base
  *   --buckets=a,b  solo esos buckets
+ *   --from=<url>   cambia URLs desde otro origen que ya es este mismo bucket
+ *                  (p. ej. el r2.dev al pasar a un dominio propio). No copia
+ *                  archivos: verifica en R2 y reescribe.
+ *
+ *   npm run storage:migrate -- --apply --from=https://pub-xxxx.r2.dev
  *
  * Variables (en .env.local):
  *   NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY   Storage y las URLs de la base
@@ -44,7 +49,9 @@ const CONCURRENCY = 6;
 const args = new Set(process.argv.slice(2));
 const apply = args.has('--apply');
 const force = args.has('--force');
-const skipFiles = args.has('--skip-files');
+const fromArg = process.argv.find((arg) => arg.startsWith('--from='))?.slice('--from='.length);
+// Con --from los archivos ya están en el bucket: solo cambia el origen de la URL.
+const skipFiles = args.has('--skip-files') || Boolean(fromArg);
 const bucketArg = process.argv.find((arg) => arg.startsWith('--buckets='));
 const buckets = bucketArg
   ? bucketArg.slice('--buckets='.length).split(',').filter(Boolean)
@@ -72,7 +79,10 @@ function requireEnv(name: string): string {
   return value;
 }
 
-const supabasePrefix = `${requireEnv('NEXT_PUBLIC_SUPABASE_URL').replace(/\/+$/, '')}/storage/v1/object/public/`;
+/** De dónde vienen las URLs a cambiar: Supabase Storage, o el origen de --from. */
+const sourcePrefix = fromArg
+  ? `${fromArg.replace(/\/+$/, '')}/`
+  : `${requireEnv('NEXT_PUBLIC_SUPABASE_URL').replace(/\/+$/, '')}/storage/v1/object/public/`;
 const r2Prefix = `${requireEnv('R2_PUBLIC_URL').replace(/\/+$/, '')}/`;
 for (const name of ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'SUPABASE_SECRET_KEY']) requireEnv(name);
 
@@ -198,7 +208,7 @@ async function referencedUrls(): Promise<ReferencedUrl[]> {
     const { data, error } = await db
       .from(table)
       .select(`id, ${column}`)
-      .like(column, `${supabasePrefix}%`)
+      .like(column, `${sourcePrefix}%`)
       .limit(5000);
     if (error) throw new Error(`No se pudo leer ${table}.${column}: ${error.message}`);
     for (const row of (data ?? []) as unknown as Array<Record<string, string | null>>) {
@@ -211,7 +221,7 @@ async function referencedUrls(): Promise<ReferencedUrl[]> {
 
 /** La llave de R2 de una URL de Supabase: lo que va después de `/public/`. */
 function keyOf(url: string): string {
-  return decodeURIComponent(url.slice(supabasePrefix.length).split('?')[0]);
+  return decodeURIComponent(url.slice(sourcePrefix.length).split('?')[0]);
 }
 
 async function verifyReferences(urls: ReferencedUrl[]): Promise<string[]> {
@@ -245,7 +255,7 @@ async function rewriteUrls(urls: ReferencedUrl[]): Promise<{ changed: number; fa
   await pool(urls, async ({ table, column, id, url, label }) => {
     const { error } = await db
       .from(table)
-      .update({ [column]: r2Prefix + url.slice(supabasePrefix.length) })
+      .update({ [column]: r2Prefix + url.slice(sourcePrefix.length) })
       .eq('id', id)
       .eq(column, url);
     if (error) {
@@ -262,7 +272,8 @@ async function rewriteUrls(urls: ReferencedUrl[]): Promise<{ changed: number; fa
 
 async function main(): Promise<number> {
   console.log(apply ? 'Modo APLICAR: copia a R2 y cambia URLs.' : 'Ensayo: no se copia ni se cambia nada (usar --apply).');
-  console.log(`Supabase: ${supabasePrefix}\nR2:       ${r2Prefix}`);
+  console.log(`Desde: ${sourcePrefix}\nHacia: ${r2Prefix}`);
+  if (sourcePrefix === r2Prefix) throw new Error('El origen y el destino son el mismo: revisar --from y R2_PUBLIC_URL.');
 
   if (!skipFiles) {
     const { failed } = await copyFiles();
@@ -273,13 +284,13 @@ async function main(): Promise<number> {
   }
 
   const urls = await referencedUrls();
-  console.log(`\nLa base tiene ${urls.length} URLs de Supabase Storage.`);
+  console.log(`\nLa base tiene ${urls.length} URLs con ese origen.`);
   if (urls.length === 0) {
     console.log('Nada que reescribir.');
     return 0;
   }
   if (!apply) {
-    for (const { label, url } of urls.slice(0, 5)) console.log(`  ${label}: ${url}\n    → ${r2Prefix}${url.slice(supabasePrefix.length)}`);
+    for (const { label, url } of urls.slice(0, 5)) console.log(`  ${label}: ${url}\n    → ${r2Prefix}${url.slice(sourcePrefix.length)}`);
     if (urls.length > 5) console.log(`  … y ${urls.length - 5} más`);
     return 0;
   }
