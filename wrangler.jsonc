@@ -9,52 +9,56 @@
  * despliegue con esta configuración: docs/cloudflare-cache-r2.md.
  */
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "find-your-prices",
-  "main": ".open-next/worker.js",
-  "compatibility_date": "2026-09-25",
-  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
-  "assets": {
-    "directory": ".open-next/assets",
-    "binding": "ASSETS"
-  },
-  "observability": {
-    "enabled": true
-  },
-  "services": [
-    {
-      // El propio Worker: la cola de revalidación se pide a sí mismo las
-      // páginas vencidas por acá.
-      "binding": "WORKER_SELF_REFERENCE",
-      "service": "find-your-prices"
-    }
-  ],
-  "r2_buckets": [
-    {
-      // Caché ISR: cada página armada se guarda acá.
-      "binding": "NEXT_INC_CACHE_R2_BUCKET",
-      "bucket_name": "find-your-prices-cache"
-    }
-  ],
-  // Postgres por Hyperdrive (docs/migracion-drizzle.md, fase 5). Se activa
-  // cuando exista la configuración:
-  //   npx wrangler hyperdrive create find-your-prices-db --connection-string="postgresql://..."
-  // y se pega acá el id que devuelve. `localConnectionString` es para
-  // `wrangler dev` / `cf:preview`; en `next dev` se usa DATABASE_URL.
-  // "hyperdrive": [
-  //   {
-  //     "binding": "HYPERDRIVE",
-  //     "id": "<id-de-hyperdrive>",
-  //     "localConnectionString": "postgresql://..."
-  //   }
-  // ],
-  "d1_databases": [
-    {
-      // Cuándo se invalidó cada ruta o etiqueta (`revalidatePath` / `revalidateTag`).
-      "binding": "NEXT_TAG_CACHE_D1",
-      "database_name": "find-your-prices-tags",
-      // Panel de Cloudflare → D1 → find-your-prices-tags. Ver docs/cloudflare-cache-r2.md.
-      "database_id": "8feaa3c5-d51d-4cf9-bd3b-29ec719c5435"
-    }
-  ]
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "find-your-prices",
+	"main": ".open-next/worker.js",
+	"compatibility_date": "2026-09-25",
+	"compatibility_flags": [
+		"nodejs_compat",
+		"global_fetch_strictly_public"
+	],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"observability": {
+		"enabled": true
+	},
+	"services": [
+		{
+			// El propio Worker: la cola de revalidación se pide a sí mismo las
+			// páginas vencidas por acá.
+			"binding": "WORKER_SELF_REFERENCE",
+			"service": "find-your-prices"
+		}
+	],
+	"r2_buckets": [
+		{
+			// Caché ISR: cada página armada se guarda acá.
+			"binding": "NEXT_INC_CACHE_R2_BUCKET",
+			"bucket_name": "find-your-prices-cache"
+		}
+	],
+	// Postgres por Hyperdrive (docs/migracion-drizzle.md, fase 5). Se activa
+	// cuando exista la configuración:
+	//   npx wrangler hyperdrive create find-your-prices-db --connection-string="postgresql://..."
+	// y se pega acá el id que devuelve. `localConnectionString` es para
+	// `wrangler dev` / `cf:preview`; en `next dev` se usa DATABASE_URL.
+	// "hyperdrive": [
+	//   {
+	//     "binding": "HYPERDRIVE",
+	//     "id": "<id-de-hyperdrive>",
+	//     "localConnectionString": "postgresql://..."
+	//   }
+	// ],
+	"d1_databases": [
+		{
+			// Cuándo se invalidó cada ruta o etiqueta (`revalidatePath` / `revalidateTag`).
+			"binding": "NEXT_TAG_CACHE_D1",
+			"database_name": "find-your-prices-tags",
+			// Panel de Cloudflare → D1 → find-your-prices-tags. Ver docs/cloudflare-cache-r2.md.
+			"database_id": "8feaa3c5-d51d-4cf9-bd3b-29ec719c5435"
+		}
+	],
+	"previews": {}
 }
