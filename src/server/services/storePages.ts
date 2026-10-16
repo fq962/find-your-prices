@@ -3,6 +3,7 @@ import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { and, asc, desc, eq, gt, inArray } from 'drizzle-orm';
 import { getDb } from '@/server/db/client';
+import { restFallbackEnabled } from '@/server/db/restFlag';
 import { rpc } from '@/server/db/rpc';
 import {
   storeCategories,
@@ -111,25 +112,7 @@ interface RawStore {
 
 /** Tiendas activas con su cifra. */
 async function loadStoreRows(): Promise<StoreNode[]> {
-  const db = getDb();
-
-  const [stores, facets] = await Promise.all([
-    db
-      .select({
-        id: storesTable.id,
-        slug: storesTable.slug,
-        name: storesTable.name,
-        base_url: storesTable.base_url,
-        logo_url: storesTable.logo_url,
-        image_alt: storesTable.image_alt,
-      })
-      .from(storesTable)
-      .where(eq(storesTable.is_active, true))
-      .orderBy(asc(storesTable.name)),
-    db
-      .select({ store_slug: vCatalogStoreFacets.store_slug, product_count: vCatalogStoreFacets.product_count })
-      .from(vCatalogStoreFacets),
-  ]);
+  const [stores, facets] = await selectStoreRows();
 
   const counts = new Map<string, number>();
   for (const row of facets) {
@@ -149,6 +132,34 @@ async function loadStoreRows(): Promise<StoreNode[]> {
       categoryCount: 0,
     };
   });
+}
+
+async function selectStoreRows(): Promise<[Partial<RawStore>[], Array<{ store_slug: string; product_count: number }>]> {
+  if (restFallbackEnabled()) {
+    // Script desde una red sin Postgres: ver server/db/restFallback.ts.
+    const { storeRows } = await import('@/server/db/restFallback');
+    const rows = await storeRows();
+    return [rows.stores as Partial<RawStore>[], rows.facets as unknown as Array<{ store_slug: string; product_count: number }>];
+  }
+
+  const db = getDb();
+  return Promise.all([
+    db
+      .select({
+        id: storesTable.id,
+        slug: storesTable.slug,
+        name: storesTable.name,
+        base_url: storesTable.base_url,
+        logo_url: storesTable.logo_url,
+        image_alt: storesTable.image_alt,
+      })
+      .from(storesTable)
+      .where(eq(storesTable.is_active, true))
+      .orderBy(asc(storesTable.name)),
+    db
+      .select({ store_slug: vCatalogStoreFacets.store_slug, product_count: vCatalogStoreFacets.product_count })
+      .from(vCatalogStoreFacets),
+  ]);
 }
 
 /**
@@ -177,6 +188,11 @@ interface StoreCategoryCountRow {
 /** Conteo directo por (tienda, slug de categoría). Vacío si la 0033 no corrió. */
 const loadStoreCategoryCountRows = unstable_cache(
   async (): Promise<StoreCategoryCountRow[]> => {
+    if (restFallbackEnabled()) {
+      // Script desde una red sin Postgres: ver server/db/restFallback.ts.
+      const { storeCategoryCountRows } = await import('@/server/db/restFallback');
+      return (await storeCategoryCountRows()) as unknown as StoreCategoryCountRow[];
+    }
     try {
       return await getDb()
         .select({

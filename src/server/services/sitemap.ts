@@ -2,6 +2,7 @@ import 'server-only';
 import { and, asc, count, gt, type SQL } from 'drizzle-orm';
 import { getDb } from '@/server/db/client';
 import { pgErrorMessage } from '@/server/db/pg';
+import { restFallbackEnabled } from '@/server/db/restFlag';
 import { vStoreProductsCurrent as view } from '@/server/db/schema';
 
 /**
@@ -199,7 +200,11 @@ async function selectProducts(page: {
   if (page.afterId) filters.push(gt(view.id, page.afterId));
 
   let rows: Array<{ id: string; public_slug: string | null; last_seen_at: string | null }>;
-  try {
+  if (restFallbackEnabled()) {
+    // Script desde una red sin Postgres: ver server/db/restFallback.ts.
+    const { sitemapProductRows } = await import('@/server/db/restFallback');
+    rows = await sitemapProductRows(page);
+  } else try {
     rows = await getDb()
       .select({ id: view.id, public_slug: view.public_slug, last_seen_at: view.last_seen_at })
       .from(view)

@@ -3,6 +3,7 @@ import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { and, asc, desc, eq, gt, inArray } from 'drizzle-orm';
 import { getDb } from '@/server/db/client';
+import { restFallbackEnabled } from '@/server/db/restFlag';
 import { rpc } from '@/server/db/rpc';
 import {
   categories as categoriesTable,
@@ -154,10 +155,28 @@ export interface CategoryTree {
 
 /** Los nodos del árbol, sin los mapas: es lo que se puede guardar en caché. */
 async function loadCategoryNodes(locale: Locale): Promise<CategoryNode[]> {
+  const [categoryRows, contentRows, facets] = await loadCategoryRows();
+  return buildCategoryNodes(categoryRows, contentRows, facets, locale);
+}
+
+type CategoryFacetRow = { slug: string | null; parent_slug: string | null; product_count: number };
+
+async function loadCategoryRows(): Promise<[Partial<RawCategory>[], RawContent[], CategoryFacetRow[]]> {
+  if (restFallbackEnabled()) {
+    // Script desde una red sin Postgres: ver server/db/restFallback.ts.
+    const { categoryTreeRows } = await import('@/server/db/restFallback');
+    const rows = await categoryTreeRows();
+    return [
+      rows.categories as Partial<RawCategory>[],
+      rows.content as unknown as RawContent[],
+      rows.facets as unknown as CategoryFacetRow[],
+    ];
+  }
+
   const db = getDb();
   const c = categoriesTable;
 
-  const [categoryRows, contentRows, facets] = await Promise.all([
+  return Promise.all([
     db
       .select({
         id: c.id,
@@ -196,7 +215,15 @@ async function loadCategoryNodes(locale: Locale): Promise<CategoryNode[]> {
       })
       .from(canonicalFacets),
   ]);
+}
 
+/** Nodos del árbol a partir de las filas: conteos, texto por idioma y suma de las hijas en la raíz. */
+function buildCategoryNodes(
+  categoryRows: Partial<RawCategory>[],
+  contentRows: RawContent[],
+  facets: CategoryFacetRow[],
+  locale: Locale,
+): CategoryNode[] {
   // Conteo directo por slug; el de una raíz suma el de sus hijas.
   const direct = new Map<string, number>();
   for (const row of facets) {
@@ -211,8 +238,7 @@ async function loadCategoryNodes(locale: Locale): Promise<CategoryNode[]> {
     contentByCategory.set(row.category_id, list);
   }
 
-  const raw = categoryRows as Partial<RawCategory>[];
-  const nodes: CategoryNode[] = raw.map((row) => ({
+  const nodes: CategoryNode[] = categoryRows.map((row) => ({
     id: String(row.id),
     slug: String(row.slug),
     name: String(row.name),

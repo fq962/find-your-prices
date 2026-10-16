@@ -18,7 +18,9 @@
  * bucket se queda como estaba, que es mejor que un índice a medias.
  *
  * Variables:
- *   DATABASE_URL                                  (obligatoria)
+ *   DATABASE_URL                                  (o, si Postgres no responde,
+ *   NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SECRET_KEY: el catálogo se lee por la
+ *   API HTTPS de Supabase; ver server/db/restFallback.ts)
  *   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUBLIC_URL,
  *   R2_BUCKET                                     (ver server/storage/r2.ts)
  *   NEXT_PUBLIC_SITE_URL   origen de las URLs (default: el de producción)
@@ -33,6 +35,10 @@ import {
   sitemapIndexXml,
   storesSitemapXml,
 } from '@/lib/seo/sitemapBuild';
+import { sql } from 'drizzle-orm';
+import { getDb } from '@/server/db/client';
+import { pgErrorMessage } from '@/server/db/pg';
+import { enableRestFallback } from '@/server/db/restFlag';
 import { deleteObject, listKeys, putObject } from '@/server/storage/r2';
 import { iterateSitemapProductChunks } from '@/server/services/sitemap';
 import { SITEMAP_BUCKET, SITEMAP_OBJECTS } from '@/server/services/sitemapStore';
@@ -92,9 +98,27 @@ async function removeStaleProductFiles(chunks: number): Promise<number> {
   return stale.length;
 }
 
+/**
+ * Desde una red que bloquea el puerto de Postgres (pasa en la oficina), el
+ * catálogo se lee por la API HTTPS de Supabase. Se decide una vez, al empezar.
+ */
+async function chooseSource(): Promise<void> {
+  const canFallBack = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SECRET_KEY);
+  try {
+    if (!process.env.DATABASE_URL) throw new Error('sin DATABASE_URL');
+    await getDb().execute(sql`select 1`);
+    console.log('Catálogo: Postgres.');
+  } catch (error) {
+    if (!canFallBack) throw error;
+    console.log(`Postgres no responde (${pgErrorMessage(error)}); el catálogo se lee por la API HTTPS de Supabase.`);
+    enableRestFallback();
+  }
+}
+
 async function main(): Promise<void> {
   const started = Date.now();
   assertProductionOrigin();
+  await chooseSource();
 
   let chunks = 0;
   let products = 0;
