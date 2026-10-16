@@ -5,7 +5,7 @@ import { getDb } from '@/server/db/client';
 import { pgErrorCode, pgErrorMessage } from '@/server/db/pg';
 import { rpc } from '@/server/db/rpc';
 import { affiliateApplications, affiliateOffers, affiliatePartners } from '@/server/db/schema';
-import { getSupabaseAdmin } from '@/server/db/supabase';
+import { deleteByPublicUrl, uploadImage } from '@/server/storage/r2';
 import { SITE_ROUTES } from '@/features/i18n/routes';
 import {
   isSafeHttpUrl,
@@ -27,10 +27,11 @@ import { hasDatabase } from './catalog';
  * ven aliados activos y dentro de su ventana de campaña, y de ellos solo los
  * productos activos.
  *
- * Las filas van por Drizzle; los logos siguen en Supabase Storage hasta la
- * fase 3 de docs/migracion-drizzle.md (R2).
+ * Las filas van por Drizzle y los logos viven en R2 (carpeta
+ * `affiliate-images/`, ver `server/storage/r2.ts`).
  */
 
+/** Carpeta de R2 de los logos (antes, el bucket de Supabase del mismo nombre). */
 export const AFFILIATE_IMAGES_BUCKET = 'affiliate-images';
 
 // -----------------------------------------------------------------------------
@@ -463,7 +464,7 @@ export async function deletePartner(id: string): Promise<void> {
   const row = await readPartner(id);
   await explained(() => getDb().delete(p).where(eq(p.id, id)));
 
-  await removeStoredObject(row.logo_url);
+  await deleteByPublicUrl(row.logo_url);
   revalidatePartners([row.slug]);
 }
 
@@ -488,27 +489,14 @@ export async function deleteOffer(partnerId: string, offerId: string): Promise<v
  * ninguna caché sigue mostrando el anterior.
  */
 export async function uploadPartnerLogo(id: string, file: File): Promise<string> {
-  if (!file.type.startsWith('image/')) throw new Error('El archivo tiene que ser una imagen.');
-  if (file.size > 5 * 1024 * 1024) throw new Error('La imagen no puede pasar de 5 MB.');
-
   const partner = await readPartner(id);
+  const url = await uploadImage(AFFILIATE_IMAGES_BUCKET, partner.slug, file);
 
-  const extension = (file.name.split('.').pop() ?? 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
-  const objectPath = `${partner.slug}-${Date.now().toString(36)}.${extension}`;
+  await explained(() => getDb().update(p).set({ logo_url: url }).where(eq(p.id, id)));
 
-  const bytes = await file.arrayBuffer();
-  const storage = getSupabaseAdmin().storage;
-  const upload = await storage
-    .from(AFFILIATE_IMAGES_BUCKET)
-    .upload(objectPath, bytes, { contentType: file.type, cacheControl: '31536000', upsert: false });
-  if (upload.error) throw new Error(`No se pudo subir la imagen: ${upload.error.message}`);
-
-  const { data } = storage.from(AFFILIATE_IMAGES_BUCKET).getPublicUrl(objectPath);
-  await explained(() => getDb().update(p).set({ logo_url: data.publicUrl }).where(eq(p.id, id)));
-
-  await removeStoredObject(partner.logo_url);
+  await deleteByPublicUrl(partner.logo_url);
   revalidatePartners([partner.slug]);
-  return data.publicUrl;
+  return url;
 }
 
 export async function removePartnerLogo(id: string): Promise<void> {
@@ -516,18 +504,8 @@ export async function removePartnerLogo(id: string): Promise<void> {
 
   await explained(() => getDb().update(p).set({ logo_url: null }).where(eq(p.id, id)));
 
-  await removeStoredObject(partner.logo_url);
+  await deleteByPublicUrl(partner.logo_url);
   revalidatePartners([partner.slug]);
-}
-
-/** Borra el objeto del bucket si la URL es de este bucket. Nunca lanza. */
-async function removeStoredObject(url: string | null): Promise<void> {
-  if (!url) return;
-  const marker = `/object/public/${AFFILIATE_IMAGES_BUCKET}/`;
-  const index = url.indexOf(marker);
-  if (index === -1) return;
-  const objectPath = decodeURIComponent(url.slice(index + marker.length));
-  await getSupabaseAdmin().storage.from(AFFILIATE_IMAGES_BUCKET).remove([objectPath]);
 }
 
 async function revalidatePartnerById(partnerId: string): Promise<void> {

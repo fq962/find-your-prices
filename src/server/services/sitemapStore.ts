@@ -1,8 +1,9 @@
 import 'server-only';
 import { xmlResponse } from '@/lib/seo/sitemapXml';
+import { publicUrl } from '@/server/storage/r2';
 
 /**
- * Sitemaps ya hechos, guardados en Supabase Storage.
+ * Sitemaps ya hechos, guardados en R2 (carpeta `sitemaps/` del bucket).
  *
  * Armar el sitemap al vuelo era caro justo donde no puede serlo: 58 archivos
  * de 2 500 fichas, cada uno con tres viajes a la base, en un Worker de
@@ -18,7 +19,7 @@ import { xmlResponse } from '@/lib/seo/sitemapXml';
  * donde el protocolo exige que esté.
  */
 
-/** Bucket público. Lo crea el script la primera vez que corre. */
+/** Carpeta del bucket de R2 (antes, el bucket de Supabase del mismo nombre). */
 export const SITEMAP_BUCKET = 'sitemaps';
 
 /** Nombre del objeto en el bucket para cada archivo. */
@@ -38,11 +39,10 @@ export const SITEMAP_OBJECTS = {
  * archivo pese 1,6 MB.
  */
 async function readStored(objectPath: string): Promise<Response | null> {
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!base) return null;
+  if (!process.env.R2_PUBLIC_URL) return null;
 
   try {
-    const upstream = await fetch(`${base}/storage/v1/object/public/${SITEMAP_BUCKET}/${objectPath}`, {
+    const upstream = await fetch(publicUrl(`${SITEMAP_BUCKET}/${objectPath}`), {
       cache: 'no-store',
     });
     if (!upstream.ok || !upstream.body) return null;

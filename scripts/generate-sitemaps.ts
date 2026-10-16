@@ -1,5 +1,5 @@
 /**
- * Arma todos los sitemaps y los deja en Supabase Storage (bucket `sitemaps`).
+ * Arma todos los sitemaps y los deja en R2 (carpeta `sitemaps/` del bucket).
  *
  * Las rutas del sitio (`/sitemap.xml`, `/sitemaps/...`) sólo copian estos
  * archivos; armarlos al vuelo en un Worker de Cloudflare agotaba la CPU y
@@ -18,7 +18,9 @@
  * bucket se queda como estaba, que es mejor que un índice a medias.
  *
  * Variables:
- *   NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY   (obligatorias)
+ *   DATABASE_URL                                  (obligatoria)
+ *   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUBLIC_URL,
+ *   R2_BUCKET                                     (ver server/storage/r2.ts)
  *   NEXT_PUBLIC_SITE_URL   origen de las URLs (default: el de producción)
  *   SITEMAPS_DRY=true      arma todo y muestra tamaños, sin subir nada
  *   GITHUB_STEP_SUMMARY    si existe, ahí va el resumen
@@ -31,7 +33,7 @@ import {
   sitemapIndexXml,
   storesSitemapXml,
 } from '@/lib/seo/sitemapBuild';
-import { getSupabaseAdmin } from '@/server/db/supabase';
+import { deleteObject, listKeys, putObject } from '@/server/storage/r2';
 import { iterateSitemapProductChunks } from '@/server/services/sitemap';
 import { SITEMAP_BUCKET, SITEMAP_OBJECTS } from '@/server/services/sitemapStore';
 
@@ -50,16 +52,6 @@ function assertProductionOrigin(): void {
   }
 }
 
-async function ensureBucket(): Promise<void> {
-  const storage = getSupabaseAdmin().storage;
-  const existing = await storage.getBucket(SITEMAP_BUCKET);
-  if (!existing.error) return;
-
-  const created = await storage.createBucket(SITEMAP_BUCKET, { public: true, fileSizeLimit: '20MB' });
-  if (created.error) throw new Error(`No se pudo crear el bucket ${SITEMAP_BUCKET}: ${created.error.message}`);
-  console.log(`Bucket ${SITEMAP_BUCKET} creado (público).`);
-}
-
 let uploadedBytes = 0;
 
 /** Sube un archivo, con tres intentos: un fallo de red no tira la corrida. */
@@ -72,43 +64,37 @@ async function upload(objectPath: string, xml: string): Promise<void> {
   }
 
   for (let attempt = 1; ; attempt += 1) {
-    const { error } = await getSupabaseAdmin()
-      .storage.from(SITEMAP_BUCKET)
-      // `cacheControl` corto: el archivo se reemplaza en el mismo nombre y la
-      // CDN de Storage no tiene que servir el anterior por horas.
-      .upload(objectPath, bytes, { contentType: 'application/xml; charset=utf-8', cacheControl: '300', upsert: true });
-    if (!error) return;
-    if (attempt === 3) throw new Error(`No se pudo subir ${objectPath}: ${error.message}`);
-    await new Promise((resolve) => setTimeout(resolve, attempt * 2_000));
+    try {
+      // Cache-Control corto: el archivo se reemplaza en el mismo nombre y la
+      // CDN no tiene que servir el anterior por horas.
+      await putObject(`${SITEMAP_BUCKET}/${objectPath}`, bytes, {
+        contentType: 'application/xml; charset=utf-8',
+        cacheControl: 'public, max-age=300',
+      });
+      return;
+    } catch (error) {
+      if (attempt === 3) throw error;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 2_000));
+    }
   }
 }
 
 /** Borra `products/N.xml` con N mayor que la cantidad actual de archivos. */
 async function removeStaleProductFiles(chunks: number): Promise<number> {
   if (dry) return 0;
-  const bucket = getSupabaseAdmin().storage.from(SITEMAP_BUCKET);
-  const { data, error } = await bucket.list('products', { limit: 1000 });
-  if (error) throw new Error(`No se pudo listar products/: ${error.message}`);
+  const prefix = `${SITEMAP_BUCKET}/products/`;
+  const stale = (await listKeys(prefix)).filter((key) => {
+    const match = /^(\d+)\.xml$/.exec(key.slice(prefix.length));
+    return match !== null && Number(match[1]) > chunks;
+  });
 
-  const stale = (data ?? [])
-    .map((file) => file.name)
-    .filter((name) => {
-      const match = /^(\d+)\.xml$/.exec(name);
-      return match !== null && Number(match[1]) > chunks;
-    })
-    .map((name) => `products/${name}`);
-
-  if (stale.length > 0) {
-    const removed = await bucket.remove(stale);
-    if (removed.error) throw new Error(`No se pudieron borrar ${stale.join(', ')}: ${removed.error.message}`);
-  }
+  for (const key of stale) await deleteObject(key);
   return stale.length;
 }
 
 async function main(): Promise<void> {
   const started = Date.now();
   assertProductionOrigin();
-  if (!dry) await ensureBucket();
 
   let chunks = 0;
   let products = 0;

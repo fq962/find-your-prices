@@ -18,10 +18,12 @@
     "sitemaps:generate": "npx --yes tsx@4 --conditions=react-server --tsconfig scripts/tsconfig.json --env-file-if-exists=.env.local scripts/generate-sitemaps.ts",
     "db:pull": "drizzle-kit pull",
     "db:studio": "drizzle-kit studio",
-    "prebuild": "node scripts/db-check.mjs"
+    "prebuild": "node scripts/db-check.mjs",
+    "storage:migrate": "npx --yes tsx@4 --conditions=react-server --tsconfig scripts/tsconfig.json --env-file=.env.local scripts/migrate-storage-to-r2.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
+    "aws4fetch": "^1.0.20",
     "drizzle-orm": "^0.45.4",
     "next": "16.3.4",
     "postgres": "^3.4.9",

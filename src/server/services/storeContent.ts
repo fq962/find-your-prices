@@ -3,7 +3,7 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { asc, eq } from 'drizzle-orm';
 import { getDb } from '@/server/db/client';
 import { stores } from '@/server/db/schema';
-import { getSupabaseAdmin } from '@/server/db/supabase';
+import { deleteByPublicUrl, uploadImage } from '@/server/storage/r2';
 import { storeIndexPaths, storePaths } from '@/lib/seo/storeSeo';
 import { CATALOG_SEARCH_CACHE_TAG } from './catalog';
 
@@ -15,8 +15,8 @@ import { CATALOG_SEARCH_CACHE_TAG } from './catalog';
  * `categoryContent.ts`: mismas reglas de nombre de objeto, misma limpieza
  * de la foto anterior y misma revalidación de las landings afectadas.
  *
- * Las filas van por Drizzle; los archivos siguen en Supabase Storage hasta la
- * fase 3 de docs/migracion-drizzle.md (R2).
+ * Las filas van por Drizzle y las imágenes viven en R2 (carpeta
+ * `store-images/`, ver `server/storage/r2.ts`).
  */
 
 export const STORE_IMAGES_BUCKET = 'store-images';
@@ -97,28 +97,12 @@ export async function saveStoreContent(id: string, input: { imageAlt: string }):
  * seguiría viéndose la vieja durante horas.
  */
 export async function uploadStoreImage(id: string, file: File): Promise<string> {
-  if (!file.type.startsWith('image/')) throw new Error('El archivo tiene que ser una imagen.');
-  if (file.size > 5 * 1024 * 1024) throw new Error('La imagen no puede pasar de 5 MB.');
-
   const store = await readStore(id);
-
-  const extension = (file.name.split('.').pop() ?? 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-  const objectPath = `${store.slug}-${Date.now().toString(36)}.${extension}`;
-
-  // Los bytes y no el `File`: ver `uploadCategoryImage`.
-  const bytes = await file.arrayBuffer();
-  const storage = getSupabaseAdmin().storage;
-  const upload = await storage
-    .from(STORE_IMAGES_BUCKET)
-    .upload(objectPath, bytes, { contentType: file.type, cacheControl: '31536000', upsert: false });
-  if (upload.error) throw new Error(`No se pudo subir la imagen: ${upload.error.message}`);
-
-  const { data } = storage.from(STORE_IMAGES_BUCKET).getPublicUrl(objectPath);
-  const publicUrl = data.publicUrl;
+  const publicUrl = await uploadImage(STORE_IMAGES_BUCKET, store.slug, file);
 
   await getDb().update(stores).set({ logo_url: publicUrl }).where(eq(stores.id, id));
 
-  await removeStoredObject(store.logo_url);
+  await deleteByPublicUrl(store.logo_url);
   revalidateStore(store.slug);
   return publicUrl;
 }
@@ -128,18 +112,8 @@ export async function removeStoreImage(id: string): Promise<void> {
 
   await getDb().update(stores).set({ logo_url: null }).where(eq(stores.id, id));
 
-  await removeStoredObject(store.logo_url);
+  await deleteByPublicUrl(store.logo_url);
   revalidateStore(store.slug);
-}
-
-/** Borra el objeto del bucket si la URL es de este bucket. Nunca lanza. */
-async function removeStoredObject(url: string | null): Promise<void> {
-  if (!url) return;
-  const marker = `/object/public/${STORE_IMAGES_BUCKET}/`;
-  const index = url.indexOf(marker);
-  if (index === -1) return;
-  const objectPath = decodeURIComponent(url.slice(index + marker.length));
-  await getSupabaseAdmin().storage.from(STORE_IMAGES_BUCKET).remove([objectPath]);
 }
 
 /**

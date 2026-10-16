@@ -2,13 +2,14 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, test, vi } from 'vitest';
 
 /**
- * Subida y borrado de la imagen de una categoría contra Supabase de verdad
- * (bucket `category-images`, migración 0031). No corre en la suite normal:
+ * Subida y borrado de la imagen de una categoría contra la base y R2 de verdad
+ * (carpeta `category-images/`, migración 0031). No corre en la suite normal:
  *
- *   SUPABASE_LIVE_TESTS=1 npx vitest run src/server/services/categoryContent.live.test.ts
+ *   LIVE_TESTS=1 npx vitest run src/server/services/categoryContent.live.test.ts
  *
- * Necesita `.env.local` con la url y la secret key. Usa una categoría real
- * (por slug) y deja todo como estaba: la imagen que sube, la borra.
+ * Necesita `.env.local` con DATABASE_URL y las variables R2_*. Usa una
+ * categoría real (por slug) y deja todo como estaba: la imagen que sube, la
+ * borra.
  */
 
 vi.mock('server-only', () => import('@/test/server-only-stub'));
@@ -19,7 +20,7 @@ vi.mock('next/cache', () => ({
   unstable_cache: <T>(fn: T) => fn,
 }));
 
-const enabled = process.env.SUPABASE_LIVE_TESTS === '1';
+const enabled = process.env.LIVE_TESTS === '1';
 const SLUG = process.env.CATEGORY_SLUG ?? 'electronica-electrodomesticos';
 
 /** Sin dotenv en el proyecto: se lee .env.local a mano. */
@@ -30,33 +31,36 @@ function loadEnvLocal(): void {
   }
 }
 
-describe.skipIf(!enabled)('categoryContent contra Supabase', () => {
+describe.skipIf(!enabled)('categoryContent contra la base y R2', () => {
   test('sube una imagen al bucket, la enlaza a la categoría y la quita', async () => {
     loadEnvLocal();
-    const { getSupabaseAdmin } = await import('@/server/db/supabase');
+    const { eq } = await import('drizzle-orm');
+    const { getDb } = await import('@/server/db/client');
+    const { categories } = await import('@/server/db/schema');
     const { uploadCategoryImage, removeCategoryImage } = await import('./categoryContent');
 
-    const db = getSupabaseAdmin();
-    const { data: category } = await db.from('categories').select('id').eq('slug', SLUG).single();
+    const db = getDb();
+    const imageOf = async (id: string) =>
+      (await db.select({ image_url: categories.image_url }).from(categories).where(eq(categories.id, id)))[0]
+        ?.image_url ?? null;
+    const [category] = await db.select({ id: categories.id }).from(categories).where(eq(categories.slug, SLUG));
     expect(category?.id).toBeTruthy();
-    const id = String(category!.id);
+    const id = category!.id;
 
     const svg =
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect x="40" y="40" width="320" height="190" rx="14" fill="#0071e3"/></svg>';
     const file = new File([svg], 'prueba.svg', { type: 'image/svg+xml' });
 
     const url = await uploadCategoryImage(id, file);
-    expect(url).toContain('/object/public/category-images/');
+    expect(url.startsWith(`${process.env.R2_PUBLIC_URL?.replace(/\/+$/, '')}/category-images/`)).toBe(true);
 
     // La URL pública responde y la categoría la referencia.
     const response = await fetch(url);
     expect(response.status).toBe(200);
-    const linked = await db.from('categories').select('image_url').eq('id', id).single();
-    expect(linked.data?.image_url).toBe(url);
+    expect(await imageOf(id)).toBe(url);
 
     await removeCategoryImage(id);
-    const cleared = await db.from('categories').select('image_url').eq('id', id).single();
-    expect(cleared.data?.image_url).toBeNull();
+    expect(await imageOf(id)).toBeNull();
     // El objeto ya no está (404 o 400 según la CDN; nunca 200).
     const gone = await fetch(url, { cache: 'no-store' });
     expect(gone.status).not.toBe(200);

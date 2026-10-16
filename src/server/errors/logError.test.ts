@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => import("@/test/server-only-stub"));
 
+// Cada caso reimporta el módulo (`resetModules`); con la suite entera en
+// paralelo eso solo ya puede pasar de los 5 s por defecto.
+vi.setConfig({ testTimeout: 20_000 });
+
 const insert = vi.fn();
 // El esquema real arrastra drizzle-orm entero, y el test lo reimporta en cada
 // caso (`resetModules`): con la suite completa en paralelo pasaba de 5 s.

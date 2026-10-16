@@ -1,4 +1,4 @@
-# Arma los sitemaps y los sube a Supabase Storage (bucket `sitemaps`).
+# Arma los sitemaps y los sube a R2 (carpeta `sitemaps/` del bucket).
 #
 # El sitio solo copia esos archivos: armarlos al vuelo en el Worker agotaba la
 # CPU (error 1102) y Google recibia 404, 503 o archivos truncados. Ver
@@ -10,8 +10,8 @@
 #
 # Secretos de repositorio requeridos:
 #   DATABASE_URL               (el mismo del scraping; lee el catalogo)
-#   NEXT_PUBLIC_SUPABASE_URL   (Storage, hasta que los sitemaps pasen a R2)
-#   SUPABASE_SECRET_KEY
+#   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUBLIC_URL
+#   R2_BUCKET                  (opcional; default find-your-prices)
 
 name: Sitemaps
 
@@ -46,7 +46,10 @@ jobs:
       - name: Generar y subir
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
           NEXT_PUBLIC_SITE_URL: https://findyourprices.com
         run: npm run sitemaps:generate

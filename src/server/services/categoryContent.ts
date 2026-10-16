@@ -3,7 +3,7 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { asc, eq, sql } from 'drizzle-orm';
 import { getDb } from '@/server/db/client';
 import { categories, categoryContent } from '@/server/db/schema';
-import { getSupabaseAdmin } from '@/server/db/supabase';
+import { deleteByPublicUrl, uploadImage } from '@/server/storage/r2';
 import type { Locale } from '@/features/i18n/translate';
 import { categoryPaths, categoryIndexPaths } from '@/lib/seo/categorySeo';
 import { CATALOG_SEARCH_CACHE_TAG } from './catalog';
@@ -18,8 +18,8 @@ import { CATALOG_SEARCH_CACHE_TAG } from './catalog';
  * página de la categoría en los dos idiomas, la de su madre (que la lista) y
  * el índice, para que el cambio se vea sin esperar la hora de ISR.
  *
- * Las filas van por Drizzle; los archivos siguen en Supabase Storage hasta la
- * fase 3 de docs/migracion-drizzle.md (R2).
+ * Las filas van por Drizzle y las imágenes viven en R2 (carpeta
+ * `category-images/`, ver `server/storage/r2.ts`).
  */
 
 export const CATEGORY_IMAGES_BUCKET = 'category-images';
@@ -171,31 +171,13 @@ export async function saveCategoryContent(id: string, input: SaveCategoryContent
  * Graph) y con la misma ruta seguiría viéndose la vieja durante horas.
  */
 export async function uploadCategoryImage(id: string, file: File): Promise<string> {
-  if (!file.type.startsWith('image/')) throw new Error('El archivo tiene que ser una imagen.');
-  if (file.size > 5 * 1024 * 1024) throw new Error('La imagen no puede pasar de 5 MB.');
-
   const category = await readCategory(id);
-
-  const extension = (file.name.split('.').pop() ?? 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-  const objectPath = `${category.slug}-${Date.now().toString(36)}.${extension}`;
-
-  // Los bytes y no el `File`: con un File, supabase-js decide el tipo MIME
-  // según el runtime (en Node lo mandaba como text/plain y el bucket lo
-  // rechazaba). Con un ArrayBuffer manda exactamente `contentType`.
-  const bytes = await file.arrayBuffer();
-  const storage = getSupabaseAdmin().storage;
-  const upload = await storage
-    .from(CATEGORY_IMAGES_BUCKET)
-    .upload(objectPath, bytes, { contentType: file.type, cacheControl: '31536000', upsert: false });
-  if (upload.error) throw new Error(`No se pudo subir la imagen: ${upload.error.message}`);
-
-  const { data } = storage.from(CATEGORY_IMAGES_BUCKET).getPublicUrl(objectPath);
-  const publicUrl = data.publicUrl;
+  const publicUrl = await uploadImage(CATEGORY_IMAGES_BUCKET, category.slug, file);
 
   await getDb().update(categories).set({ image_url: publicUrl }).where(eq(categories.id, id));
 
   // La foto anterior ya no la referencia nadie: se borra para no acumular.
-  await removeStoredObject(category.image_url);
+  await deleteByPublicUrl(category.image_url);
   await revalidateCategory(category.slug, category.parent_id);
   return publicUrl;
 }
@@ -205,7 +187,7 @@ export async function removeCategoryImage(id: string): Promise<void> {
 
   await getDb().update(categories).set({ image_url: null }).where(eq(categories.id, id));
 
-  await removeStoredObject(category.image_url);
+  await deleteByPublicUrl(category.image_url);
   await revalidateCategory(category.slug, category.parent_id);
 }
 
@@ -218,16 +200,6 @@ async function readCategory(
     .where(eq(categories.id, id));
   if (!category) throw new Error('Categoría no encontrada.');
   return category;
-}
-
-/** Borra el objeto del bucket si la URL es de este bucket. Nunca lanza. */
-async function removeStoredObject(url: string | null): Promise<void> {
-  if (!url) return;
-  const marker = `/object/public/${CATEGORY_IMAGES_BUCKET}/`;
-  const index = url.indexOf(marker);
-  if (index === -1) return;
-  const objectPath = decodeURIComponent(url.slice(index + marker.length));
-  await getSupabaseAdmin().storage.from(CATEGORY_IMAGES_BUCKET).remove([objectPath]);
 }
 
 /** Tira las copias ISR de todo lo que muestra esta categoría. */

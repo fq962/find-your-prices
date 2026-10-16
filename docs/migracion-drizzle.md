@@ -79,12 +79,34 @@ Decisiones que conviene saber:
   tiendas, sitemaps) y los scripts sueltos `scripts/seed-category-content.mjs`
   y `scripts/relink-category-images.mjs`.
 
-### Fase 3 — Storage a R2
-1. Bucket R2 público con dominio propio (p. ej. `assets.findyourprices.com`).
-2. Subidas desde el Worker por binding de R2; desde scripts/Actions por la API S3.
-3. Script de copia: bajar todo de los 4 buckets de Supabase y subirlo a R2.
-4. Migración SQL que reescribe las URLs guardadas en la base
-   (`replace(url, '<supabase>/storage/v1/object/public/', 'https://assets…/')`).
+### Fase 3 — Storage a R2 ✅ en código (falta correr la migración)
+Un solo bucket (`find-your-prices`) con una carpeta por bucket viejo:
+`category-images/`, `store-images/`, `affiliate-images/`, `sitemaps/`. Todo va
+por la API S3 de R2 (`src/server/storage/r2.ts`, con `aws4fetch`), así funciona
+igual en el sitio (Vercel o Workers), en los scripts y en GitHub Actions; no
+hace falta binding.
+
+Pasos para migrar:
+1. Cloudflare → R2 → `find-your-prices` → Settings: activar el acceso público
+   (dominio propio, p. ej. `assets.findyourprices.com`; el r2.dev solo para
+   probar).
+2. R2 → Manage API tokens: token con "Object Read & Write" sobre el bucket.
+3. En `.env.local`: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
+   `R2_PUBLIC_URL` (y siguen `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SECRET_KEY`,
+   que el script usa para leer Storage).
+4. `npm run storage:migrate` (ensayo: cuenta archivos y muestra cómo quedan
+   las URLs) y después `npm run storage:migrate -- --apply`. Copia lo que
+   falte, verifica que cada imagen que usa la base esté en R2 y que el bucket
+   responda en público, y recién ahí cambia las URLs en una transacción. Se
+   puede repetir sin miedo: lo ya copiado se salta.
+5. Las mismas variables `R2_*` en el hosting del sitio. Desplegar.
+6. `npm run sitemaps:generate` desde la compu para dejar los sitemaps nuevos
+   en R2.
+
+Supabase Storage no se toca: si algo sale mal, se vuelve al commit anterior y
+las URLs viejas siguen sirviendo hasta que se borre el proyecto. Quedan
+obsoletos `scripts/relink-category-images.mjs` y
+`scripts/seed-category-content.mjs` (hablan con la API REST de Supabase).
 
 ### Fase 4 — Sesión de prueba (red del teléfono)
 Antes: poner `DATABASE_URL` en `.env.local` (Supabase → Connect → "Session
