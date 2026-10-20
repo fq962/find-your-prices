@@ -207,6 +207,17 @@ function scopeTreeToStore(
   };
 }
 
+/**
+ * Una tienda sola, sin populares ni facetas: lo que necesitan los listados
+ * paginados (`/tiendas/<tienda>/pagina/<n>`). `null` si no existe o no tiene
+ * artículos.
+ */
+export async function getStoreNode(storeSlug: string): Promise<StoreNode | null> {
+  if (!hasDatabase()) return null;
+  const store = (await loadStores()).get(storeSlug);
+  return store && store.productCount > 0 ? store : null;
+}
+
 // -----------------------------------------------------------------------------
 // Índice
 // -----------------------------------------------------------------------------

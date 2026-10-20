@@ -23,6 +23,14 @@ export function categoryPaths(slug: string): Record<Locale, string> {
   return { es: `/categorias/${slug}`, en: `/en/categories/${slug}` };
 }
 
+/**
+ * Una página del listado "todos los productos" de la categoría. Solo existe en
+ * español (ver `server/services/browsePages.ts`).
+ */
+export function categoryBrowsePath(slug: string, page: number): string {
+  return `/categorias/${slug}/pagina/${page}`;
+}
+
 /** Las dos rutas del índice de categorías. */
 export function categoryIndexPaths(): Record<Locale, string> {
   return SITE_ROUTES.categories;

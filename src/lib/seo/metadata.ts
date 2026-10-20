@@ -87,6 +87,19 @@ export const NO_INDEX_ROBOTS: Metadata["robots"] = {
   googleBot: { index: false, follow: false },
 };
 
+/**
+ * Fuera del índice, pero con los enlaces abiertos.
+ *
+ * Es para páginas públicas que no vale la pena indexar —la ficha en inglés,
+ * la de precio 0— pero que enlazan a otras que sí: el rastreador no las
+ * guarda y aun así sigue lo que tienen dentro.
+ */
+export const NO_INDEX_FOLLOW_ROBOTS: Metadata["robots"] = {
+  index: false,
+  follow: true,
+  googleBot: { index: false, follow: true },
+};
+
 export interface OgImageInput {
   url: string;
   alt: string;
@@ -120,6 +133,16 @@ export interface PageMetadataInput {
    */
   type?: "website" | "article" | "product";
   noIndex?: boolean;
+  /** Como `noIndex`, pero dejando que el rastreador siga los enlaces. */
+  noIndexFollow?: boolean;
+  /**
+   * Declarar la otra versión de idioma (`hreflang`). Default `true`.
+   *
+   * Se apaga cuando la otra versión no se indexa: un `hreflang` que apunta a
+   * una página con `noindex` es un par roto que Search Console reporta, y
+   * Google termina ignorando las anotaciones de todo el sitio.
+   */
+  hreflang?: boolean;
   /** Fecha de última actualización, para las páginas de tipo `article`. */
   modifiedTime?: string;
 }
@@ -141,6 +164,8 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
     images,
     type = "website",
     noIndex = false,
+    noIndexFollow = false,
+    hreflang = true,
     modifiedTime,
   } = input;
 
@@ -173,11 +198,8 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
     title,
     description,
     keywords: [...(keywords ?? SITE_KEYWORDS[locale])],
-    alternates: {
-      canonical,
-      languages: languageAlternates(paths),
-    },
-    robots: noIndex ? NO_INDEX_ROBOTS : DEFAULT_ROBOTS,
+    alternates: hreflang ? { canonical, languages: languageAlternates(paths) } : { canonical },
+    robots: noIndex ? NO_INDEX_ROBOTS : noIndexFollow ? NO_INDEX_FOLLOW_ROBOTS : DEFAULT_ROBOTS,
     openGraph,
     twitter: {
       // `summary_large_image` y no `summary`: la tarjeta grande es la que

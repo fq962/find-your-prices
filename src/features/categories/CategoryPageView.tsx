@@ -7,8 +7,10 @@ import { Reveal } from "@/components/shared/Reveal";
 import { routeFor } from "@/features/i18n/routes";
 import type { Locale } from "@/features/i18n/translate";
 import type { FacetOption } from "@/features/products/categoryFacets";
+import { browsePageCount } from "@/features/products/browsePaging";
+import { BrowsePagination } from "@/features/products/components/BrowsePagination";
 import { ProductSearchApp } from "@/features/products/components/ProductSearchApp";
-import { categoryBreadcrumbs, categoryPaths } from "@/lib/seo/categorySeo";
+import { categoryBreadcrumbs, categoryBrowsePath, categoryPaths } from "@/lib/seo/categorySeo";
 import type { CategoryPageData } from "@/server/services/categoryPages";
 import { CATEGORY_COPY } from "./categoryCopy";
 import { SectionHeading } from "./CategoryIndexView";
@@ -221,6 +223,29 @@ export function CategoryPageView({ locale, data }: CategoryPageViewProps) {
             />
           </div>
         </section>
+
+        {/* Todos los productos, página por página -------------------------
+            El buscador de arriba trae el resto con "Cargar más", que el
+            rastreador no pulsa. Estos son enlaces de verdad al listado
+            completo (ver `browsePaging.ts`). Solo en español: es el idioma
+            de las fichas que se indexan. */}
+        {locale === "es" && (
+          <section aria-labelledby="browse-all-heading" className="border-t border-[var(--border)] pt-12 pb-16 sm:pb-20">
+            <SectionHeading
+              id="browse-all-heading"
+              title={`Todos los productos de ${category.name}`}
+              sub="La lista completa, de la A a la Z, página por página."
+            />
+            <div className="mt-6">
+              <BrowsePagination
+                current={0}
+                pageCount={browsePageCount(category.productCount)}
+                href={(page) => categoryBrowsePath(category.slug, page)}
+                label={`Páginas de todos los productos de ${category.name}`}
+              />
+            </div>
+          </section>
+        )}
       </div>
 
       {/* El texto largo, a sangre completa sobre fondo tenue: es el cierre

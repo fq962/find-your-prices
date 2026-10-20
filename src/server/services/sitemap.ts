@@ -46,7 +46,8 @@ const VIEW = 'v_store_products_current';
  * dirección cuatro veces —la propia más tres `hreflang`—. A 2 500 entradas el
  * archivo queda en ~1,6 MB, poco más de un tercio del techo, que es el margen
  * que hace falta para que un nombre de dominio más largo o un `hreflang` más
- * no vuelvan a romperlo.
+ * no vuelvan a romperlo. (Desde que las fichas van sin `hreflang` cada `<url>`
+ * pesa bastante menos; el margen sólo creció.)
  *
  * De paso arregla lo otro: 2 500 entradas son 3 viajes a PostgREST en vez de
  * 10, y el archivo se genera en menos de un segundo en lugar de rozar el

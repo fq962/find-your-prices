@@ -12,8 +12,12 @@ import {
   organizationJsonLd,
   websiteJsonLd,
 } from "@/lib/seo/schema";
+import { BrowseView } from "@/features/products/components/BrowseView";
+import { parseBrowsePage } from "@/features/products/browsePaging";
+import { browseMetadata } from "@/lib/seo/browseSeo";
 import {
   storeBreadcrumbs,
+  storeBrowsePath,
   storeCategoryPaths,
   storeIndexMetadata,
   storePageDescription,
@@ -21,6 +25,7 @@ import {
   storePageMetadata,
   storePaths,
 } from "@/lib/seo/storeSeo";
+import { getStoreBrowsePage } from "@/server/services/browsePages";
 import { getStoreIndex, getStorePage } from "@/server/services/storePages";
 import { StoreIndexView } from "./StoreIndexView";
 import { StorePageView } from "./StorePageView";
@@ -108,6 +113,68 @@ export async function StoreRoute({
         ])}
       />
       <StorePageView locale={locale} data={data} />
+    </>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Listado paginado "todos los productos" de una tienda (solo es). Ver
+// `browsePages.ts`. Va sobre la tienda entera y no sobre cada tienda ×
+// categoría: es el único alcance que abarca también lo que aún no tiene
+// categoría canónica, y así no se multiplican las series.
+// -----------------------------------------------------------------------------
+
+async function loadStoreBrowse(storeSlug: string, rawPage: string) {
+  const page = parseBrowsePage(rawPage);
+  return page === null ? null : getStoreBrowsePage(storeSlug, page);
+}
+
+export async function storeBrowseMetadata(storeSlug: string, rawPage: string): Promise<Metadata> {
+  const data = await loadStoreBrowse(storeSlug, rawPage);
+  if (!data) return { title: "Página no encontrada", robots: { index: false, follow: true } };
+
+  const store = data.scope;
+  return browseMetadata({
+    subject: store.name,
+    page: data.page,
+    pageCount: data.pageCount,
+    total: data.total,
+    products: data.products,
+    path: storeBrowsePath(store.slug, data.page),
+    enPath: storePaths(store.slug).en,
+  });
+}
+
+export async function StoreBrowseRoute({ storeSlug, rawPage }: { storeSlug: string; rawPage: string }) {
+  const data = await loadStoreBrowse(storeSlug, rawPage);
+  if (!data) notFound();
+
+  const store = data.scope;
+  const breadcrumbs = [
+    ...storeBreadcrumbs({ store, category: null, parent: null }, "es"),
+    { name: `Página ${data.page}`, path: storeBrowsePath(store.slug, data.page) },
+  ];
+
+  return (
+    <>
+      <JsonLd
+        data={graph([
+          organizationJsonLd("es"),
+          websiteJsonLd("es"),
+          itemListJsonLd(data.products, "es"),
+          breadcrumbJsonLd(breadcrumbs),
+        ])}
+      />
+      <BrowseView
+        subject={store.name}
+        page={data.page}
+        pageCount={data.pageCount}
+        total={data.total}
+        products={data.products}
+        breadcrumbs={breadcrumbs}
+        landingPaths={storePaths(store.slug)}
+        href={(page) => storeBrowsePath(store.slug, page)}
+      />
     </>
   );
 }

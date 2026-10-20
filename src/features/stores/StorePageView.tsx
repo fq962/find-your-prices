@@ -10,8 +10,10 @@ import { CategoryTile } from "@/features/categories/CategoryTile";
 import { PopularProducts } from "@/features/categories/PopularProducts";
 import type { Locale } from "@/features/i18n/translate";
 import type { FacetOption } from "@/features/products/categoryFacets";
+import { browsePageCount } from "@/features/products/browsePaging";
+import { BrowsePagination } from "@/features/products/components/BrowsePagination";
 import { ProductSearchApp } from "@/features/products/components/ProductSearchApp";
-import { storeBreadcrumbs, storeCategoryPaths, storePaths } from "@/lib/seo/storeSeo";
+import { storeBreadcrumbs, storeBrowsePath, storeCategoryPaths, storePaths } from "@/lib/seo/storeSeo";
 import type { CategoryNode } from "@/server/services/categoryPages";
 import type { StorePageData } from "@/server/services/storePages";
 import { STORE_COPY } from "./storeCopy";
@@ -268,6 +270,27 @@ export function StorePageView({ locale, data }: StorePageViewProps) {
             />
           </div>
         </section>
+
+        {/* Todos los productos de la tienda, página por página. Mismo motivo
+            que en la página de categoría; solo en la tienda entera y en
+            español (ver `storeRoutes.tsx`). */}
+        {locale === "es" && category === null && (
+          <section aria-labelledby="browse-all-heading" className="border-t border-[var(--border)] pt-12 pb-16 sm:pb-20">
+            <SectionHeading
+              id="browse-all-heading"
+              title={`Todos los productos de ${store.name}`}
+              sub="La lista completa, de la A a la Z, página por página."
+            />
+            <div className="mt-6">
+              <BrowsePagination
+                current={0}
+                pageCount={browsePageCount(store.productCount)}
+                href={(page) => storeBrowsePath(store.slug, page)}
+                label={`Páginas de todos los productos de ${store.name}`}
+              />
+            </div>
+          </section>
+        )}
       </div>
     </PageLayout>
   );

@@ -63,7 +63,6 @@ export function productSitemapXml(products: SitemapProduct[]): string {
     // en el archivo le pide a Google que rastree el catálogo dos veces y no
     // indexa ninguna de las dos versiones con claridad.
     const es = product.slug ? `/p/${product.slug}` : `/producto/${product.id}`;
-    const en = product.slug ? `/en/p/${product.slug}` : `/en/product/${product.id}`;
 
     return {
       loc: absoluteUrl(es),
@@ -72,17 +71,12 @@ export function productSitemapXml(products: SitemapProduct[]): string {
       lastmod: product.lastModified,
       changefreq: "daily" as const,
       priority: 0.7,
-      alternates: [
-        { hreflang: HREFLANG.es, href: absoluteUrl(es) },
-        { hreflang: HREFLANG.en, href: absoluteUrl(en) },
-        { hreflang: "x-default", href: absoluteUrl(es) },
-      ],
     };
   });
 
-  // Sólo se lista la URL en español como `<loc>`; la inglesa entra como
-  // alternativa. Listar las dos duplicaría el archivo sin agregar una sola
-  // página que Google no vaya a descubrir igual por el `hreflang`.
+  // Sólo la ficha en español, y sin `hreflang`: la inglesa lleva `noindex`
+  // (ver `productMetadata`), y anunciarla como alternativa sería mandar al
+  // rastreador a una página que se le pide no guardar.
   return renderUrlSet(urls);
 }
 

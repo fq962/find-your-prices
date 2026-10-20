@@ -23,6 +23,14 @@ export function storePaths(storeSlug: string): Record<Locale, string> {
   return { es: `/tiendas/${storeSlug}`, en: `/en/stores/${storeSlug}` };
 }
 
+/**
+ * Una página del listado "todos los productos" de la tienda. Solo existe en
+ * español (ver `server/services/browsePages.ts`).
+ */
+export function storeBrowsePath(storeSlug: string, page: number): string {
+  return `/tiendas/${storeSlug}/pagina/${page}`;
+}
+
 /** Las dos rutas de una categoría dentro de una tienda. */
 export function storeCategoryPaths(storeSlug: string, categorySlug: string): Record<Locale, string> {
   return {

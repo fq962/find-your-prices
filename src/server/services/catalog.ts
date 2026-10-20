@@ -588,6 +588,13 @@ export interface SearchCatalogParams {
    */
   /** Solo estos artículos. Lo usan los populares de una categoría (0031). */
   ids?: string[];
+  /**
+   * Solo los artículos cuyo nombre va DESPUÉS de este en orden alfabético
+   * (comparación estricta, con la intercalación de la base). Con
+   * `sort: 'name-asc'` son "los que siguen" a una ficha: es lo que usan los
+   * relacionados (ver `getRelatedProducts`).
+   */
+  nameAfter?: string;
   withTotal?: boolean;
   /**
    * Buscar exactamente lo escrito, sin corregir. Por defecto una búsqueda sin
@@ -705,7 +712,7 @@ export type NormalizedSearchParams = Required<
     'sort' | 'limit' | 'offset' | 'locale' | 'withTotal' | 'onlyDiscounted' | 'includeUnavailable' | 'exact'
   >
 > &
-  Pick<SearchCatalogParams, 'query' | 'minPrice' | 'maxPrice'> & {
+  Pick<SearchCatalogParams, 'query' | 'minPrice' | 'maxPrice' | 'nameAfter'> & {
     store: string[];
     storeSlug: string[];
     category: string[];
@@ -737,6 +744,7 @@ export function normalizeSearchParams(params: SearchCatalogParams): NormalizedSe
     ids: sortedList(params.ids),
     minPrice: params.minPrice,
     maxPrice: params.maxPrice,
+    nameAfter: params.nameAfter || undefined,
     onlyDiscounted: params.onlyDiscounted === true,
     includeUnavailable: params.includeUnavailable === true,
     sort: params.sort ?? 'discount',
@@ -945,6 +953,7 @@ async function runCatalogQuery(
     request = applyFacet(request, 'brand', params.brand);
     if (params.minPrice !== undefined) request = request.gte(priceColumn(), params.minPrice);
     if (params.maxPrice !== undefined) request = request.lte(priceColumn(), params.maxPrice);
+    if (params.nameAfter) request = request.gt('name', params.nameAfter);
     if (params.onlyDiscounted) request = request.not('list_price', 'is', null);
     if (!params.includeUnavailable) request = applyAvailabilityFloor(request);
     if (head) return request;
@@ -1576,26 +1585,52 @@ export async function getProductSlug(id: string): Promise<string | null> {
 }
 
 /**
- * Artículos parecidos: misma categoría, distinto id, ordenados por descuento.
+ * Artículos parecidos: los que siguen a esta ficha en orden alfabético dentro
+ * de su categoría.
+ *
+ * Antes eran las mejores ofertas de la categoría, y eso hacía que las miles de
+ * fichas de una categoría enlazaran a las MISMAS ocho. Para Google el resto
+ * del catálogo no recibía un solo enlace interno: solo existía en el sitemap,
+ * y una URL que solo está en el sitemap se queda en "Descubierta:
+ * actualmente sin indexar".
+ *
+ * Con "los que siguen por nombre" cada ficha enlaza a sus vecinas, y al
+ * llegar al final del alfabeto se da la vuelta y sigue por el principio: la
+ * categoría entera queda encadenada y cada artículo recibe enlaces de los
+ * que lo preceden. De paso son más parecidos de verdad —"Aceite Mazola 1 L"
+ * queda al lado de "Aceite Mazola 2 L"— que una oferta cualquiera.
  *
  * Con mapeo canónico se busca por el nodo (que puede abarcar varias tiendas,
  * que es justamente lo interesante). Sin mapeo, por la categoría de la tienda
  * tal cual: es lo único que hay para agrupar.
  */
 export async function getRelatedProducts(
-  product: Pick<ProductDetail, 'id' | 'category' | 'categorySlug' | 'storeCategory'>,
+  product: Pick<ProductDetail, 'id' | 'name' | 'category' | 'categorySlug' | 'storeCategory'>,
   locale: CatalogLocale = 'es',
   limit = 8,
 ): Promise<Product[]> {
-  const { products } = await searchCatalog({
+  const scope: SearchCatalogParams = {
     ...(product.categorySlug
       ? { category: product.categorySlug }
       : { storeCategory: product.storeCategory ?? product.category }),
-    sort: 'discount',
-    limit: limit + 1,
+    sort: 'name-asc',
     locale,
     // Solo se pintan las tarjetas: el total sería un count(*) tirado a la basura.
     withTotal: false,
-  });
-  return products.filter((candidate) => candidate.id !== product.id).slice(0, limit);
+  };
+
+  const next = await searchCatalog({ ...scope, nameAfter: product.name, limit });
+  const related = next.products.filter((candidate) => candidate.id !== product.id);
+  if (related.length >= limit) return related.slice(0, limit);
+
+  // Fin del alfabeto: se completa con los primeros de la categoría.
+  const head = await searchCatalog({ ...scope, limit: limit + 1 });
+  const seen = new Set([product.id, ...related.map((candidate) => candidate.id)]);
+  for (const candidate of head.products) {
+    if (related.length >= limit) break;
+    if (seen.has(candidate.id)) continue;
+    related.push(candidate);
+    seen.add(candidate.id);
+  }
+  return related;
 }

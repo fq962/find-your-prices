@@ -90,13 +90,29 @@ function productImages(product: ProductDetail) {
   return [{ url, alt: product.name }];
 }
 
-/** Metadata completa de una ficha. */
+/**
+ * Metadata completa de una ficha.
+ *
+ * Solo la ficha en español entra al índice. La inglesa tiene el mismo nombre
+ * de artículo (las tiendas lo publican en español), el mismo precio y la
+ * misma tienda: para Google son dos copias de la misma página, y con 150 000
+ * fichas eso duplicaba el rastreo que hace falta para indexarlas sin sumar
+ * una sola búsqueda que la española no responda. Se queda con `noindex,
+ * follow` —sigue sirviendo a quien la abre y sus enlaces se siguen— y sin
+ * `hreflang` en ninguna de las dos (ver `hreflang` en `buildPageMetadata`).
+ *
+ * Una ficha con precio 0 tampoco se indexa: ya está fuera del sitemap por lo
+ * mismo (ver `server/services/sitemap.ts`), pero se puede llegar a ella por
+ * un enlace viejo y sin esto Google la indexaba anunciando "L 0.00".
+ */
 export function productMetadata(
   product: ProductDetail,
   locale: Locale,
   slug: string,
 ): Metadata {
   return buildPageMetadata({
+    hreflang: false,
+    noIndexFollow: locale !== "es" || !(product.price > 0),
     locale,
     title: productTitle(product, locale),
     description: productDescription(product, locale),

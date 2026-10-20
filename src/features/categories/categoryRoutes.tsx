@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { Locale } from "@/features/i18n/translate";
+import { BrowseView } from "@/features/products/components/BrowseView";
+import { parseBrowsePage } from "@/features/products/browsePaging";
+import { browseMetadata } from "@/lib/seo/browseSeo";
 import {
   categoryBreadcrumbs,
+  categoryBrowsePath,
   categoryDescription,
   categoryIndexMetadata,
   categoryMetadata,
@@ -20,6 +24,7 @@ import {
   websiteJsonLd,
 } from "@/lib/seo/schema";
 import { SITE_ROUTES } from "@/features/i18n/routes";
+import { getCategoryBrowsePage } from "@/server/services/browsePages";
 import { getCategoryIndex, getCategoryPage } from "@/server/services/categoryPages";
 import { CategoryIndexView } from "./CategoryIndexView";
 import { CategoryPageView } from "./CategoryPageView";
@@ -98,6 +103,65 @@ export async function CategoryRoute({ slug, locale }: { slug: string; locale: Lo
         ])}
       />
       <CategoryPageView locale={locale} data={data} />
+    </>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Listado paginado "todos los productos" (solo es). Ver `browsePages.ts`.
+// -----------------------------------------------------------------------------
+
+async function loadCategoryBrowse(slug: string, rawPage: string) {
+  const page = parseBrowsePage(rawPage);
+  return page === null ? null : getCategoryBrowsePage(slug, page);
+}
+
+export async function categoryBrowseMetadata(slug: string, rawPage: string): Promise<Metadata> {
+  const data = await loadCategoryBrowse(slug, rawPage);
+  if (!data) return { title: "Página no encontrada", robots: { index: false, follow: true } };
+
+  const { category } = data.scope;
+  return browseMetadata({
+    subject: category.name,
+    page: data.page,
+    pageCount: data.pageCount,
+    total: data.total,
+    products: data.products,
+    path: categoryBrowsePath(category.slug, data.page),
+    enPath: categoryPaths(category.slug).en,
+  });
+}
+
+export async function CategoryBrowseRoute({ slug, rawPage }: { slug: string; rawPage: string }) {
+  const data = await loadCategoryBrowse(slug, rawPage);
+  if (!data) notFound();
+
+  const { category, parent } = data.scope;
+  const breadcrumbs = [
+    ...categoryBreadcrumbs(category, parent, "es"),
+    { name: `Página ${data.page}`, path: categoryBrowsePath(category.slug, data.page) },
+  ];
+
+  return (
+    <>
+      <JsonLd
+        data={graph([
+          organizationJsonLd("es"),
+          websiteJsonLd("es"),
+          itemListJsonLd(data.products, "es"),
+          breadcrumbJsonLd(breadcrumbs),
+        ])}
+      />
+      <BrowseView
+        subject={category.name}
+        page={data.page}
+        pageCount={data.pageCount}
+        total={data.total}
+        products={data.products}
+        breadcrumbs={breadcrumbs}
+        landingPaths={categoryPaths(category.slug)}
+        href={(page) => categoryBrowsePath(category.slug, page)}
+      />
     </>
   );
 }
